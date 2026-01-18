@@ -36,28 +36,28 @@ struct iWitnessApp: App {
 
     private func setupServices() {
         // Initialize core services
-        recordingService.configure(uploadService: uploadService)
+        recordingService.configure(uploadService: uploadService, liveStreamService: liveStreamService)
         alertService.configure()
         alertService.loadTwilioConfig()
         connectivityGuardian.configure(alertService: alertService)
 
         // Load saved upload destinations
+        migrateSecretsToKeychain()
         loadSavedUploadDestinations()
 
         // Setup Watch connectivity
         setupWatchConnectivity()
 
-        // Donate Siri shortcuts
-        siriManager.donateActivateShortcut()
-        siriManager.donateSafeShortcut()
+        // Donate Siri shortcuts slightly later to avoid first-launch contention
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            siriManager.donateActivateShortcut()
+            siriManager.donateSafeShortcut()
+        }
 
         // Listen for Siri notifications
         setupSiriNotifications()
 
-        // Request permissions on first launch
-        Task {
-            await requestPermissions()
-        }
+        // Defer permission prompts to onboarding flow to avoid first-launch UI contention
     }
 
     private func setupWatchConnectivity() {
@@ -107,10 +107,25 @@ struct iWitnessApp: App {
         }
     }
 
-    private func requestPermissions() async {
-        await recordingService.requestCameraPermission()
-        await recordingService.requestMicrophonePermission()
-        await alertService.requestNotificationPermission()
+    // Permission requests are handled in Onboarding
+
+    // MARK: - Migration
+    private func migrateSecretsToKeychain() {
+        // NAS password
+        if let legacyNAS = UserDefaults.standard.string(forKey: "nas_password"),
+           !legacyNAS.isEmpty,
+           KeychainHelper.shared.read(service: "iWitness", account: "nas_password") == nil {
+            _ = KeychainHelper.shared.save(service: "iWitness", account: "nas_password", value: legacyNAS)
+            UserDefaults.standard.removeObject(forKey: "nas_password")
+        }
+
+        // Cloud secret key
+        if let legacyCloud = UserDefaults.standard.string(forKey: "cloud_secret_key"),
+           !legacyCloud.isEmpty,
+           KeychainHelper.shared.read(service: "iWitness", account: "cloud_secret_key") == nil {
+            _ = KeychainHelper.shared.save(service: "iWitness", account: "cloud_secret_key", value: legacyCloud)
+            UserDefaults.standard.removeObject(forKey: "cloud_secret_key")
+        }
     }
 
     private func loadSavedUploadDestinations() {
@@ -118,16 +133,16 @@ struct iWitnessApp: App {
         if let nasURLString = UserDefaults.standard.string(forKey: "nas_url"),
            let nasURL = URL(string: nasURLString) {
             let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
-            let password = UserDefaults.standard.string(forKey: "nas_password") ?? ""
+            let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
             uploadService.addNASDestination(url: nasURL, username: username, password: password)
             print("[iWitness] Loaded NAS destination: \(nasURLString)")
         }
 
         // Load Cloud (R2) configuration if configured
         if let accountID = UserDefaults.standard.string(forKey: "cloud_account_id"),
-           let bucketName = UserDefaults.standard.string(forKey: "cloud_bucket_name"),
+           let bucketName = UserDefaults.standard.string(forKey: "cloud_bucket"),
            let accessKey = UserDefaults.standard.string(forKey: "cloud_access_key"),
-           let secretKey = UserDefaults.standard.string(forKey: "cloud_secret_key") {
+           let secretKey = KeychainHelper.shared.read(service: "iWitness", account: "cloud_secret_key") {
             uploadService.addR2Destination(
                 accountID: accountID,
                 bucketName: bucketName,
@@ -158,6 +173,10 @@ struct iWitnessApp: App {
     private func activateWitnessMode() async {
         // Activate app state
         appState.activateICEMode()
+        // Apply stealth start in blackout if enabled
+        if UserDefaults.standard.bool(forKey: "stealth_start_blackout") {
+            appState.isBlackoutOn = true
+        }
 
         // Start recording
         do {
@@ -183,6 +202,9 @@ struct iWitnessApp: App {
             // Notify Watch
             phoneConnectivity.sendRecordingStarted()
 
+            // Start Live Activity (best-effort)
+            LiveActivityManager.shared.start(incidentID: appState.currentIncidentID ?? "unknown")
+
         } catch {
             print("[iWitness] Failed to start recording: \(error)")
         }
@@ -205,5 +227,8 @@ struct iWitnessApp: App {
         // Reset after delay
         try? await Task.sleep(nanoseconds: 2_000_000_000)
         appState.reset()
+
+        // End Live Activity
+        LiveActivityManager.shared.end()
     }
 }

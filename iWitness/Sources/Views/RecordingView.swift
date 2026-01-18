@@ -9,8 +9,10 @@ struct RecordingView: View {
     @EnvironmentObject var uploadService: UploadService
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var connectivityGuardian: ConnectivityGuardian
+    @EnvironmentObject var liveStreamService: LiveStreamService
 
     @State private var showingSecurePhone = false
+    private var stealthGestureEnabled: Bool { UserDefaults.standard.bool(forKey: "stealth_blackout_gesture") }
 
     var body: some View {
         ZStack {
@@ -35,6 +37,12 @@ struct RecordingView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+
+            // Stealth blackout overlay
+            if appState.isBlackoutOn {
+                Color.black
+                    .ignoresSafeArea()
+            }
 
             VStack(spacing: 0) {
                 // Connectivity warning banner (if disconnected)
@@ -75,6 +83,15 @@ struct RecordingView: View {
         .sheet(isPresented: $showingSecurePhone) {
             SecurePhoneSheet()
         }
+        // Double-tap anywhere to toggle blackout when enabled
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            guard stealthGestureEnabled else { return }
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            withAnimation(.easeInOut(duration: 0.15)) {
+                appState.isBlackoutOn.toggle()
+            }
+        })
     }
 }
 
@@ -84,13 +101,14 @@ struct ConnectivityWarningBanner: View {
     let secondsDisconnected: Int
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: "wifi.slash")
                 .font(.system(size: 18, weight: .bold))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("SIGNAL LOST")
-                    .font(.system(size: 14, weight: .black))
+                    .font(Typography.label)
+                    .fontWeight(.black)
                 Text("Offline for \(secondsDisconnected)s • Recording continues")
                     .font(.system(size: 11, weight: .medium))
                     .opacity(0.9)
@@ -99,17 +117,25 @@ struct ConnectivityWarningBanner: View {
             Spacer()
 
             if secondsDisconnected > 30 {
-                Text("⚠️")
-                    .font(.system(size: 20))
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.yellow)
             }
         }
         .foregroundColor(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.red.opacity(0.9))
-        .cornerRadius(12)
-        .padding(.horizontal, 4)
-        .padding(.top, 8)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Spacing.Radius.sm))
+        .overlay(
+            RoundedRectangle(cornerRadius: Spacing.Radius.sm)
+                .stroke(Colors.errorRed.opacity(0.5), lineWidth: 1)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: Spacing.Radius.sm)
+                .fill(Colors.errorRed.opacity(0.3))
+        )
+        .padding(.horizontal, Spacing.xxs)
+        .padding(.top, Spacing.xs)
     }
 }
 
@@ -120,22 +146,10 @@ struct SecurePhoneButton: View {
     @EnvironmentObject var connectivityGuardian: ConnectivityGuardian
 
     var body: some View {
-        Button {
+        GlassButton(title: "SECURE", icon: "lock.shield") {
             showingSheet = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("SECURE")
-                    .font(.system(size: 11, weight: .bold))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.5))
-            .cornerRadius(16)
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 }
 
@@ -354,17 +368,10 @@ struct CameraFlipButton: View {
     @EnvironmentObject var recordingService: RecordingService
 
     var body: some View {
-        Button {
+        PremiumIconButton(icon: "camera.rotate.fill", size: 44, style: .glass) {
             recordingService.flipCamera()
-        } label: {
-            Image(systemName: "camera.rotate.fill")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(14)
-                .background(Color.black.opacity(0.5))
-                .clipShape(Circle())
         }
-        .padding(.top, 8)
+        .padding(.top, Spacing.xs)
     }
 }
 
@@ -375,35 +382,29 @@ struct RecordingHeader: View {
     @State private var isPulsing = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Recording indicator
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(DesignSystem.witnessRed)
-                    .frame(width: 20, height: 20)
-                    .scaleEffect(isPulsing ? 1.3 : 1.0)
-                    .shadow(color: DesignSystem.witnessRed, radius: isPulsing ? 8 : 4)
-                    .animation(
-                        Animation.easeInOut(duration: 0.6).repeatForever(autoreverses: true),
-                        value: isPulsing
-                    )
+        VStack(spacing: Spacing.md) {
+            // Recording indicator with premium styling
+            HStack(spacing: Spacing.sm) {
+                PulsingIndicator(color: Colors.witnessRed, size: 14)
 
                 Text("RECORDING")
-                    .font(.system(size: 18, weight: .heavy))
-                    .foregroundColor(DesignSystem.witnessRed)
+                    .font(Typography.headline3)
+                    .fontWeight(.heavy)
+                    .foregroundColor(Colors.witnessRed)
                     .tracking(2)
             }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs)
+            .glassBackground(cornerRadius: Spacing.Radius.full)
 
-            // Large duration timer - primary focus
+            // Large duration timer - primary focus with glow
             Text(appState.formattedDuration)
-                .font(.system(size: 64, weight: .heavy, design: .monospaced))
+                .font(Typography.timerLarge)
                 .foregroundColor(.white)
                 .monospacedDigit()
+                .shadow(color: Colors.witnessRed.opacity(0.3), radius: 10)
         }
-        .padding(.vertical, 24)
-        .onAppear {
-            isPulsing = true
-        }
+        .padding(.vertical, Spacing.lg)
     }
 }
 
@@ -417,70 +418,40 @@ struct RecordingStatusOverlay: View {
     @State private var showingShareSheet = false
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.sm) {
             // Live Stream status (if active)
             if liveStreamService.isStreaming {
-                Button {
+                LiveBadge(segmentCount: liveStreamService.segmentsUploaded) {
                     showingShareSheet = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 10, height: 10)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.red.opacity(0.5), lineWidth: 2)
-                                    .scaleEffect(1.5)
-                            )
-
-                        Text("LIVE")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.red)
-
-                        Text("•")
-                            .foregroundColor(.white.opacity(0.5))
-
-                        Text("\(liveStreamService.segmentsUploaded) sent")
-                            .font(.system(size: 12, weight: .medium))
-
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(20)
                 }
                 .sheet(isPresented: $showingShareSheet) {
                     ShareStreamSheet(streamURL: liveStreamService.streamURL)
                 }
             }
 
-            // Backup status
-            HStack(spacing: 8) {
-                if uploadService.isUploading {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .tint(.white)
-                    Text("Backing up...")
-                        .font(.system(size: 14, weight: .medium))
-                } else {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                    Text("Backup active")
-                        .font(.system(size: 14, weight: .medium))
+            // Backup status with glass styling
+            GlassCapsule {
+                HStack(spacing: Spacing.xs) {
+                    if uploadService.isUploading {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .tint(.white)
+                        Text("Backing up...")
+                            .font(Typography.caption)
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Colors.safeGreen)
+                        Text("Backup active")
+                            .font(Typography.caption)
+                    }
                 }
+                .foregroundColor(.white)
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.5))
-            .cornerRadius(20)
 
             // Segment counter
             Text("\(recordingService.currentChunkNumber) segments saved")
-                .font(.system(size: 12, weight: .medium))
+                .font(Typography.caption)
                 .foregroundColor(.white.opacity(0.7))
         }
     }
@@ -557,47 +528,27 @@ struct ActionButtonsPanel: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var liveStreamService: LiveStreamService
 
     @State private var safeButtonOffset: CGFloat = 0
     @State private var isEndingRecording = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            // I'M SAFE - Primary action, large, swipe to confirm
+        VStack(spacing: Spacing.md) {
+            // I'M SAFE - Primary action with PIN dial
             SafeButton(
                 isProcessing: $isEndingRecording,
                 action: endRecordingSafe
             )
 
-            // NEED HELP - Secondary action
-            Button {
+            // NEED HELP - Secondary action with premium styling
+            PremiumSecondaryButton(
+                title: "NEED HELP",
+                subtitle: "Send escalation alert, keep recording",
+                icon: "exclamationmark.triangle.fill",
+                color: Colors.warningOrange
+            ) {
                 requestHelp()
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 22, weight: .semibold))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("NEED HELP")
-                            .font(.system(size: 18, weight: .bold))
-                        Text("Send escalation alert, keep recording")
-                            .font(.system(size: 12, weight: .medium))
-                            .opacity(0.8)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .opacity(0.6)
-                }
-                .foregroundColor(DesignSystem.warningOrange)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(DesignSystem.warningOrange, lineWidth: 3)
-                )
             }
         }
     }
@@ -610,7 +561,18 @@ struct ActionButtonsPanel: View {
         generator.impactOccurred()
 
         Task {
+            // Stop recording (saves to Photos + finalizes NAS upload)
             await recordingService.stopRecording()
+
+            // Stop live stream if active
+            if liveStreamService.isStreaming {
+                await liveStreamService.stopStream()
+            }
+
+            // End Live Activity (Dynamic Island)
+            LiveActivityManager.shared.end()
+
+            // Notify contacts that user is safe
             await alertService.sendSafeSignal()
             appState.markSafe()
 
@@ -644,7 +606,11 @@ struct SafeButton: View {
     @Binding var isProcessing: Bool
     let action: () -> Void
 
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var alertService: AlertService
+
     @State private var showingDial = false
+    @State private var showingSetup = false
     @State private var enteredDigits: [Int] = []
     @State private var currentTarget: Int? = nil
     @State private var isAtCenter = true
@@ -657,9 +623,15 @@ struct SafeButton: View {
     private let digitRadius: CGFloat = 110
     private let requiredDigits = 4
 
-    // Get stored PIN or default to 1234
-    private var storedPIN: [Int] {
-        let pinString = UserDefaults.standard.string(forKey: "safe_pin") ?? "1234"
+    // Get stored PIN if configured
+    private var storedPIN: [Int]? {
+        guard let pinString = UserDefaults.standard.string(forKey: "safe_pin"), !pinString.isEmpty else { return nil }
+        return pinString.compactMap { Int(String($0)) }
+    }
+
+    // Optional duress PIN
+    private var duressPIN: [Int]? {
+        guard let pinString = UserDefaults.standard.string(forKey: "duress_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
     }
 
@@ -697,16 +669,17 @@ struct SafeButton: View {
                 )
                 .offset(x: shakeOffset)
             } else {
-                // Initial button
+                // Initial button with premium styling
                 Button {
-                    // Single tap shows dial
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showingDial = true
+                    // Require Safe PIN to be set before showing dial
+                    guard storedPIN != nil else {
+                        showingSetup = true
+                        return
                     }
-                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                    generator.impactOccurred()
+                    withAnimation(AnimationPresets.entrance) { showingDial = true }
+                    let generator = UIImpactFeedbackGenerator(style: .medium); generator.impactOccurred()
                 } label: {
-                    HStack(spacing: 16) {
+                    HStack(spacing: Spacing.md) {
                         if isProcessing {
                             ProgressView()
                                 .tint(.white)
@@ -718,10 +691,10 @@ struct SafeButton: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(isProcessing ? "ENDING..." : "I'M SAFE")
-                                .font(.system(size: 20, weight: .bold))
+                                .font(Typography.headline3)
                             if !isProcessing {
                                 Text("Hold & enter PIN to confirm")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(Typography.caption)
                                     .opacity(0.9)
                             }
                         }
@@ -735,19 +708,26 @@ struct SafeButton: View {
                         }
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, Spacing.lg)
                     .frame(height: 72)
                     .frame(maxWidth: .infinity)
                     .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(DesignSystem.safeGreen)
-                            .shadow(color: DesignSystem.safeGreen.opacity(0.5), radius: 6)
+                        RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                            .fill(Colors.safeGreen)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: Colors.safeGreen.opacity(0.5), radius: 12, y: 4)
                 }
                 .disabled(isProcessing)
             }
         }
         .frame(height: 72)
+        .sheet(isPresented: $showingSetup) {
+            SafePINSetupView()
+        }
     }
 
     private func handleDigitEntered(_ digit: Int) {
@@ -757,7 +737,7 @@ struct SafeButton: View {
     }
 
     private func handlePINComplete() {
-        if enteredDigits == storedPIN {
+        if let sp = storedPIN, enteredDigits == sp {
             // Correct PIN!
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
@@ -794,9 +774,27 @@ struct SafeButton: View {
                 resetDial()
             }
 
-            // After 3 failures, could trigger duress alert (future feature)
+            // Duress PIN match triggers silent escalation
+            if let dPIN = duressPIN, enteredDigits == dPIN {
+                Task {
+                    if let incidentID = appState.currentIncidentID {
+                        await alertService.escalateAlert(incidentID: incidentID)
+                    }
+                }
+                withAnimation(.spring(response: 0.3)) {
+                    showingDial = false
+                }
+                resetDial()
+                return
+            }
+
+            // After 3 failures, trigger silent duress escalation
             if failedAttempts >= 3 {
-                // TODO: Trigger silent duress alert
+                Task {
+                    if let incidentID = appState.currentIncidentID {
+                        await alertService.escalateAlert(incidentID: incidentID)
+                    }
+                }
             }
         }
     }
@@ -920,8 +918,8 @@ struct RadialDial: View {
                                 if let target = currentTarget {
                                     onDigitEntered(target)
 
-                                    if enteredDigits.count + 1 >= requiredDigits {
-                                        // Will complete after this digit is added
+                                    if enteredDigits.count >= requiredDigits {
+                                        // Complete now that all digits are entered
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                             onComplete()
                                         }

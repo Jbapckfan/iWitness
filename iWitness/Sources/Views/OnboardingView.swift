@@ -1,71 +1,147 @@
 import SwiftUI
 import AVFoundation
 import CoreLocation
+import UserNotifications
+
+// MARK: - Location Manager Helper
+
+class LocationManagerHelper: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+
+    var authorizationStatus: CLAuthorizationStatus {
+        manager.authorizationStatus
+    }
+
+    override init() {
+        super.init()
+        manager.delegate = self
+    }
+
+    func requestWhenInUseAuthorization() {
+        manager.requestWhenInUseAuthorization()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        objectWillChange.send()
+    }
+}
+
+// MARK: - Onboarding View
 
 struct OnboardingView: View {
     @Environment(\.dismiss) var dismiss
     @State private var currentPage = 0
 
     var body: some View {
-        TabView(selection: $currentPage) {
-            WelcomePage()
-                .tag(0)
+        ZStack {
+            // Premium ambient background
+            AnimatedGradientBackground(colors: [
+                Color(white: 0.03),
+                Color(white: 0.08),
+                Color(white: 0.03)
+            ], animationDuration: 10)
 
-            PermissionsPage()
-                .tag(1)
+            TabView(selection: $currentPage) {
+                WelcomePage()
+                    .tag(0)
 
-            ContactsSetupPage()
-                .tag(2)
+                PermissionsPage()
+                    .tag(1)
 
-            StorageSetupPage()
-                .tag(3)
+                ContactsSetupPage()
+                    .tag(2)
 
-            SecurityDrillPage()
-                .tag(4)
+                StorageSetupPage()
+                    .tag(3)
 
-            CompletePage(dismiss: dismiss)
-                .tag(5)
+                SafePINOnboardingPage(currentPage: $currentPage, nextTag: 5)
+                    .tag(4)
+
+                SecurityDrillPage()
+                    .tag(5)
+
+                CompletePage(dismiss: dismiss)
+                    .tag(6)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .indexViewStyle(.page(backgroundDisplayMode: .always))
         }
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .indexViewStyle(.page(backgroundDisplayMode: .always))
     }
 }
 
 // MARK: - Welcome Page
 
 struct WelcomePage: View {
+    @State private var isAppeared = false
+    @State private var iconScale: CGFloat = 0.5
+
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "video.badge.checkmark")
-                .font(.system(size: 80))
-                .foregroundColor(.red)
+            // Animated icon with glow
+            ZStack {
+                Circle()
+                    .fill(Colors.witnessRed.opacity(0.2))
+                    .frame(width: 120, height: 120)
+                    .blur(radius: 30)
 
-            Text("Welcome to iWitness")
-                .font(.largeTitle.bold())
-
-            Text("Document what matters.\nProtect what's important.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                FeatureRow(icon: "video.fill", text: "Dual-camera recording")
-                FeatureRow(icon: "lock.shield.fill", text: "Encrypted cloud backup")
-                FeatureRow(icon: "bell.fill", text: "Instant emergency alerts")
-                FeatureRow(icon: "person.2.fill", text: "Community witness network")
+                Image(systemName: "video.badge.checkmark")
+                    .font(.system(size: 80))
+                    .foregroundColor(Colors.witnessRed)
+                    .scaleEffect(iconScale)
             }
-            .padding()
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                    iconScale = 1.0
+                }
+            }
+
+            VStack(spacing: Spacing.xs) {
+                Text("Welcome to iWitness")
+                    .font(Typography.displayMedium)
+                    .foregroundColor(.white)
+
+                Text("Document what matters.\nProtect what's important.")
+                    .font(Typography.bodyLarge)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared, delay: 0.2)
+
+            Spacer()
+
+            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                VStack(spacing: Spacing.sm) {
+                    ForEach(Array(features.enumerated()), id: \.offset) { index, feature in
+                        FeatureRow(icon: feature.icon, text: feature.text)
+                            .staggeredEntrance(isPresented: isAppeared, index: index)
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.md)
 
             Spacer()
 
             Text("Swipe to continue →")
-                .font(.caption)
+                .font(Typography.caption)
                 .foregroundColor(.secondary)
         }
         .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isAppeared = true
+            }
+        }
+    }
+
+    private var features: [(icon: String, text: String)] {
+        [
+            ("video.fill", "Dual-camera recording"),
+            ("lock.shield.fill", "Encrypted cloud backup"),
+            ("bell.fill", "Instant emergency alerts"),
+            ("person.2.fill", "Community witness network")
+        ]
     }
 }
 
@@ -76,9 +152,12 @@ struct FeatureRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.red)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Colors.witnessRed)
                 .frame(width: 30)
             Text(text)
+                .font(Typography.bodyMedium)
+                .foregroundColor(.white)
             Spacer()
         }
     }
@@ -91,33 +170,45 @@ struct PermissionsPage: View {
     @State private var microphoneGranted = false
     @State private var locationGranted = false
     @State private var notificationsGranted = false
+    @State private var isAppeared = false
+    @StateObject private var locationManager = LocationManagerHelper()
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.green)
+            ZStack {
+                Circle()
+                    .fill(Colors.safeGreen.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
 
-            Text("Permissions")
-                .font(.title.bold())
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(Colors.safeGreen)
+            }
 
-            Text("iWitness needs these permissions to protect you")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+            VStack(spacing: Spacing.xs) {
+                Text("Permissions")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
 
-            VStack(spacing: 16) {
+                Text("iWitness needs these permissions to protect you")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(spacing: Spacing.sm) {
                 PermissionButton(
                     icon: "camera.fill",
                     title: "Camera",
                     description: "Record video from both cameras",
                     isGranted: cameraGranted
                 ) {
-                    Task {
-                        cameraGranted = await requestCamera()
-                    }
+                    Task { cameraGranted = await requestCamera() }
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 0)
 
                 PermissionButton(
                     icon: "mic.fill",
@@ -125,10 +216,9 @@ struct PermissionsPage: View {
                     description: "Capture audio evidence",
                     isGranted: microphoneGranted
                 ) {
-                    Task {
-                        microphoneGranted = await requestMicrophone()
-                    }
+                    Task { microphoneGranted = await requestMicrophone() }
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 1)
 
                 PermissionButton(
                     icon: "location.fill",
@@ -139,6 +229,7 @@ struct PermissionsPage: View {
                     requestLocation()
                     locationGranted = true
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 2)
 
                 PermissionButton(
                     icon: "bell.fill",
@@ -146,26 +237,28 @@ struct PermissionsPage: View {
                     description: "Receive community alerts",
                     isGranted: notificationsGranted
                 ) {
-                    Task {
-                        notificationsGranted = await requestNotifications()
-                    }
+                    Task { notificationsGranted = await requestNotifications() }
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 3)
             }
-            .padding()
+            .padding(.horizontal)
 
             Spacer()
         }
         .padding()
         .onAppear {
             checkExistingPermissions()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
         }
     }
 
     private func checkExistingPermissions() {
         cameraGranted = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
         microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        locationGranted = CLLocationManager.authorizationStatus() == .authorizedWhenInUse ||
-                         CLLocationManager.authorizationStatus() == .authorizedAlways
+        let status = locationManager.authorizationStatus
+        locationGranted = status == .authorizedWhenInUse || status == .authorizedAlways
     }
 
     private func requestCamera() async -> Bool {
@@ -177,7 +270,7 @@ struct PermissionsPage: View {
     }
 
     private func requestLocation() {
-        CLLocationManager().requestWhenInUseAuthorization()
+        locationManager.requestWhenInUseAuthorization()
     }
 
     private func requestNotifications() async -> Bool {
@@ -196,18 +289,23 @@ struct PermissionButton: View {
     let isGranted: Bool
     let action: () -> Void
 
+    @State private var isPressed = false
+
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: icon)
-                    .foregroundColor(isGranted ? .green : .primary)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(isGranted ? Colors.safeGreen : .white)
                     .frame(width: 30)
 
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.headline)
+                        .font(Typography.bodyLarge)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
                     Text(description)
-                        .font(.caption)
+                        .font(Typography.caption)
                         .foregroundColor(.secondary)
                 }
 
@@ -215,22 +313,24 @@ struct PermissionButton: View {
 
                 if isGranted {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .font(.system(size: 22))
+                        .foregroundColor(Colors.safeGreen)
                 } else {
                     Text("Enable")
-                        .font(.caption)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(Typography.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xxs + 2)
                         .background(Color.blue)
                         .foregroundColor(.white)
-                        .cornerRadius(8)
+                        .cornerRadius(Spacing.Radius.xs)
                 }
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .padding(Spacing.md)
+            .glassBackground(cornerRadius: Spacing.Radius.md)
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PremiumPressStyle(isPressed: $isPressed))
         .disabled(isGranted)
     }
 }
@@ -240,62 +340,92 @@ struct PermissionButton: View {
 struct ContactsSetupPage: View {
     @EnvironmentObject var alertService: AlertService
     @State private var showingAddContact = false
+    @State private var isAppeared = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "person.2.circle.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
 
-            Text("Emergency Contacts")
-                .font(.title.bold())
+                Image(systemName: "person.2.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.blue)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared)
 
-            Text("Who should be notified when you activate Witness mode?")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+            VStack(spacing: Spacing.xs) {
+                Text("Emergency Contacts")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
+
+                Text("Who should be notified when you activate Witness mode?")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
 
             if alertService.contacts.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: Spacing.sm) {
                     Text("No contacts added yet")
+                        .font(Typography.bodyMedium)
                         .foregroundColor(.secondary)
 
-                    Button("Add Contact") {
+                    PremiumPrimaryButton(
+                        title: "Add Contact",
+                        icon: "person.badge.plus",
+                        color: .blue
+                    ) {
                         showingAddContact = true
                     }
-                    .buttonStyle(.borderedProminent)
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 2)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(alertService.contacts) { contact in
-                        HStack {
+                VStack(spacing: Spacing.xs) {
+                    ForEach(Array(alertService.contacts.enumerated()), id: \.element.id) { index, contact in
+                        HStack(spacing: Spacing.sm) {
                             Image(systemName: "person.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.white.opacity(0.8))
                             Text(contact.name)
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(.white)
                             Spacer()
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(Colors.safeGreen)
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                        .padding(Spacing.md)
+                        .glassBackground(cornerRadius: Spacing.Radius.sm)
+                        .staggeredEntrance(isPresented: isAppeared, index: index + 2)
                     }
 
-                    Button("Add Another") {
+                    GlassButton(title: "Add Another", icon: "plus") {
                         showingAddContact = true
                     }
+                    .staggeredEntrance(isPresented: isAppeared, index: alertService.contacts.count + 2)
                 }
+                .padding(.horizontal, Spacing.md)
             }
 
             Spacer()
 
             Text("You can add more contacts later in Settings")
-                .font(.caption)
+                .font(Typography.caption)
                 .foregroundColor(.secondary)
         }
         .padding()
         .sheet(isPresented: $showingAddContact) {
             AddContactView()
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
         }
     }
 }
@@ -305,23 +435,37 @@ struct ContactsSetupPage: View {
 struct StorageSetupPage: View {
     @State private var showingNASSetup = false
     @State private var hasNASConfigured = false
+    @State private var isAppeared = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "externaldrive.badge.checkmark")
-                .font(.system(size: 60))
-                .foregroundColor(.orange)
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
 
-            Text("Backup Storage")
-                .font(.title.bold())
+                Image(systemName: "externaldrive.badge.checkmark")
+                    .font(.system(size: 60))
+                    .foregroundColor(.orange)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared)
 
-            Text("Where should your footage be stored?")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+            VStack(spacing: Spacing.xs) {
+                Text("Backup Storage")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
 
-            VStack(spacing: 16) {
+                Text("Where should your footage be stored?")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+
+            VStack(spacing: Spacing.md) {
                 StorageOption(
                     icon: "externaldrive.fill",
                     title: "Offsite Backup",
@@ -330,6 +474,7 @@ struct StorageSetupPage: View {
                 ) {
                     showingNASSetup = true
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 2)
 
                 StorageOption(
                     icon: "cloud.fill",
@@ -340,14 +485,19 @@ struct StorageSetupPage: View {
                 ) {
                     // Coming soon
                 }
+                .staggeredEntrance(isPresented: isAppeared, index: 3)
             }
-            .padding()
+            .padding(.horizontal, Spacing.md)
 
             Spacer()
 
-            Text("Footage is encrypted before upload")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12))
+                Text("Footage is encrypted before upload")
+                    .font(Typography.caption)
+            }
+            .foregroundColor(.secondary)
         }
         .padding()
         .sheet(isPresented: $showingNASSetup) {
@@ -355,6 +505,9 @@ struct StorageSetupPage: View {
         }
         .onAppear {
             hasNASConfigured = UserDefaults.standard.string(forKey: "nas_url") != nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
         }
     }
 }
@@ -367,19 +520,23 @@ struct StorageOption: View {
     var isDisabled: Bool = false
     let action: () -> Void
 
+    @State private var isPressed = false
+
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(isConfigured ? .green : .primary)
-                    .frame(width: 40)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundColor(isConfigured ? Colors.safeGreen : .white.opacity(0.9))
+                    .frame(width: 36)
 
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.headline)
+                        .font(Typography.bodyLarge)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
                     Text(description)
-                        .font(.caption)
+                        .font(Typography.caption)
                         .foregroundColor(.secondary)
                 }
 
@@ -387,23 +544,25 @@ struct StorageOption: View {
 
                 if isConfigured {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .font(.system(size: 22))
+                        .foregroundColor(Colors.safeGreen)
                 } else if !isDisabled {
                     Text("Setup")
-                        .font(.caption)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(Typography.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xxs + 2)
                         .background(Color.blue)
                         .foregroundColor(.white)
-                        .cornerRadius(8)
+                        .cornerRadius(Spacing.Radius.xs)
                 }
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .padding(Spacing.md)
+            .glassBackground(cornerRadius: Spacing.Radius.md)
             .opacity(isDisabled ? 0.5 : 1)
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PremiumPressStyle(isPressed: $isPressed))
         .disabled(isDisabled || isConfigured)
     }
 }
@@ -412,45 +571,95 @@ struct StorageOption: View {
 
 struct SecurityDrillPage: View {
     @State private var hasCompletedDrill = false
+    @State private var isAppeared = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.yellow)
+            ZStack {
+                Circle()
+                    .fill(Color.yellow.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
 
-            Text("Security Drill")
-                .font(.title.bold())
-
-            Text("Practice securing your phone quickly")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-
-            VStack(alignment: .leading, spacing: 16) {
-                DrillStep(number: 1, text: "Hold SIDE + VOLUME buttons")
-                DrillStep(number: 2, text: "Wait for power-off screen")
-                DrillStep(number: 3, text: "Press CANCEL")
-                DrillStep(number: 4, text: "Face ID is now disabled!")
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.yellow)
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .fadeScaleEntrance(isPresented: isAppeared)
 
-            Button(hasCompletedDrill ? "Completed!" : "I've Practiced This") {
-                hasCompletedDrill = true
+            VStack(spacing: Spacing.xs) {
+                Text("Security Drill")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
+
+                Text("Practice securing your phone quickly")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(hasCompletedDrill ? .green : .blue)
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+
+            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    ForEach(Array(drillSteps.enumerated()), id: \.offset) { index, step in
+                        DrillStep(number: index + 1, text: step)
+                            .staggeredEntrance(isPresented: isAppeared, index: index + 2)
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+
+            if hasCompletedDrill {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Colors.safeGreen)
+                    Text("Practice completed!")
+                        .font(Typography.bodyMedium)
+                        .foregroundColor(Colors.safeGreen)
+                }
+                .padding(Spacing.md)
+                .glassBackground(cornerRadius: Spacing.Radius.md)
+            } else {
+                PremiumPrimaryButton(
+                    title: "I've Practiced This",
+                    icon: "checkmark.shield",
+                    color: .yellow
+                ) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        hasCompletedDrill = true
+                    }
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                }
+            }
 
             Spacer()
 
-            Text("This ensures only your PIN can unlock your phone")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 12))
+                Text("This ensures only your PIN can unlock your phone")
+                    .font(Typography.caption)
+            }
+            .foregroundColor(.secondary)
         }
         .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
+        }
+    }
+
+    private var drillSteps: [String] {
+        [
+            "Hold SIDE + VOLUME buttons",
+            "Wait for power-off screen",
+            "Press CANCEL",
+            "Face ID is now disabled!"
+        ]
     }
 }
 
@@ -459,15 +668,18 @@ struct DrillStep: View {
     let text: String
 
     var body: some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
             Text("\(number)")
-                .font(.headline)
-                .foregroundColor(.white)
+                .font(Typography.bodyMedium)
+                .fontWeight(.bold)
+                .foregroundColor(.black)
                 .frame(width: 28, height: 28)
                 .background(Color.yellow)
                 .clipShape(Circle())
 
             Text(text)
+                .font(Typography.bodyMedium)
+                .foregroundColor(.white)
         }
     }
 }
@@ -476,46 +688,80 @@ struct DrillStep: View {
 
 struct CompletePage: View {
     let dismiss: DismissAction
+    @State private var isAppeared = false
+    @State private var iconScale: CGFloat = 0.5
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.lg) {
             Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
+            ZStack {
+                Circle()
+                    .fill(Colors.safeGreen.opacity(0.25))
+                    .frame(width: 140, height: 140)
+                    .blur(radius: 35)
 
-            Text("You're Ready")
-                .font(.largeTitle.bold())
-
-            Text("iWitness is set up and ready to protect you.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-
-            VStack(alignment: .leading, spacing: 12) {
-                ReadyItem(text: "Tap the red button to start recording")
-                ReadyItem(text: "Alerts will be sent to your contacts")
-                ReadyItem(text: "Footage uploads automatically")
-                ReadyItem(text: "Practice the passcode drill regularly")
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(Colors.safeGreen)
+                    .scaleEffect(iconScale)
             }
-            .padding()
+            .onAppear {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.3)) {
+                    iconScale = 1.0
+                }
+            }
+
+            VStack(spacing: Spacing.xs) {
+                Text("You're Ready")
+                    .font(Typography.displayMedium)
+                    .foregroundColor(.white)
+
+                Text("iWitness is set up and ready to protect you.")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.2)
+
+            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    ForEach(Array(readyItems.enumerated()), id: \.offset) { index, item in
+                        ReadyItem(text: item)
+                            .staggeredEntrance(isPresented: isAppeared, index: index + 2)
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.md)
 
             Spacer()
 
-            Button {
+            PremiumPrimaryButton(
+                title: "Get Started",
+                icon: "arrow.right",
+                color: Colors.witnessRed
+            ) {
                 UserDefaults.standard.set(true, forKey: "onboarding_complete")
                 dismiss()
-            } label: {
-                Text("Get Started")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.red)
-                    .cornerRadius(12)
             }
+            .padding(.horizontal, Spacing.md)
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.5)
         }
         .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
+        }
+    }
+
+    private var readyItems: [String] {
+        [
+            "Tap the red button to start recording",
+            "Alerts will be sent to your contacts",
+            "Footage uploads automatically",
+            "Practice the passcode drill regularly"
+        ]
     }
 }
 
@@ -523,11 +769,134 @@ struct ReadyItem: View {
     let text: String
 
     var body: some View {
-        HStack {
-            Image(systemName: "checkmark")
-                .foregroundColor(.green)
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(Colors.safeGreen)
             Text(text)
+                .font(Typography.bodyMedium)
+                .foregroundColor(.white)
         }
+    }
+}
+
+// MARK: - Safe PIN Onboarding Page
+
+struct SafePINOnboardingPage: View {
+    @Binding var currentPage: Int
+    let nextTag: Int
+
+    @State private var pin1 = ""
+    @State private var pin2 = ""
+    @State private var saved = false
+    @State private var isAppeared = false
+
+    private let pinColor = Color(red: 0.2, green: 0.8, blue: 0.3)
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(pinColor.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
+
+                Image(systemName: "dial.medium.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(pinColor)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared)
+
+            VStack(spacing: Spacing.xs) {
+                Text("Set Your Safe PIN")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
+
+                Text("You need a PIN to stop a recording. Without it, no one can force your recording to stop.")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+
+            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                VStack(spacing: Spacing.sm) {
+                    SecureField("New PIN (4 digits)", text: $pin1)
+                        .keyboardType(.numberPad)
+                        .font(Typography.bodyLarge)
+                        .padding(Spacing.sm)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(Spacing.Radius.xs)
+                        .foregroundColor(.white)
+                        .onChange(of: pin1) { _, newValue in
+                            pin1 = String(newValue.filter { $0.isNumber }.prefix(4))
+                        }
+
+                    SecureField("Confirm PIN", text: $pin2)
+                        .keyboardType(.numberPad)
+                        .font(Typography.bodyLarge)
+                        .padding(Spacing.sm)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(Spacing.Radius.xs)
+                        .foregroundColor(.white)
+                        .onChange(of: pin2) { _, newValue in
+                            pin2 = String(newValue.filter { $0.isNumber }.prefix(4))
+                        }
+
+                    if !pin1.isEmpty && !pin2.isEmpty && pin1 != pin2 {
+                        HStack(spacing: Spacing.xxs) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 12))
+                            Text("PINs don't match")
+                                .font(Typography.caption)
+                        }
+                        .foregroundColor(Colors.alertOrange)
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .staggeredEntrance(isPresented: isAppeared, index: 2)
+
+            VStack(spacing: Spacing.sm) {
+                PremiumPrimaryButton(
+                    title: "Save PIN and Continue",
+                    icon: "arrow.right",
+                    color: isValid ? pinColor : Color.gray
+                ) {
+                    UserDefaults.standard.set(pin1, forKey: "safe_pin")
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    saved = true
+                    currentPage = nextTag
+                }
+                .disabled(!isValid)
+                .opacity(isValid ? 1.0 : 0.6)
+
+                Button {
+                    currentPage = nextTag
+                } label: {
+                    Text("Skip for now (not recommended)")
+                        .font(Typography.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .staggeredEntrance(isPresented: isAppeared, index: 3)
+
+            Spacer()
+        }
+        .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
+        }
+    }
+
+    private var isValid: Bool {
+        pin1.count == 4 && pin1 == pin2
     }
 }
 

@@ -42,6 +42,10 @@ class AppState: ObservableObject {
     @Published var currentLocation: Location?
     @Published var locationHistory: [Location] = []
 
+    // MARK: - Stealth
+
+    @Published var isBlackoutOn: Bool = false
+
     // MARK: - Quality Adaptation
 
     enum VideoQuality: String, CaseIterable {
@@ -108,8 +112,10 @@ class AppState: ObservableObject {
 
     private func startDurationTimer() {
         durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self, let startTime = self.recordingStartTime else { return }
-            self.recordingDuration = Date().timeIntervalSince(startTime)
+            Task { @MainActor in
+                guard let self = self, let startTime = self.recordingStartTime else { return }
+                self.recordingDuration = Date().timeIntervalSince(startTime)
+            }
         }
     }
 
@@ -135,6 +141,7 @@ class AppState: ObservableObject {
         contactsNotified = 0
         contactsConfirmed = 0
         locationHistory = []
+        isBlackoutOn = false
     }
 
     // MARK: - Private

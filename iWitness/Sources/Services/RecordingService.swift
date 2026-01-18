@@ -56,6 +56,7 @@ class RecordingService: NSObject, ObservableObject {
 
     private var chunkWriter: ChunkWriter?
     private var uploadService: UploadService?
+    private var liveStreamService: LiveStreamService?
     private let encryptionService = EncryptionService()
     private let locationService = LocationService()
 
@@ -110,8 +111,9 @@ class RecordingService: NSObject, ObservableObject {
         checkMultiCamSupport()
     }
 
-    func configure(uploadService: UploadService) {
+    func configure(uploadService: UploadService, liveStreamService: LiveStreamService) {
         self.uploadService = uploadService
+        self.liveStreamService = liveStreamService
     }
 
     private func checkMultiCamSupport() {
@@ -199,10 +201,7 @@ class RecordingService: NSObject, ObservableObject {
            session.canAddInput(audioInput) {
             session.addInputWithNoConnections(audioInput)
 
-            // Connect audio to both outputs
-            if let audioPort = audioInput.ports(for: .audio, sourceDeviceType: nil, sourceDevicePosition: .unspecified).first {
-                // Audio will be connected to movie outputs below
-            }
+            // Audio input added - will be automatically connected to movie outputs
         }
 
         // Front movie output
@@ -252,6 +251,42 @@ class RecordingService: NSObject, ObservableObject {
             let backAudioConnection = AVCaptureConnection(inputPorts: [audioPort], output: backOutput)
             if session.canAddConnection(backAudioConnection) {
                 session.addConnection(backAudioConnection)
+            }
+        }
+
+        // Add Video Data Output for NAS Backup/Streaming (Attach to BACK camera)
+        let videoOut = AVCaptureVideoDataOutput()
+        videoOut.setSampleBufferDelegate(self, queue: processingQueue)
+        videoOut.alwaysDiscardsLateVideoFrames = true
+        guard session.canAddOutput(videoOut) else {
+            throw RecordingError.sessionConfigurationFailed
+        }
+        session.addOutputWithNoConnections(videoOut)
+        self.videoOutput = videoOut
+
+        if let backVideoPort = backInput.ports(for: .video, sourceDeviceType: .builtInWideAngleCamera, sourceDevicePosition: .back).first {
+            let backDataConnection = AVCaptureConnection(inputPorts: [backVideoPort], output: videoOut)
+            if session.canAddConnection(backDataConnection) {
+                session.addConnection(backDataConnection)
+            }
+        }
+
+        // Add Audio Data Output for NAS Backup/Streaming
+        let audioOut = AVCaptureAudioDataOutput()
+        audioOut.setSampleBufferDelegate(self, queue: processingQueue)
+        guard session.canAddOutput(audioOut) else {
+            throw RecordingError.sessionConfigurationFailed
+        }
+        session.addOutputWithNoConnections(audioOut)
+        self.audioOutput = audioOut
+
+        if let audioDevice = AVCaptureDevice.default(for: .audio),
+           let audioInput = session.inputs.compactMap({ $0 as? AVCaptureDeviceInput }).first(where: { $0.device == audioDevice }),
+           let audioPort = audioInput.ports(for: .audio, sourceDeviceType: nil, sourceDevicePosition: .unspecified).first {
+            
+            let audioDataConnection = AVCaptureConnection(inputPorts: [audioPort], output: audioOut)
+            if session.canAddConnection(audioDataConnection) {
+                session.addConnection(audioDataConnection)
             }
         }
 
@@ -541,6 +576,17 @@ class RecordingService: NSObject, ObservableObject {
 
         if let encryptedChunk = try? encryptionService.encryptChunk(chunkData, metadata: metadata) {
             await uploadService?.queueChunk(encryptedChunk)
+        }
+
+        // Send to Live Stream
+        // In a real app, we might want to send the *unencrypted* (or standard HLS encrypted) 
+        // data to the stream service, depending on the threat model.
+        // For this MVP, we pass the raw data before encryption was applied 
+        // (ChunkWriter produces a standard MP4)
+        if let liveStream = liveStreamService, liveStream.isStreaming {
+            await MainActor.run {
+                liveStream.queueSegment(data: chunkData, duration: chunkDuration)
+            }
         }
     }
 

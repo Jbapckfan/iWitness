@@ -26,6 +26,15 @@
 		SVC009 /* NASBrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC016 /* NASBrowserService.swift */; };
 		SVC010 /* LiveStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC017 /* LiveStreamService.swift */; };
 		SVC011 /* ConnectivityGuardian.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC018 /* ConnectivityGuardian.swift */; };
+		SVC012 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC019 /* LiveActivityManager.swift */; };
+		UTIL001 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC020 /* KeychainHelper.swift */; };
+		VW006 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC021 /* DesignSystem.swift */; };
+		CMP001 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC022 /* GlassCard.swift */; };
+		CMP002 /* PremiumButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC023 /* PremiumButton.swift */; };
+		CMP003 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC024 /* StatusBadge.swift */; };
+		CMP004 /* AnimatedGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC025 /* AnimatedGradient.swift */; };
+		CMP005 /* TransitionModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC026 /* TransitionModifiers.swift */; };
+		WGT001 /* iWitnessLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC027 /* iWitnessLiveActivity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +60,15 @@
 		SRC016 /* NASBrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NASBrowserService.swift; sourceTree = "<group>"; };
 		SRC017 /* LiveStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamService.swift; sourceTree = "<group>"; };
 		SRC018 /* ConnectivityGuardian.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityGuardian.swift; sourceTree = "<group>"; };
+		SRC019 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		SRC020 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		SRC021 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		SRC022 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		SRC023 /* PremiumButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumButton.swift; sourceTree = "<group>"; };
+		SRC024 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		SRC025 /* AnimatedGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedGradient.swift; sourceTree = "<group>"; };
+		SRC026 /* TransitionModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitionModifiers.swift; sourceTree = "<group>"; };
+		SRC027 /* iWitnessLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iWitnessLiveActivity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,8 +106,18 @@
 				GRP005 /* Models */,
 				GRP006 /* Services */,
 				GRP007 /* Views */,
+				GRP009 /* Utilities */,
+				GRP011 /* Widgets */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		GRP011 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				SRC027 /* iWitnessLiveActivity.swift */,
+			);
+			path = Widgets;
 			sourceTree = "<group>";
 		};
 		GRP004 /* App */ = {
@@ -122,20 +150,43 @@
 				SRC016 /* NASBrowserService.swift */,
 				SRC017 /* LiveStreamService.swift */,
 				SRC018 /* ConnectivityGuardian.swift */,
+				SRC019 /* LiveActivityManager.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		GRP009 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				SRC020 /* KeychainHelper.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 		GRP007 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				GRP010 /* Components */,
 				SRC009 /* ContentView.swift */,
+				SRC021 /* DesignSystem.swift */,
 				SRC010 /* RecordingView.swift */,
 				SRC011 /* SettingsView.swift */,
 				SRC012 /* OnboardingView.swift */,
 				SRC015 /* RecordingsView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		GRP010 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				SRC025 /* AnimatedGradient.swift */,
+				SRC022 /* GlassCard.swift */,
+				SRC023 /* PremiumButton.swift */,
+				SRC024 /* StatusBadge.swift */,
+				SRC026 /* TransitionModifiers.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		GRP008 /* Resources */ = {
@@ -244,6 +295,15 @@
 				SVC009 /* NASBrowserService.swift in Sources */,
 				SVC010 /* LiveStreamService.swift in Sources */,
 				SVC011 /* ConnectivityGuardian.swift in Sources */,
+				SVC012 /* LiveActivityManager.swift in Sources */,
+				UTIL001 /* KeychainHelper.swift in Sources */,
+				VW006 /* DesignSystem.swift in Sources */,
+				CMP001 /* GlassCard.swift in Sources */,
+				CMP002 /* PremiumButton.swift in Sources */,
+				CMP003 /* StatusBadge.swift in Sources */,
+				CMP004 /* AnimatedGradient.swift in Sources */,
+				CMP005 /* TransitionModifiers.swift in Sources */,
+				WGT001 /* iWitnessLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

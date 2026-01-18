@@ -1,22 +1,5 @@
 import SwiftUI
 
-// MARK: - Design System
-
-struct DesignSystem {
-    // Bold, high-contrast colors for emergency visibility
-    static let witnessRed = Color(red: 0.9, green: 0.2, blue: 0.2)
-    static let safeGreen = Color(red: 0.2, green: 0.8, blue: 0.3)
-    static let warningOrange = Color(red: 1.0, green: 0.6, blue: 0.0)
-    static let errorRed = Color(red: 0.8, green: 0.1, blue: 0.1)
-    static let backgroundDark = Color(red: 0.05, green: 0.05, blue: 0.05)
-
-    // Spacing
-    static let sectionSpacing: CGFloat = 40
-    static let buttonPadding: CGFloat = 24
-    static let cornerRadius: CGFloat = 20
-    static let iconSize: CGFloat = 28
-}
-
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var recordingService: RecordingService
@@ -69,113 +52,141 @@ struct RecordingSavedView: View {
     @EnvironmentObject var recordingService: RecordingService
     @Binding var isShowing: Bool
 
+    @State private var isViewAppeared = false
+    @State private var iconScale: CGFloat = 0.5
+    @State private var glowRadius: CGFloat = 10
+
     var body: some View {
         ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
+            // Premium success glow background
+            SuccessGlowBackground()
 
-            VStack(spacing: 24) {
+            VStack(spacing: Spacing.lg) {
                 Spacer()
 
-                // Success icon
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundColor(DesignSystem.safeGreen)
+                // Success icon with entrance animation
+                ZStack {
+                    // Glow behind icon
+                    Circle()
+                        .fill(Colors.safeGreen.opacity(0.2))
+                        .frame(width: 120, height: 120)
+                        .blur(radius: glowRadius)
 
-                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 80))
+                        .foregroundColor(Colors.safeGreen)
+                        .scaleEffect(iconScale)
+                }
+                .onAppear {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        iconScale = 1.0
+                    }
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                        glowRadius = 25
+                    }
+                }
+
+                VStack(spacing: Spacing.xs) {
                     Text("RECORDING SAVED")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(Typography.headline1)
+                        .tracking(1)
 
                     Text("Your footage is safe")
-                        .font(.system(size: 16))
+                        .font(Typography.bodyLarge)
                         .foregroundColor(.secondary)
                 }
+                .fadeScaleEntrance(isPresented: isViewAppeared, delay: 0.2)
 
-                // Storage status
-                VStack(spacing: 12) {
-                    // Photos backup - Front camera
-                    if recordingService.isDualCameraSupported {
-                        HStack(spacing: 12) {
-                            Image(systemName: recordingService.frontSavedToPhotos ? "checkmark.circle.fill" : "arrow.clockwise")
-                                .foregroundColor(recordingService.frontSavedToPhotos ? DesignSystem.safeGreen : .orange)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Front Camera")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text(recordingService.frontSavedToPhotos ? "Saved to Photos" : "Saving...")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
+                // Storage status in glass card
+                GlassCard(material: .thinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        // Photos backup - Front camera
+                        if recordingService.isDualCameraSupported {
+                            SaveStatusRow(
+                                title: "Front Camera",
+                                subtitle: recordingService.frontSavedToPhotos ? "Saved to Photos" : "Saving...",
+                                isComplete: recordingService.frontSavedToPhotos
+                            )
+
+                            SaveStatusRow(
+                                title: "Back Camera",
+                                subtitle: recordingService.backSavedToPhotos ? "Saved to Photos" : "Saving...",
+                                isComplete: recordingService.backSavedToPhotos
+                            )
+                        } else {
+                            SaveStatusRow(
+                                title: "Photos Library",
+                                subtitle: recordingService.savedToPhotos ? "Saved" : "Saving...",
+                                isComplete: recordingService.savedToPhotos
+                            )
                         }
 
-                        // Photos backup - Back camera
-                        HStack(spacing: 12) {
-                            Image(systemName: recordingService.backSavedToPhotos ? "checkmark.circle.fill" : "arrow.clockwise")
-                                .foregroundColor(recordingService.backSavedToPhotos ? DesignSystem.safeGreen : .orange)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Back Camera")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text(recordingService.backSavedToPhotos ? "Saved to Photos" : "Saving...")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                    } else {
-                        // Single camera mode
-                        HStack(spacing: 12) {
-                            Image(systemName: recordingService.savedToPhotos ? "checkmark.circle.fill" : "arrow.clockwise")
-                                .foregroundColor(recordingService.savedToPhotos ? DesignSystem.safeGreen : .orange)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Photos Library")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text(recordingService.savedToPhotos ? "Saved" : "Saving...")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                    }
+                        Divider()
+                            .opacity(0.3)
 
-                    Divider()
-
-                    // NAS backup
-                    HStack(spacing: 12) {
-                        Image(systemName: uploadService.queueDepth == 0 ? "checkmark.circle.fill" : "arrow.clockwise")
-                            .foregroundColor(uploadService.queueDepth == 0 ? DesignSystem.safeGreen : .orange)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Secure Offsite Backup")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text(uploadService.queueDepth == 0 ? "Complete" : "\(uploadService.queueDepth) segments uploading...")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
+                        SaveStatusRow(
+                            title: "Secure Offsite Backup",
+                            subtitle: uploadService.queueDepth == 0 ? "Complete" : "\(uploadService.queueDepth) segments uploading...",
+                            isComplete: uploadService.queueDepth == 0
+                        )
                     }
                 }
-                .padding(16)
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, Spacing.lg)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 2)
 
                 Spacer()
 
                 // Done button
-                Button {
+                PremiumPrimaryButton(
+                    title: "DONE",
+                    icon: nil,
+                    color: Colors.safeGreen
+                ) {
                     isShowing = false
                     appState.reset()
-                } label: {
-                    Text("DONE")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(DesignSystem.safeGreen)
-                        .cornerRadius(16)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 32)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 3)
             }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isViewAppeared = true
+            }
+        }
+    }
+}
+
+// MARK: - Save Status Row
+
+struct SaveStatusRow: View {
+    let title: String
+    let subtitle: String
+    let isComplete: Bool
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            if isComplete {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Colors.safeGreen)
+                    .font(.system(size: 18))
+            } else {
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .tint(Colors.warningOrange)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Typography.bodyMedium)
+                    .fontWeight(.semibold)
+                Text(subtitle)
+                    .font(Typography.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
         }
     }
 }
@@ -187,69 +198,70 @@ struct HomeView: View {
     @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var liveStreamService: LiveStreamService
     @Binding var showingSettings: Bool
     @Binding var showingOnboarding: Bool
+
+    @State private var isViewAppeared = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color(.systemBackground), Color(.systemGray6)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                // Premium ambient background
+                AmbientOrbsBackground(accentColor: DesignSystem.witnessRed, intensity: 0.12)
 
-                VStack(spacing: 24) {
+                VStack(spacing: Spacing.lg) {
                     // CRITICAL: Contact/Storage warnings at TOP
                     SetupWarningsView(showingSettings: $showingSettings)
+                        .staggeredEntrance(isPresented: isViewAppeared, index: 0)
 
                     Spacer()
 
-                    // System status
+                    // System status in glass card
                     SystemStatusView()
+                        .staggeredEntrance(isPresented: isViewAppeared, index: 1)
 
                     Spacer()
 
                     // Main activation button
                     ActivationButton()
+                        .fadeScaleEntrance(isPresented: isViewAppeared, delay: 0.15)
 
                     // Subtitle instruction
                     Text("TAP TO ACTIVATE")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(Typography.label)
                         .foregroundColor(.secondary)
                         .tracking(2)
+                        .staggeredEntrance(isPresented: isViewAppeared, index: 3)
 
                     Spacer()
 
                     // Bottom status bar
                     ReadinessBar()
+                        .staggeredEntrance(isPresented: isViewAppeared, index: 4)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+                .padding(.horizontal, Spacing.screenPadding)
+                .padding(.vertical, Spacing.md)
             }
             .navigationTitle("iWitness")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
+                    PremiumIconButton(icon: "questionmark.circle.fill", size: 36, style: .glass) {
                         showingOnboarding = true
-                    } label: {
-                        Image(systemName: "questionmark.circle.fill")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
                     }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
+                    PremiumIconButton(icon: "gearshape.fill", size: 36, style: .glass) {
                         showingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
                     }
+                }
+            }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isViewAppeared = true
                 }
             }
         }
@@ -272,21 +284,19 @@ struct SetupWarningsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.xs) {
             if !hasContacts {
                 WarningBanner(
-                    icon: "person.2",
+                    icon: "person.2.fill",
                     title: "Add emergency contacts",
-                    subtitle: "",
                     action: { showingSettings = true }
                 )
             }
 
             if !hasStorage {
                 WarningBanner(
-                    icon: "externaldrive",
+                    icon: "externaldrive.fill",
                     title: "Add backup storage",
-                    subtitle: "",
                     action: { showingSettings = true }
                 )
             }
@@ -297,31 +307,42 @@ struct SetupWarningsView: View {
 struct WarningBanner: View {
     let icon: String
     let title: String
-    let subtitle: String
     let action: () -> Void
+
+    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.warningOrange)
 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(Typography.bodyMedium)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
 
                 Spacer()
 
-                Text("Setup")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.blue)
+                HStack(spacing: Spacing.xxs) {
+                    Text("Setup")
+                        .font(Typography.caption)
+                        .fontWeight(.semibold)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(Colors.warningOrange)
             }
-            .padding(12)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
+            .padding(Spacing.sm)
+            .glassCard(padding: 0, showBorder: true)
+            .overlay(
+                RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                    .stroke(Colors.warningOrange.opacity(0.3), lineWidth: 1)
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PremiumPressStyle(isPressed: $isPressed))
     }
 }
 
@@ -335,15 +356,15 @@ struct SystemStatusView: View {
     private var hasStorage: Bool { UserDefaults.standard.string(forKey: "nas_url") != nil }
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 24) {
-                StatusPill(
+        VStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.md) {
+                PremiumStatusPill(
                     icon: "person.2.fill",
                     label: hasContacts ? "\(alertService.contacts.count) Contacts" : "No Contacts",
                     isActive: hasContacts
                 )
 
-                StatusPill(
+                PremiumStatusPill(
                     icon: "externaldrive.fill",
                     label: hasStorage ? "Backup Ready" : "No Storage",
                     isActive: hasStorage
@@ -351,36 +372,45 @@ struct SystemStatusView: View {
             }
 
             if uploadService.queueDepth > 0 {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Uploading \(uploadService.queueDepth) pending...")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(DesignSystem.warningOrange)
+                GlassCapsule {
+                    HStack(spacing: Spacing.xs) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .tint(Colors.warningOrange)
+                        Text("Uploading \(uploadService.queueDepth) pending...")
+                            .font(Typography.caption)
+                            .foregroundColor(Colors.warningOrange)
+                    }
                 }
             }
         }
+        .glassCard(material: .ultraThinMaterial, cornerRadius: Spacing.Radius.lg, padding: Spacing.md)
     }
 }
 
-struct StatusPill: View {
+struct PremiumStatusPill: View {
     let icon: String
     let label: String
     let isActive: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-            Text(label)
                 .font(.system(size: 14, weight: .semibold))
+            Text(label)
+                .font(Typography.caption)
+                .fontWeight(.semibold)
         }
-        .foregroundColor(isActive ? DesignSystem.safeGreen : .secondary)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .foregroundColor(isActive ? Colors.safeGreen : .secondary)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.xs)
         .background(
             Capsule()
-                .fill(isActive ? DesignSystem.safeGreen.opacity(0.15) : Color(.systemGray5))
+                .fill(isActive ? Colors.safeGreen.opacity(0.2) : Color.white.opacity(0.1))
+        )
+        .overlay(
+            Capsule()
+                .stroke(isActive ? Colors.safeGreen.opacity(0.4) : Color.clear, lineWidth: 1)
         )
     }
 }
@@ -405,29 +435,48 @@ struct ActivationButton: View {
     @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var liveStreamService: LiveStreamService
 
     @State private var isPressed = false
     @State private var isActivating = false
     @State private var pulseScale: CGFloat = 1.0
+    @State private var glowIntensity: CGFloat = 0.4
 
     var body: some View {
         Button {
             activateWitnessMode()
         } label: {
             ZStack {
+                // Outer glow ring
+                Circle()
+                    .fill(DesignSystem.witnessRed.opacity(0.15))
+                    .frame(width: 280, height: 280)
+                    .blur(radius: 20)
+                    .scaleEffect(pulseScale)
+
                 // Outer pulse ring
                 Circle()
-                    .stroke(DesignSystem.witnessRed.opacity(0.3), lineWidth: 4)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                DesignSystem.witnessRed.opacity(0.5),
+                                DesignSystem.witnessRed.opacity(0.2)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 3
+                    )
                     .frame(width: 260, height: 260)
                     .scaleEffect(pulseScale)
 
-                // Main button
+                // Main button with premium gradient
                 Circle()
                     .fill(
                         RadialGradient(
                             gradient: Gradient(colors: [
                                 DesignSystem.witnessRed,
-                                DesignSystem.witnessRed.opacity(0.8)
+                                DesignSystem.witnessRed.opacity(0.85)
                             ]),
                             center: .center,
                             startRadius: 0,
@@ -435,26 +484,38 @@ struct ActivationButton: View {
                         )
                     )
                     .frame(width: 240, height: 240)
-                    .shadow(color: DesignSystem.witnessRed.opacity(0.6), radius: isPressed ? 30 : 20)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.4), Color.white.opacity(0.1)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                    .shadow(color: DesignSystem.witnessRed.opacity(glowIntensity), radius: isPressed ? 35 : 25, y: 0)
                     .scaleEffect(isPressed ? 0.95 : 1.0)
 
                 // Content
                 if isActivating {
-                    VStack(spacing: 12) {
+                    VStack(spacing: Spacing.sm) {
                         ProgressView()
                             .scaleEffect(1.5)
                             .tint(.white)
                         Text("ACTIVATING")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(Typography.headline3)
                             .foregroundColor(.white)
                     }
                 } else {
-                    VStack(spacing: 12) {
+                    VStack(spacing: Spacing.sm) {
                         Image(systemName: "video.fill")
                             .font(.system(size: 56, weight: .medium))
 
                         Text("WITNESS")
                             .font(.system(size: 28, weight: .heavy))
+                            .tracking(1)
                     }
                     .foregroundColor(.white)
                 }
@@ -466,6 +527,7 @@ struct ActivationButton: View {
         .accessibilityHint("Tap to start recording and send alerts to your emergency contacts")
         .onAppear {
             startPulseAnimation()
+            startGlowAnimation()
         }
     }
 
@@ -474,7 +536,16 @@ struct ActivationButton: View {
             .easeInOut(duration: 2.0)
             .repeatForever(autoreverses: true)
         ) {
-            pulseScale = 1.15
+            pulseScale = 1.12
+        }
+    }
+
+    private func startGlowAnimation() {
+        withAnimation(
+            .easeInOut(duration: 1.5)
+            .repeatForever(autoreverses: true)
+        ) {
+            glowIntensity = 0.6
         }
     }
 
@@ -491,19 +562,38 @@ struct ActivationButton: View {
         // Activate
         appState.activateICEMode()
 
-        // Start recording
+        let incidentID = appState.currentIncidentID ?? "unknown"
+
+        // Start recording and streaming
         Task {
             do {
+                // 1. Start recording (saves to device + uploads chunks to NAS)
                 try await recordingService.startRecording(
-                    incidentID: appState.currentIncidentID ?? "unknown",
+                    incidentID: incidentID,
                     quality: appState.currentQuality
                 )
 
-                // Send alerts
+                // 2. Start Live Activity for Dynamic Island
+                LiveActivityManager.shared.start(incidentID: incidentID)
+
+                // 3. Start live stream if configured (generates shareable URL)
+                var streamURLString: String? = nil
+                if liveStreamService.isConfigured {
+                    do {
+                        let streamURL = try await liveStreamService.startStream(incidentID: incidentID)
+                        streamURLString = streamURL.absoluteString
+                        print("[iWitness] Live stream started: \(streamURLString ?? "none")")
+                    } catch {
+                        print("[iWitness] Live stream failed (continuing without): \(error)")
+                        // Continue without live stream - recording still works
+                    }
+                }
+
+                // 4. Send alerts to contacts (includes live stream URL if available)
                 await alertService.sendEmergencyAlert(
-                    incidentID: appState.currentIncidentID ?? "unknown",
+                    incidentID: incidentID,
                     location: appState.currentLocation,
-                    streamURL: nil
+                    streamURL: streamURLString
                 )
 
                 // Success haptic
@@ -533,29 +623,25 @@ struct ReadinessBar: View {
     private var hasContacts: Bool { !alertService.contacts.isEmpty }
     private var hasStorage: Bool { UserDefaults.standard.string(forKey: "nas_url") != nil }
 
+    @State private var pulseOpacity: Double = 0.8
+
     var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(DesignSystem.safeGreen)
-                .frame(width: 12, height: 12)
+        TintedGlassCard(tintColor: Colors.safeGreen, tintOpacity: 0.15, padding: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                PulsingIndicator(color: Colors.safeGreen, size: 10)
 
-            Text("READY TO RECORD")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(DesignSystem.safeGreen)
-                .tracking(1)
+                Text("READY TO RECORD")
+                    .font(Typography.label)
+                    .foregroundColor(Colors.safeGreen)
+                    .tracking(1)
 
-            Spacer()
+                Spacer()
 
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 20))
-                .foregroundColor(DesignSystem.safeGreen)
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.safeGreen)
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(DesignSystem.safeGreen.opacity(0.1))
-        )
     }
 }
 

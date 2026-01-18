@@ -60,7 +60,7 @@ class NASBrowserService: ObservableObject {
     }
 
     private var nasPassword: String? {
-        UserDefaults.standard.string(forKey: "nas_password")
+        KeychainHelper.shared.read(service: "iWitness", account: "nas_password")
     }
 
     private var authHeader: String? {

@@ -234,7 +234,7 @@ class LiveStreamService: ObservableObject {
     }
 
     private func appendToPlaylist(segment: StreamSegment) {
-        let segmentFilename = "segment_\(String(format: "%05d", segment.number)).ts"
+        let segmentFilename = "segment_\(String(format: "%05d", segment.number)).mp4"
         playlistContent += "#EXTINF:\(String(format: "%.3f", segment.duration)),\n"
         playlistContent += "\(segmentFilename)\n"
     }
@@ -282,7 +282,7 @@ class LiveStreamService: ObservableObject {
     // MARK: - Upload Methods
 
     private func uploadSegment(_ segment: StreamSegment) async throws {
-        let filename = "segment_\(String(format: "%05d", segment.number)).ts"
+        let filename = "segment_\(String(format: "%05d", segment.number)).mp4"
 
         if r2AccountID != nil {
             try await uploadToR2(data: segment.data, filename: filename)
@@ -308,7 +308,7 @@ class LiveStreamService: ObservableObject {
 
     // MARK: - Cloudflare R2 Upload
 
-    private func uploadToR2(data: Data, filename: String, contentType: String = "video/MP2T") async throws {
+    private func uploadToR2(data: Data, filename: String, contentType: String = "video/mp4") async throws {
         guard let accountID = r2AccountID,
               let bucketName = r2BucketName,
               let accessKey = r2AccessKey,
@@ -387,7 +387,7 @@ class LiveStreamService: ObservableObject {
         }
 
         let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
-        let password = UserDefaults.standard.string(forKey: "nas_password") ?? ""
+        let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
 
         // Create stream directory path
         let uploadURL = nasURL

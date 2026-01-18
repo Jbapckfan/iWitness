@@ -171,7 +171,7 @@ class ConnectivityGuardian: ObservableObject {
         generator.notificationOccurred(.success)
 
         // If we were disconnected for a while, send reconnection notice
-        if disconnectedDuration > 5, let incidentID = currentIncidentID {
+        if disconnectedDuration > 5, currentIncidentID != nil {
             Task {
                 await sendReconnectionAlert(disconnectedSeconds: disconnectedDuration)
             }
@@ -359,6 +359,8 @@ class ConnectivityGuardian: ObservableObject {
         }
 
         switch context.biometryType {
+        case .none:
+            return "None"
         case .faceID:
             return "Face ID"
         case .touchID:

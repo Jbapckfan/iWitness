@@ -126,8 +126,8 @@ class LocationService: NSObject, ObservableObject {
                 "properties": [
                     "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
                     "accuracy": location.accuracy,
-                    "altitude": location.altitude ?? NSNull(),
-                    "speed": location.speed ?? NSNull()
+                    "altitude": (location.altitude as Any?) ?? NSNull(),
+                    "speed": (location.speed as Any?) ?? NSNull()
                 ]
             ]
         }
