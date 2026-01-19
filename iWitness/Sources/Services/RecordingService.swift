@@ -3,6 +3,186 @@ import AVFoundation
 import CoreLocation
 import Combine
 import Photos
+import UIKit
+import LocalAuthentication
+
+import CryptoKit
+
+// MARK: - Vault Manager
+class VaultManager: ObservableObject {
+    static let shared = VaultManager()
+    
+    @Published var isAuthenticated = false
+    @Published var vaultFiles: [URL] = []
+    
+    private let fileManager = FileManager.default
+    private let vaultDirectoryName = "Vault"
+    private let keyTag = "com.iwitness.vault.encryptionkey"
+    
+    // Encryption key (lazily loaded from Keychain)
+    private lazy var encryptionKey: SymmetricKey = {
+        if let existingKey = loadKeyFromKeychain() {
+            return existingKey
+        }
+        let newKey = SymmetricKey(size: .bits256)
+        saveKeyToKeychain(newKey)
+        return newKey
+    }()
+    
+    var vaultURL: URL? {
+        guard let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
+        return documents.appendingPathComponent(vaultDirectoryName, isDirectory: true)
+    }
+    
+    private init() {
+        createVaultDirectoryIfNeeded()
+        refreshFiles()
+    }
+    
+    private func createVaultDirectoryIfNeeded() {
+        guard let url = vaultURL else { return }
+        if !fileManager.fileExists(atPath: url.path) {
+            try? fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: [
+                .protectionKey: FileProtectionType.completeUnlessOpen
+            ])
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            var mutableUrl = url
+            try? mutableUrl.setResourceValues(resourceValues)
+        }
+    }
+    
+    func refreshFiles() {
+        guard let url = vaultURL else { return }
+        do {
+            let fileURLs = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles)
+            self.vaultFiles = fileURLs.sorted {
+                let date1 = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                let date2 = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                return date1 > date2
+            }
+        } catch {
+            print("[VaultManager] Error listing files: \(error)")
+            self.vaultFiles = []
+        }
+    }
+    
+    // MARK: - Encrypted File Operations
+    
+    func moveFileToVault(from tempURL: URL) -> Bool {
+        guard let vault = vaultURL else { return false }
+        
+        // Encrypt file before storing
+        let encryptedFilename = tempURL.deletingPathExtension().lastPathComponent + ".enc"
+        let destinationURL = vault.appendingPathComponent(encryptedFilename)
+        
+        do {
+            // Read original video data
+            let videoData = try Data(contentsOf: tempURL)
+            
+            // Encrypt with AES-GCM
+            let sealedBox = try AES.GCM.seal(videoData, using: encryptionKey)
+            guard let encryptedData = sealedBox.combined else {
+                print("[VaultManager] Encryption failed - no combined data")
+                return false
+            }
+            
+            // Write encrypted data
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try encryptedData.write(to: destinationURL)
+            
+            // Remove original unencrypted file
+            try? fileManager.removeItem(at: tempURL)
+            
+            refreshFiles()
+            return true
+        } catch {
+            print("[VaultManager] Encryption/Move failed: \(error)")
+            return false
+        }
+    }
+    
+    func decryptFile(_ encryptedURL: URL) -> URL? {
+        do {
+            let encryptedData = try Data(contentsOf: encryptedURL)
+            let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
+            let decryptedData = try AES.GCM.open(sealedBox, using: encryptionKey)
+            
+            // Write to temp for playback
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
+            try decryptedData.write(to: tempURL)
+            return tempURL
+        } catch {
+            print("[VaultManager] Decryption failed: \(error)")
+            return nil
+        }
+    }
+    
+    func deleteFile(_ url: URL) {
+        do {
+            try fileManager.removeItem(at: url)
+            refreshFiles()
+        } catch {
+            print("[VaultManager] Delete failed: \(error)")
+        }
+    }
+    
+    // MARK: - Keychain Operations
+    
+    private func saveKeyToKeychain(_ key: SymmetricKey) {
+        let keyData = key.withUnsafeBytes { Data($0) }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keyTag,
+            kSecAttrAccount as String: "vaultKey",
+            kSecValueData as String: keyData,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemDelete(query as CFDictionary) // Remove existing if any
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    
+    private func loadKeyFromKeychain() -> SymmetricKey? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keyTag,
+            kSecAttrAccount as String: "vaultKey",
+            kSecReturnData as String: true
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let keyData = result as? Data else { return nil }
+        return SymmetricKey(data: keyData)
+    }
+    
+    // MARK: - Authentication
+    
+    func authenticate(completion: @escaping (Bool) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+        
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            let reason = "Authenticate to access the Secure Vault"
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
+                DispatchQueue.main.async {
+                    self.isAuthenticated = success
+                    completion(success)
+                }
+            }
+        } else {
+            DispatchQueue.main.async {
+                self.isAuthenticated = false
+                completion(false)
+            }
+        }
+    }
+    
+    func lock() {
+        isAuthenticated = false
+    }
+}
 
 /// Handles video capture with dual storage:
 /// 1. Visible copy in Photos (can be "deleted" by bad actors)
@@ -59,6 +239,9 @@ class RecordingService: NSObject, ObservableObject {
     private var liveStreamService: LiveStreamService?
     private let encryptionService = EncryptionService()
     private let locationService = LocationService()
+    
+    // Thermal state monitoring
+    private var thermalStateObservation: NSObjectProtocol?
 
     // MARK: - Session Management
 
@@ -109,6 +292,13 @@ class RecordingService: NSObject, ObservableObject {
     override init() {
         super.init()
         checkMultiCamSupport()
+        startThermalMonitoring()
+    }
+    
+    deinit {
+        if let observation = thermalStateObservation {
+            NotificationCenter.default.removeObserver(observation)
+        }
     }
 
     func configure(uploadService: UploadService, liveStreamService: LiveStreamService) {
@@ -470,7 +660,7 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         // Finalize current chunk for NAS
-        if let writer = chunkWriter, let chunkData = writer.finalizeCurrentChunk() {
+        if let writer = chunkWriter, let chunkData = await writer.finalizeCurrentChunk() {
             await uploadChunk(chunkData)
         }
 
@@ -548,16 +738,16 @@ class RecordingService: NSObject, ObservableObject {
     private func rotateChunk() {
         guard let writer = chunkWriter else { return }
 
-        if let chunkData = writer.finalizeCurrentChunk() {
-            Task {
+        Task {
+            if let chunkData = await writer.finalizeCurrentChunk() {
                 await self.uploadChunk(chunkData)
             }
-        }
-
-        writer.startNewChunk()
-
-        Task { @MainActor in
-            self.currentChunkNumber += 1
+            
+            writer.startNewChunk()
+            
+            await MainActor.run {
+                self.currentChunkNumber += 1
+            }
         }
     }
 
@@ -583,9 +773,11 @@ class RecordingService: NSObject, ObservableObject {
         // data to the stream service, depending on the threat model.
         // For this MVP, we pass the raw data before encryption was applied 
         // (ChunkWriter produces a standard MP4)
-        if let liveStream = liveStreamService, liveStream.isStreaming {
+        if let liveStream = liveStreamService {
             await MainActor.run {
-                liveStream.queueSegment(data: chunkData, duration: chunkDuration)
+                if liveStream.isStreaming {
+                    liveStream.queueSegment(data: chunkData, duration: chunkDuration)
+                }
             }
         }
     }
@@ -593,33 +785,99 @@ class RecordingService: NSObject, ObservableObject {
     // MARK: - Save to Photos
 
     private func saveVideoToPhotos(url: URL, isFront: Bool) {
-        PHPhotoLibrary.shared().performChanges {
-            PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-        } completionHandler: { [weak self] success, error in
-            Task { @MainActor in
-                if isFront {
-                    self?.frontSavedToPhotos = success
-                } else {
-                    self?.backSavedToPhotos = success
+        let saveToVault = UserDefaults.standard.bool(forKey: "save_to_vault")
+        
+        if saveToVault {
+            // Save to Secure Vault
+            Task {
+                let success = VaultManager.shared.moveFileToVault(from: url)
+                await updateSaveStatus(success: success, isFront: isFront, scheme: "Vault")
+            }
+        } else {
+            // Save to Photos (Default)
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            } completionHandler: { [weak self] success, error in
+                Task {
+                    await self?.updateSaveStatus(success: success, isFront: isFront, scheme: "Photos")
+                    // Clean up temp file only if saving to photos (Vault move deletes original)
+                    if success {
+                        try? FileManager.default.removeItem(at: url)
+                    } else {
+                        print("[iWitness] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
+                    }
                 }
+            }
+        }
+    }
+    
+    @MainActor
+    private func updateSaveStatus(success: Bool, isFront: Bool, scheme: String) {
+        if isFront {
+            self.frontSavedToPhotos = success
+        } else {
+            self.backSavedToPhotos = success
+        }
 
-                // Update overall status
-                if self?.multiCamSession != nil {
-                    // Dual camera mode - both need to be saved
-                    self?.savedToPhotos = (self?.frontSavedToPhotos ?? false) && (self?.backSavedToPhotos ?? false)
-                } else {
-                    // Single camera mode
-                    self?.savedToPhotos = success
-                }
+        // Update overall status
+        if self.multiCamSession != nil {
+            // Dual camera mode
+            self.savedToPhotos = (self.frontSavedToPhotos ) && (self.backSavedToPhotos )
+        } else {
+            // Single camera mode
+            self.savedToPhotos = success
+        }
 
-                if success {
-                    print("[iWitness] Video saved to Photos (front: \(isFront))")
-                } else {
-                    print("[iWitness] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
-                }
-
-                // Clean up temp file
-                try? FileManager.default.removeItem(at: url)
+        if success {
+            print("[iWitness] Video saved to \(scheme) (front: \(isFront))")
+        }
+    }
+    
+    // MARK: - Thermal Throttling
+    
+    private func startThermalMonitoring() {
+        thermalStateObservation = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.adjustQualityForThermalState()
+        }
+    }
+    
+    @MainActor
+    private func adjustQualityForThermalState() {
+        let state = ProcessInfo.processInfo.thermalState
+        var newQuality = self.currentQuality
+        
+        switch state {
+        case .nominal:
+            // Cool - maintain high quality if set
+            break
+        case .fair:
+            // Getting warm - optional step down if we wanted to be proactive
+            break
+        case .serious:
+            // Hot - downgrade to medium (720p)
+            print("[iWitness] Thermal state SERIOUS. Downgrading to medium quality.")
+            newQuality = .medium
+        case .critical:
+            // Very hot - downgrade to low (480p) to keep camera alive
+            print("[iWitness] Thermal state CRITICAL. Downgrading to low quality.")
+            newQuality = .low
+        @unknown default:
+            break
+        }
+        
+        // If quality needs to change and we are recording, logic to restart/adjust writer would go here.
+        // For MVP, we at least update the currentQuality so NEXT chunk uses it.
+        // A more advanced impl would restart the session if hardware is struggling.
+        if newQuality != self.currentQuality {
+            self.currentQuality = newQuality
+            
+            // If running, tell writer to use new quality for next chunk
+            if isRecording, let writer = chunkWriter {
+                writer.updateQuality(newQuality) 
             }
         }
     }

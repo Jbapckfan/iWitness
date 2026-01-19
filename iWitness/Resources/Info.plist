@@ -79,8 +79,7 @@
     <!-- Encryption Export Compliance -->
     <key>ITSAppUsesNonExemptEncryption</key>
     <true/>
-    <key>ITSEncryptionExportComplianceCode</key>
-    <string></string>
+
 
     <!-- App Transport Security -->
     <key>NSAppTransportSecurity</key>

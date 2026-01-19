@@ -14,6 +14,15 @@ class AlertService: ObservableObject {
     @Published var alertsConfirmed: Int = 0
     @Published var lastAlertTime: Date?
     @Published var alertError: AlertError?
+    
+    // MARK: - Quick Alerts (Pre-Written Emergency Messages)
+    @Published var quickAlerts: [QuickAlert] = []
+    
+    // MARK: - Dead Man's Switch
+    @Published var deadManSwitchActive: Bool = false
+    @Published var deadManSwitchSecondsRemaining: Int = 0
+    private var deadManSwitchTimer: Timer?
+    private var deadManSwitchDuration: Int = 900 // 15 minutes default
 
     // MARK: - Twilio Configuration
 
@@ -568,5 +577,239 @@ extension AlertService {
         if let encoded = try? JSONEncoder().encode(logs) {
             UserDefaults.standard.set(encoded, forKey: "twilio_logs")
         }
+    }
+}
+
+// MARK: - Quick Alerts (Pre-Written Emergency Messages)
+
+struct QuickAlert: Codable, Identifiable {
+    let id: UUID
+    var title: String       // "Walking to car"
+    var message: String     // "Call 911 to my location NOW"
+    var includeLocation: Bool
+    var icon: String        // SF Symbol name
+    
+    init(title: String, message: String, includeLocation: Bool = true, icon: String = "exclamationmark.triangle.fill") {
+        self.id = UUID()
+        self.title = title
+        self.message = message
+        self.includeLocation = includeLocation
+        self.icon = icon
+    }
+    
+    static var defaults: [QuickAlert] {
+        [
+            QuickAlert(
+                title: "I'm in danger",
+                message: "🚨 EMERGENCY: I need help immediately. Call 911 and send them to my location.",
+                icon: "exclamationmark.triangle.fill"
+            ),
+            QuickAlert(
+                title: "Being followed",
+                message: "⚠️ Someone is following me. Track my location. If I don't check in within 10 minutes, call police.",
+                icon: "figure.walk"
+            ),
+            QuickAlert(
+                title: "Traffic stop",
+                message: "🚔 I've been pulled over by police. Recording is active. Check on me in 15 minutes.",
+                icon: "car.fill"
+            ),
+            QuickAlert(
+                title: "Walking alone",
+                message: "🚶 Walking to my car alone. Will check in when I arrive. If you don't hear from me in 10 min, call me.",
+                icon: "moon.stars.fill"
+            )
+        ]
+    }
+}
+
+extension AlertService {
+    // MARK: - Quick Alerts Management
+    
+    func loadQuickAlerts() {
+        if let data = UserDefaults.standard.data(forKey: "quick_alerts"),
+           let decoded = try? JSONDecoder().decode([QuickAlert].self, from: data) {
+            quickAlerts = decoded
+        } else {
+            // Load defaults on first run
+            quickAlerts = QuickAlert.defaults
+            saveQuickAlerts()
+        }
+    }
+    
+    func saveQuickAlerts() {
+        if let encoded = try? JSONEncoder().encode(quickAlerts) {
+            UserDefaults.standard.set(encoded, forKey: "quick_alerts")
+        }
+    }
+    
+    func addQuickAlert(_ alert: QuickAlert) {
+        quickAlerts.append(alert)
+        saveQuickAlerts()
+    }
+    
+    func removeQuickAlert(_ alert: QuickAlert) {
+        quickAlerts.removeAll { $0.id == alert.id }
+        saveQuickAlerts()
+    }
+    
+    /// Send a pre-written quick alert to all contacts
+    func sendQuickAlert(_ alert: QuickAlert, location: Location?) async {
+        var fullMessage = alert.message
+        
+        if alert.includeLocation, let location = location {
+            let address = await LocationService().getAddress(for: location)
+            if let address = address {
+                fullMessage += "\n\n📍 \(address)"
+            }
+            fullMessage += "\n🗺️ https://maps.google.com/?q=\(location.latitude),\(location.longitude)"
+        }
+        
+        fullMessage += "\n\n⏰ \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium))"
+        
+        // Send via Twilio if configured
+        if useTwilio {
+            for contact in contacts {
+                _ = try? await sendSMSViaTwilio(to: contact.phone, message: fullMessage)
+            }
+        } else {
+            // Fallback to SMS URL (will prompt user)
+            for contact in contacts {
+                let smsURL = "sms:\(contact.phone)&body=\(fullMessage.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+                if let url = URL(string: smsURL) {
+                    await MainActor.run {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+        }
+        
+        alertsSent += contacts.count
+        lastAlertTime = Date()
+    }
+}
+
+// MARK: - Dead Man's Switch
+
+extension AlertService {
+    /// Start the dead man's switch with a check-in interval
+    /// If not dismissed before timer expires, sends emergency alert
+    func startDeadManSwitch(durationMinutes: Int, reason: String? = nil) {
+        deadManSwitchDuration = durationMinutes * 60
+        deadManSwitchSecondsRemaining = deadManSwitchDuration
+        deadManSwitchActive = true
+        
+        // Store the reason for context in alert
+        if let reason = reason {
+            UserDefaults.standard.set(reason, forKey: "dead_man_switch_reason")
+        }
+        
+        // Start countdown timer
+        deadManSwitchTimer?.invalidate()
+        deadManSwitchTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.tickDeadManSwitch()
+            }
+        }
+        
+        // Schedule local notification as backup
+        scheduleDeadManSwitchNotification(in: TimeInterval(deadManSwitchDuration))
+    }
+    
+    /// User checked in - reset the timer
+    func checkIn() {
+        deadManSwitchSecondsRemaining = deadManSwitchDuration
+        
+        // Reschedule notification
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["dead_man_switch"])
+        scheduleDeadManSwitchNotification(in: TimeInterval(deadManSwitchDuration))
+    }
+    
+    /// Stop the dead man's switch entirely
+    func stopDeadManSwitch() {
+        deadManSwitchActive = false
+        deadManSwitchTimer?.invalidate()
+        deadManSwitchTimer = nil
+        deadManSwitchSecondsRemaining = 0
+        
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["dead_man_switch"])
+        UserDefaults.standard.removeObject(forKey: "dead_man_switch_reason")
+    }
+    
+    private func tickDeadManSwitch() {
+        guard deadManSwitchActive else { return }
+        
+        deadManSwitchSecondsRemaining -= 1
+        
+        // Warning haptic at 60 seconds
+        if deadManSwitchSecondsRemaining == 60 {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+        
+        // Warning haptic at 30 seconds
+        if deadManSwitchSecondsRemaining == 30 {
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.impactOccurred()
+        }
+        
+        // Timer expired - send emergency alert
+        if deadManSwitchSecondsRemaining <= 0 {
+            Task {
+                await triggerDeadManSwitchAlert()
+            }
+        }
+    }
+    
+    private func triggerDeadManSwitchAlert() async {
+        deadManSwitchActive = false
+        deadManSwitchTimer?.invalidate()
+        deadManSwitchTimer = nil
+        
+        let reason = UserDefaults.standard.string(forKey: "dead_man_switch_reason") ?? "Unknown"
+        
+        let message = """
+        🆘 DEAD MAN'S SWITCH TRIGGERED
+        
+        \(contacts.first?.name ?? "User") did not check in.
+        
+        Reason for timer: \(reason)
+        Timer duration: \(deadManSwitchDuration / 60) minutes
+        
+        THEY MAY NEED HELP. CALL IMMEDIATELY.
+        """
+        
+        // Send to all contacts
+        if useTwilio {
+            for contact in contacts {
+                _ = try? await sendSMSViaTwilio(to: contact.phone, message: message)
+            }
+        }
+        
+        // Heavy haptic to alert user their switch triggered
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.error)
+    }
+    
+    private func scheduleDeadManSwitchNotification(in seconds: TimeInterval) {
+        let content = UNMutableNotificationContent()
+        content.title = "⚠️ Check In Required"
+        content.body = "Your dead man's switch is about to trigger. Tap to check in."
+        content.sound = .defaultCritical
+        content.interruptionLevel = .critical
+        
+        // Notify 60 seconds before trigger
+        let triggerTime = max(seconds - 60, 10)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: triggerTime, repeats: false)
+        
+        let request = UNNotificationRequest(identifier: "dead_man_switch", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+    
+    /// Formatted string for remaining time
+    var deadManSwitchTimeRemaining: String {
+        let minutes = deadManSwitchSecondsRemaining / 60
+        let seconds = deadManSwitchSecondsRemaining % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }

@@ -16,6 +16,8 @@ class ConnectivityGuardian: ObservableObject {
     @Published var lastGaspSent: Bool = false
     @Published var isAirplaneModeDetected: Bool = false
     @Published var secondsDisconnected: Int = 0
+    @Published var isLowDataMode: Bool = false
+    @Published var isExpensive: Bool = false
 
     enum ConnectionType: String {
         case wifi = "WiFi"
@@ -118,6 +120,10 @@ class ConnectivityGuardian: ObservableObject {
         } else {
             connectionType = .none
         }
+
+        // Check for constraints
+        isLowDataMode = path.isConstrained
+        isExpensive = path.isExpensive
 
         // Handle transition to disconnected
         if wasConnected && !isConnected {

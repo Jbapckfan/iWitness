@@ -51,6 +51,8 @@ class ChunkWriter {
         self.quality = newQuality
     }
 
+
+
     // MARK: - Chunk Lifecycle
 
     func startNewChunk() {
@@ -69,7 +71,7 @@ class ChunkWriter {
         }
     }
 
-    func finalizeCurrentChunk() -> Data? {
+    func finalizeCurrentChunk() async -> Data? {
         lock.lock()
         let writer = assetWriter
         let wasWriting = isWriting
@@ -83,12 +85,12 @@ class ChunkWriter {
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
 
-        // Wait for writer to finish
-        let semaphore = DispatchSemaphore(value: 0)
-        writer.finishWriting {
-            semaphore.signal()
+        // Async wait for writer to finish (non-blocking)
+        await withCheckedContinuation { continuation in
+            writer.finishWriting {
+                continuation.resume()
+            }
         }
-        semaphore.wait()
 
         // Read the data
         let outputURL = writer.outputURL
@@ -178,15 +180,28 @@ class ChunkWriter {
 
     private func videoOutputSettings() -> [String: Any] {
         let resolution = quality.resolution
+        
+        // Use HEVC (H.265) for ~40% smaller files at same quality
+        // Falls back gracefully on older devices
+        let codec: AVVideoCodecType = AVAssetExportSession.allExportPresets().contains(AVAssetExportPresetHEVCHighestQuality)
+            ? .hevc
+            : .h264
+        
+        var compressionProps: [String: Any] = [
+            AVVideoAverageBitRateKey: quality.bitrate,
+            AVVideoAllowFrameReorderingKey: false
+        ]
+        
+        // Add profile level based on codec
+        if codec == .h264 {
+            compressionProps[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel
+        }
+        
         return [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoCodecKey: codec,
             AVVideoWidthKey: resolution.width,
             AVVideoHeightKey: resolution.height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: quality.bitrate,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-                AVVideoAllowFrameReorderingKey: false
-            ]
+            AVVideoCompressionPropertiesKey: compressionProps
         ]
     }
 
@@ -194,8 +209,8 @@ class ChunkWriter {
         return [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: 44100,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderBitRateKey: 64000
+            AVNumberOfChannelsKey: 2,  // Stereo for better spatial awareness
+            AVEncoderBitRateKey: 128000  // 128kbps for stereo
         ]
     }
 

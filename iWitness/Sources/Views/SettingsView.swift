@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
@@ -186,8 +187,26 @@ struct SettingsView: View {
                     Text("Use Siri or your Apple Watch to activate iWitness hands-free.")
                 }
 
-                // Recording Settings Section
+                // Security & Recording Section
                 Section {
+                    // NEW: Vault Entry
+                    NavigationLink {
+                        VaultView()
+                    } label: {
+                        HStack {
+                            Label("Secure Vault", systemImage: "lock.square.fill")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Toggle("Save to Vault (Hide from Photos)", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "save_to_vault") },
+                        set: { UserDefaults.standard.set($0, forKey: "save_to_vault") }
+                    ))
+                    
                     NavigationLink {
                         QualitySettingsView()
                     } label: {
@@ -242,7 +261,40 @@ struct SettingsView: View {
                 } header: {
                     Text("Security & Recording")
                 } footer: {
-                    Text("Set a Safe PIN to end a recording. A Duress PIN can silently escalate instead of stopping.")
+                    Text("Secure Vault stores recordings inside the app, hidden from Photos. Access requires authentication.")
+                }
+                
+                // NEW: Safety Features Section
+                Section {
+                    NavigationLink {
+                        QuickAlertsView()
+                    } label: {
+                        HStack {
+                            Label("Quick Alerts", systemImage: "bolt.shield.fill")
+                            Spacer()
+                            Text("\(alertService.quickAlerts.count) messages")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    NavigationLink {
+                        DeadManSwitchView()
+                    } label: {
+                        HStack {
+                            Label("Dead Man's Switch", systemImage: "timer")
+                            Spacer()
+                            if alertService.deadManSwitchActive {
+                                Text(alertService.deadManSwitchTimeRemaining)
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Safety")
+                } footer: {
+                    Text("Quick Alerts send pre-written messages instantly. Dead Man's Switch alerts contacts if you don't check in.")
                 }
 
                 // Legal Section
@@ -573,6 +625,186 @@ struct NASSetupView: View {
         }
 
         dismiss()
+    }
+}
+
+// MARK: - Vault View
+struct VaultView: View {
+    @StateObject private var vaultManager = VaultManager.shared
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Dark premium background
+                Color(white: 0.05).ignoresSafeArea()
+                
+                if vaultManager.isAuthenticated {
+                    if vaultManager.vaultFiles.isEmpty {
+                        VStack(spacing: 20) {
+                            Image(systemName: "lock.open.fill")
+                                .font(.system(size: 60))
+                                .foregroundColor(.gray.opacity(0.5))
+                            Text("Vault is Empty")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        List {
+                            ForEach(vaultManager.vaultFiles, id: \.self) { fileURL in
+                                NavigationLink(destination: VaultVideoPlayerView(url: fileURL)) {
+                                    HStack {
+                                        Image(systemName: "film")
+                                            .foregroundColor(.blue)
+                                        VStack(alignment: .leading) {
+                                            Text(fileURL.lastPathComponent)
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                            Text(creationDateString(for: fileURL))
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                }
+                                .listRowBackground(Color(white: 0.1))
+                            }
+                            .onDelete(perform: deleteFiles)
+                        }
+                        .scrollContentBackground(.hidden)
+                    }
+                } else {
+                    // Locked State
+                    VStack(spacing: 20) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 80))
+                            .foregroundColor(.orange)
+                        
+                        Text("Vault Locked")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Text("Authentication required to access hidden recordings.")
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.gray)
+                            .padding()
+                        
+                        Button {
+                            authenticate()
+                        } label: {
+                            Text("Unlock Vault")
+                                .font(.headline)
+                                .foregroundColor(.black)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.orange)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal, 40)
+                    }
+                }
+            }
+            .navigationTitle("Secure Vault")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if vaultManager.isAuthenticated {
+                        Button("Lock") {
+                            withAnimation {
+                                vaultManager.lock()
+                            }
+                        }
+                    }
+                }
+            }
+            .onAppear {
+                authenticate()
+            }
+        }
+    }
+    
+    private func authenticate() {
+        vaultManager.authenticate { success in
+            // State updates handled in manager
+        }
+    }
+    
+    private func deleteFiles(at offsets: IndexSet) {
+        offsets.forEach { index in
+            let url = vaultManager.vaultFiles[index]
+            vaultManager.deleteFile(url)
+        }
+    }
+    
+    private func creationDateString(for url: URL) -> String {
+        guard let values = try? url.resourceValues(forKeys: [.creationDateKey]),
+              let date = values.creationDate else {
+            return "Unknown Date"
+        }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+struct VaultVideoPlayerView: View {
+    let encryptedURL: URL
+    @State private var decryptedURL: URL?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    
+    init(url: URL) {
+        self.encryptedURL = url
+    }
+    
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            if let decryptedURL = decryptedURL {
+                VideoPlayer(player: AVPlayer(url: decryptedURL))
+                    .ignoresSafeArea()
+            } else if isLoading {
+                ProgressView("Decrypting...")
+                    .foregroundColor(.white)
+            } else if let error = errorMessage {
+                VStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .navigationTitle(encryptedURL.lastPathComponent)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            decryptVideo()
+        }
+        .onDisappear {
+            // Clean up decrypted temp file
+            if let url = decryptedURL {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+    
+    private func decryptVideo() {
+        Task {
+            if let url = VaultManager.shared.decryptFile(encryptedURL) {
+                await MainActor.run {
+                    self.decryptedURL = url
+                    self.isLoading = false
+                }
+            } else {
+                await MainActor.run {
+                    self.errorMessage = "Failed to decrypt video"
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }
 
@@ -1681,6 +1913,228 @@ struct StreamingSetupView: View {
         generator.notificationOccurred(.success)
 
         dismiss()
+    }
+}
+
+// MARK: - Quick Alerts View
+
+struct QuickAlertsView: View {
+    @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var locationService: LocationService
+    @State private var showingAddAlert = false
+    @State private var isSending = false
+    
+    var body: some View {
+        ZStack {
+            Color(white: 0.05).ignoresSafeArea()
+            
+            List {
+                Section {
+                    ForEach(alertService.quickAlerts) { alert in
+                        Button {
+                            sendAlert(alert)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: alert.icon)
+                                    .font(.title2)
+                                    .foregroundColor(.orange)
+                                    .frame(width: 40)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(alert.title)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Text(alert.message)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .lineLimit(2)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.orange)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .listRowBackground(Color(white: 0.1))
+                    }
+                    .onDelete { indexSet in
+                        indexSet.forEach { alertService.quickAlerts.remove(at: $0) }
+                        alertService.saveQuickAlerts()
+                    }
+                } header: {
+                    Text("Tap to Send Instantly")
+                } footer: {
+                    Text("These messages will be sent to all your emergency contacts with your current location.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            
+            if isSending {
+                Color.black.opacity(0.6).ignoresSafeArea()
+                VStack {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Sending...")
+                        .foregroundColor(.white)
+                        .padding(.top)
+                }
+            }
+        }
+        .navigationTitle("Quick Alerts")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingAddAlert = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .onAppear {
+            alertService.loadQuickAlerts()
+        }
+    }
+    
+    private func sendAlert(_ alert: QuickAlert) {
+        isSending = true
+        Task {
+            await alertService.sendQuickAlert(alert, location: locationService.currentLocation)
+            await MainActor.run {
+                isSending = false
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+            }
+        }
+    }
+}
+
+// MARK: - Dead Man's Switch View
+
+struct DeadManSwitchView: View {
+    @EnvironmentObject var alertService: AlertService
+    @State private var selectedMinutes: Int = 15
+    @State private var reason: String = ""
+    
+    private let minuteOptions = [5, 10, 15, 20, 30, 45, 60]
+    
+    var body: some View {
+        ZStack {
+            Color(white: 0.05).ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                if alertService.deadManSwitchActive {
+                    // Active State
+                    VStack(spacing: 16) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 60))
+                            .foregroundColor(.orange)
+                        
+                        Text(alertService.deadManSwitchTimeRemaining)
+                            .font(.system(size: 72, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                        
+                        Text("Until alert is sent")
+                            .foregroundColor(.gray)
+                        
+                        Button {
+                            alertService.checkIn()
+                            let generator = UINotificationFeedbackGenerator()
+                            generator.notificationOccurred(.success)
+                        } label: {
+                            Text("✓ Check In")
+                                .font(.title2.bold())
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .cornerRadius(16)
+                        }
+                        .padding(.horizontal, 40)
+                        .padding(.top, 20)
+                        
+                        Button {
+                            alertService.stopDeadManSwitch()
+                        } label: {
+                            Text("Stop Timer")
+                                .foregroundColor(.red)
+                        }
+                        .padding(.top, 8)
+                    }
+                } else {
+                    // Setup State
+                    VStack(spacing: 20) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        
+                        Text("Dead Man's Switch")
+                            .font(.title.bold())
+                            .foregroundColor(.white)
+                        
+                        Text("If you don't check in before time expires, an emergency alert will be sent to your contacts.")
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Check-in interval")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Picker("Minutes", selection: $selectedMinutes) {
+                                ForEach(minuteOptions, id: \.self) { mins in
+                                    Text("\(mins) min").tag(mins)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                        .padding()
+                        .background(Color(white: 0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Reason (optional)")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            TextField("e.g., Walking to my car", text: $reason)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        .padding()
+                        .background(Color(white: 0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                        
+                        Button {
+                            alertService.startDeadManSwitch(
+                                durationMinutes: selectedMinutes,
+                                reason: reason.isEmpty ? nil : reason
+                            )
+                            let generator = UIImpactFeedbackGenerator(style: .heavy)
+                            generator.impactOccurred()
+                        } label: {
+                            Text("Start Timer")
+                                .font(.title2.bold())
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.orange)
+                                .cornerRadius(16)
+                        }
+                        .padding(.horizontal, 40)
+                        .padding(.top, 20)
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.top, 40)
+        }
+        .navigationTitle("Dead Man's Switch")
     }
 }
 
