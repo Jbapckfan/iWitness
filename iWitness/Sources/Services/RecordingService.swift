@@ -36,7 +36,10 @@ class VaultManager: ObservableObject {
     
     private init() {
         createVaultDirectoryIfNeeded()
-        refreshFiles()
+        // Do not block init with IO
+        Task {
+            await refreshFiles()
+        }
     }
     
     private func createVaultDirectoryIfNeeded() {
@@ -52,19 +55,26 @@ class VaultManager: ObservableObject {
         }
     }
     
-    func refreshFiles() {
+    @MainActor
+    func refreshFiles() async {
         guard let url = vaultURL else { return }
-        do {
-            let fileURLs = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles)
-            self.vaultFiles = fileURLs.sorted {
-                let date1 = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
-                let date2 = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
-                return date1 > date2
+        
+        let sortedFiles = await Task.detached(priority: .userInitiated) { () -> [URL] in
+            let fileManager = FileManager.default
+            do {
+                let fileURLs = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles)
+                return fileURLs.sorted {
+                    let date1 = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    let date2 = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    return date1 > date2
+                }
+            } catch {
+                print("[VaultManager] Error listing files: \(error)")
+                return []
             }
-        } catch {
-            print("[VaultManager] Error listing files: \(error)")
-            self.vaultFiles = []
-        }
+        }.value
+        
+        self.vaultFiles = sortedFiles
     }
     
     // MARK: - Encrypted File Operations
@@ -96,7 +106,9 @@ class VaultManager: ObservableObject {
             // Remove original unencrypted file
             try? fileManager.removeItem(at: tempURL)
             
-            refreshFiles()
+            Task { @MainActor in
+                await refreshFiles()
+            }
             return true
         } catch {
             print("[VaultManager] Encryption/Move failed: \(error)")
@@ -123,7 +135,9 @@ class VaultManager: ObservableObject {
     func deleteFile(_ url: URL) {
         do {
             try fileManager.removeItem(at: url)
-            refreshFiles()
+            Task { @MainActor in
+                await refreshFiles()
+            }
         } catch {
             print("[VaultManager] Delete failed: \(error)")
         }
@@ -660,8 +674,8 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         // Finalize current chunk for NAS
-        if let writer = chunkWriter, let chunkData = await writer.finalizeCurrentChunk() {
-            await uploadChunk(chunkData)
+        if let writer = chunkWriter, let chunkURL = await writer.finalizeCurrentChunk() {
+            await uploadChunk(chunkURL)
         }
 
         // Stop movie file recording (triggers save to Photos)
@@ -698,10 +712,12 @@ class RecordingService: NSObject, ObservableObject {
             print("[iWitness] Could not get camera for position: \(newPosition)")
             return
         }
-
+        
+        // ... (Configuration omitted)
+        
         sessionQueue.async { [weak self] in
             session.beginConfiguration()
-
+            
             if let currentInput = session.inputs.first(where: { input in
                 guard let deviceInput = input as? AVCaptureDeviceInput else { return false }
                 return deviceInput.device.hasMediaType(.video)
@@ -739,8 +755,8 @@ class RecordingService: NSObject, ObservableObject {
         guard let writer = chunkWriter else { return }
 
         Task {
-            if let chunkData = await writer.finalizeCurrentChunk() {
-                await self.uploadChunk(chunkData)
+            if let chunkURL = await writer.finalizeCurrentChunk() {
+                await self.uploadChunk(chunkURL)
             }
             
             writer.startNewChunk()
@@ -751,7 +767,7 @@ class RecordingService: NSObject, ObservableObject {
         }
     }
 
-    private func uploadChunk(_ chunkData: Data) async {
+    private func uploadChunk(_ chunkURL: URL) async {
         let location = locationService.currentLocation
         let chunkNum = await MainActor.run { self.currentChunkNumber }
 
@@ -763,44 +779,67 @@ class RecordingService: NSObject, ObservableObject {
             quality: currentQuality,
             deviceState: DeviceState.current()
         )
-
-        if let encryptedChunk = try? encryptionService.encryptChunk(chunkData, metadata: metadata) {
-            await uploadService?.queueChunk(encryptedChunk)
-        }
-
-        // Send to Live Stream
-        // In a real app, we might want to send the *unencrypted* (or standard HLS encrypted) 
-        // data to the stream service, depending on the threat model.
-        // For this MVP, we pass the raw data before encryption was applied 
-        // (ChunkWriter produces a standard MP4)
-        if let liveStream = liveStreamService {
-            await MainActor.run {
-                if liveStream.isStreaming {
-                    liveStream.queueSegment(data: chunkData, duration: chunkDuration)
+        
+        do {
+            // 1. Send to Live Stream (if active) - Use File URL (Zero RAM)
+            if let liveStream = liveStreamService {
+                await MainActor.run {
+                    if liveStream.isStreaming {
+                        liveStream.queueSegment(from: chunkURL, duration: chunkDuration)
+                    }
                 }
             }
+            
+            // 2. Load Data ONLY for Encryption (Ephemeral)
+            let chunkData = try Data(contentsOf: chunkURL)
+            
+            // 3. Encrypt and Serialize
+            if let encryptedChunk = try? encryptionService.encryptChunk(chunkData, metadata: metadata) {
+                let serializedData = encryptedChunk.serialize()
+                
+                // 4. Write .iwc file (ready for upload)
+                let iwcURL = chunkURL.deletingPathExtension().appendingPathExtension("iwc")
+                try serializedData.write(to: iwcURL)
+                
+                // 4. Calculate integrity hash
+                let hash = SHA256.hash(data: serializedData).compactMap { String(format: "%02x", $0) }.joined()
+                
+                // 5. Queue for persistent background upload
+                await uploadService?.queueChunk(fileURL: iwcURL, incidentID: currentIncidentID ?? "", chunkNumber: chunkNum, hash: hash)
+                
+                // 6. Delete intermediate MP4
+                try FileManager.default.removeItem(at: chunkURL)
+            }
+            
+        } catch {
+            print("[RecordingService] Error processing chunk: \(error)")
         }
     }
 
     // MARK: - Save to Photos
 
     private func saveVideoToPhotos(url: URL, isFront: Bool) {
-        let saveToVault = UserDefaults.standard.bool(forKey: "save_to_vault")
+        let saveToVaultOnly = UserDefaults.standard.bool(forKey: "save_to_vault")
         
-        if saveToVault {
-            // Save to Secure Vault
+        // ALWAYS create a hidden vault backup (production hardening)
+        // This ensures evidence survives even if Photos are deleted
+        Task {
+            _ = await createVaultBackup(from: url, isFront: isFront)
+        }
+        
+        if saveToVaultOnly {
+            // User only wants vault storage - just update status and clean up
             Task {
-                let success = VaultManager.shared.moveFileToVault(from: url)
-                await updateSaveStatus(success: success, isFront: isFront, scheme: "Vault")
+                await updateSaveStatus(success: true, isFront: isFront, scheme: "Vault")
+                try? FileManager.default.removeItem(at: url)
             }
         } else {
-            // Save to Photos (Default)
+            // Save to Photos (Default) - vault backup already created above
             PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
             } completionHandler: { [weak self] success, error in
                 Task {
                     await self?.updateSaveStatus(success: success, isFront: isFront, scheme: "Photos")
-                    // Clean up temp file only if saving to photos (Vault move deletes original)
                     if success {
                         try? FileManager.default.removeItem(at: url)
                     } else {
@@ -808,6 +847,26 @@ class RecordingService: NSObject, ObservableObject {
                     }
                 }
             }
+        }
+    }
+    
+    /// Creates a hidden encrypted backup in the app's vault
+    /// This is separate from Photos and invisible to casual inspection
+    private func createVaultBackup(from url: URL, isFront: Bool) async -> Bool {
+        // Copy file to temp location first (don't move the original, Photos needs it)
+        let tempCopy = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vault_backup_\(UUID().uuidString).mov")
+        
+        do {
+            try FileManager.default.copyItem(at: url, to: tempCopy)
+            let success = VaultManager.shared.moveFileToVault(from: tempCopy)
+            if success {
+                print("[iWitness] Hidden vault backup created for \(isFront ? "front" : "back") camera")
+            }
+            return success
+        } catch {
+            print("[iWitness] Failed to create vault backup: \(error)")
+            return false
         }
     }
     

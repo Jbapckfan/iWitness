@@ -247,6 +247,19 @@ struct SettingsView: View {
                         set: { UserDefaults.standard.set($0, forKey: "stealth_start_blackout") }
                     ))
 
+                    Toggle("Calculator Camouflage", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "calculator_camouflage") },
+                        set: { UserDefaults.standard.set($0, forKey: "calculator_camouflage") }
+                    ))
+                    .onChange(of: UserDefaults.standard.bool(forKey: "calculator_camouflage")) { _, newValue in
+                        if newValue {
+                            // Prompt user to set alternate icon
+                            setCalculatorIcon()
+                        } else {
+                            resetToDefaultIcon()
+                        }
+                    }
+
                     NavigationLink {
                         GuidedAccessSetupView()
                     } label: {
@@ -295,6 +308,25 @@ struct SettingsView: View {
                     Text("Safety")
                 } footer: {
                     Text("Quick Alerts send pre-written messages instantly. Dead Man's Switch alerts contacts if you don't check in.")
+                }
+
+                // Community Section (Growth)
+                Section {
+                    ShareLink(item: URL(string: "https://apps.apple.com/app/id673949313")!, message: Text("I'm using iWitness to protect myself. It's a black box for your phone. Download it here:")) {
+                        Label("Invite Friends & Family", systemImage: "square.and.arrow.up")
+                    }
+                    
+                    Button {
+                        if let url = URL(string: "https://twitter.com/intent/tweet?text=I%27m%20using%20iWitness%20to%20protect%20myself.%20Check%20it%20out!") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Share on X / Twitter", systemImage: "message.fill")
+                    }
+                } header: {
+                    Text("Community")
+                } footer: {
+                    Text("Help us build the world's largest witness network.")
                 }
 
                 // Legal Section
@@ -393,6 +425,31 @@ struct SettingsView: View {
         case .success: return .green
         case .failed: return .red
         case .mockMode: return .blue
+        }
+    }
+
+    private func setCalculatorIcon() {
+        // Set alternate app icon to "Calculator" if available
+        if UIApplication.shared.supportsAlternateIcons {
+            UIApplication.shared.setAlternateIconName("CalculatorIcon") { error in
+                if let error = error {
+                    print("[iWitness] Failed to set calculator icon: \(error)")
+                } else {
+                    print("[iWitness] Calculator camouflage icon set")
+                }
+            }
+        }
+    }
+
+    private func resetToDefaultIcon() {
+        if UIApplication.shared.supportsAlternateIcons {
+            UIApplication.shared.setAlternateIconName(nil) { error in
+                if let error = error {
+                    print("[iWitness] Failed to reset icon: \(error)")
+                } else {
+                    print("[iWitness] Default icon restored")
+                }
+            }
         }
     }
 

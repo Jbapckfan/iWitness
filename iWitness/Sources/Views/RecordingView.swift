@@ -295,45 +295,155 @@ struct SecureStepRow: View {
 
 // MARK: - Dual Camera Preview (Picture-in-Picture style)
 
-struct DualCameraPreviewView: UIViewRepresentable {
+struct DualCameraPreviewView: View {
     let recordingService: RecordingService
-
-    func makeUIView(context: Context) -> UIView {
-        let containerView = UIView(frame: .zero)
-        containerView.backgroundColor = .black
-
-        // Back camera as main full-screen view
-        if let backPreview = recordingService.backPreviewLayer {
-            backPreview.frame = UIScreen.main.bounds
-            containerView.layer.addSublayer(backPreview)
+    
+    // State for draggable PiP position (corner: 0=topLeft, 1=topRight, 2=bottomLeft, 3=bottomRight)
+    @State private var pipCorner: Int = 0
+    @State private var dragOffset: CGSize = .zero
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Main camera (back camera - full screen)
+                BackCameraLayer(recordingService: recordingService)
+                    .ignoresSafeArea()
+                
+                // PiP camera (front camera - overlay)
+                FrontCameraPiP(
+                    recordingService: recordingService,
+                    size: pipSize(for: geometry)
+                )
+                .offset(dragOffset)
+                .position(pipPosition(for: geometry))
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            dragOffset = value.translation
+                        }
+                        .onEnded { value in
+                            // Determine which corner to snap to
+                            let currentPos = pipPosition(for: geometry)
+                            let finalX = currentPos.x + value.translation.width
+                            let finalY = currentPos.y + value.translation.height
+                            
+                            let centerX = geometry.size.width / 2
+                            let centerY = geometry.size.height / 2
+                            
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                if finalX > centerX && finalY > centerY {
+                                    pipCorner = 3
+                                } else if finalX > centerX {
+                                    pipCorner = 1
+                                } else if finalY > centerY {
+                                    pipCorner = 2
+                                } else {
+                                    pipCorner = 0
+                                }
+                                dragOffset = .zero
+                            }
+                            
+                            let generator = UIImpactFeedbackGenerator(style: .light)
+                            generator.impactOccurred()
+                        }
+                )
+            }
         }
-
-        // Front camera as picture-in-picture (top-left corner)
-        if let frontPreview = recordingService.frontPreviewLayer {
-            let pipSize = CGSize(width: 120, height: 160)
-            let pipOrigin = CGPoint(x: 20, y: 60) // Below status bar area
-            frontPreview.frame = CGRect(origin: pipOrigin, size: pipSize)
-            frontPreview.cornerRadius = 12
-            frontPreview.masksToBounds = true
-            frontPreview.borderWidth = 2
-            frontPreview.borderColor = UIColor.white.cgColor
-            containerView.layer.addSublayer(frontPreview)
-        }
-
-        return containerView
     }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // Update back camera to fill screen
-        if let backPreview = recordingService.backPreviewLayer {
-            backPreview.frame = uiView.bounds
+    
+    private func pipSize(for geometry: GeometryProxy) -> CGSize {
+        let width = geometry.size.width * 0.28
+        let height = width * (4.0 / 3.0)
+        return CGSize(width: width, height: height)
+    }
+    
+    private func pipPosition(for geometry: GeometryProxy) -> CGPoint {
+        let size = pipSize(for: geometry)
+        let padding: CGFloat = 16
+        let topPadding: CGFloat = 70
+        let bottomPadding: CGFloat = 180
+        
+        switch pipCorner {
+        case 0: return CGPoint(x: padding + size.width / 2, y: topPadding + size.height / 2)
+        case 1: return CGPoint(x: geometry.size.width - padding - size.width / 2, y: topPadding + size.height / 2)
+        case 2: return CGPoint(x: padding + size.width / 2, y: geometry.size.height - bottomPadding - size.height / 2)
+        case 3: return CGPoint(x: geometry.size.width - padding - size.width / 2, y: geometry.size.height - bottomPadding - size.height / 2)
+        default: return CGPoint(x: padding + size.width / 2, y: topPadding + size.height / 2)
         }
+    }
+}
 
-        // Keep front camera PiP in position
-        if let frontPreview = recordingService.frontPreviewLayer {
-            let pipSize = CGSize(width: 120, height: 160)
-            let pipOrigin = CGPoint(x: 20, y: 60)
-            frontPreview.frame = CGRect(origin: pipOrigin, size: pipSize)
+// MARK: - Back Camera Layer (Main - Full Screen)
+
+private struct BackCameraLayer: UIViewRepresentable {
+    let recordingService: RecordingService
+    
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = .black
+        
+        if let layer = recordingService.backPreviewLayer {
+            layer.videoGravity = .resizeAspectFill
+            view.layer.addSublayer(layer)
+        }
+        
+        return view
+    }
+    
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if let layer = recordingService.backPreviewLayer {
+            layer.frame = uiView.bounds
+        }
+    }
+}
+
+// MARK: - Front Camera PiP with Visual Polish
+
+private struct FrontCameraPiP: View {
+    let recordingService: RecordingService
+    let size: CGSize
+    
+    var body: some View {
+        FrontCameraLayer(recordingService: recordingService)
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: Spacing.Radius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: Spacing.Radius.md)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.8), Color.white.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.5), radius: 12, x: 0, y: 6)
+            .shadow(color: Colors.safeGreen.opacity(0.15), radius: 20, x: 0, y: 0)
+    }
+}
+
+// MARK: - Front Camera Layer (PiP)
+
+private struct FrontCameraLayer: UIViewRepresentable {
+    let recordingService: RecordingService
+    
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = .black
+        view.clipsToBounds = true
+        
+        if let layer = recordingService.frontPreviewLayer {
+            layer.videoGravity = .resizeAspectFill
+            view.layer.addSublayer(layer)
+        }
+        
+        return view
+    }
+    
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if let layer = recordingService.frontPreviewLayer {
+            layer.frame = uiView.bounds
         }
     }
 }
@@ -408,17 +518,34 @@ struct RecordingHeader: View {
     }
 }
 
-// MARK: - Recording Status Overlay (Minimal, over camera preview)
+// MARK: - Recording Status Overlay (Enhanced for production)
 
 struct RecordingStatusOverlay: View {
     @EnvironmentObject var uploadService: UploadService
     @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var liveStreamService: LiveStreamService
+    @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var appState: AppState
 
     @State private var showingShareSheet = false
+    @State private var showingAddContact = false
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
+            // Camera status badges
+            HStack(spacing: Spacing.sm) {
+                CameraStatusBadge(
+                    label: "FRONT",
+                    isActive: true,
+                    icon: "person.fill"
+                )
+                CameraStatusBadge(
+                    label: "BACK",
+                    isActive: recordingService.isDualCameraSupported,
+                    icon: "video.fill"
+                )
+            }
+            
             // Live Stream status (if active)
             if liveStreamService.isStreaming {
                 LiveBadge(segmentCount: liveStreamService.segmentsUploaded) {
@@ -429,20 +556,59 @@ struct RecordingStatusOverlay: View {
                 }
             }
 
-            // Backup status with glass styling
+            // Contacts notified status
+            GlassCapsule {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.green)
+                    
+                    Text("\(alertService.alertsSent) contacts notified")
+                        .font(Typography.caption)
+                    
+                    Divider()
+                        .frame(height: 12)
+                        .background(Color.white.opacity(0.3))
+                    
+                    // Quick add contact button
+                    Button {
+                        showingAddContact = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 14))
+                            Text("Add")
+                                .font(Typography.caption)
+                        }
+                        .foregroundColor(.yellow)
+                    }
+                }
+                .foregroundColor(.white)
+            }
+            .sheet(isPresented: $showingAddContact) {
+                QuickAddContactSheet()
+            }
+
+            // Backup status with queue depth
             GlassCapsule {
                 HStack(spacing: Spacing.xs) {
                     if uploadService.isUploading {
                         ProgressView()
                             .scaleEffect(0.7)
                             .tint(.white)
-                        Text("Backing up...")
+                        Text("Uploading \(uploadService.queueDepth) chunks...")
+                            .font(Typography.caption)
+                    } else if uploadService.queueDepth > 0 {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.orange)
+                        Text("\(uploadService.queueDepth) pending")
                             .font(Typography.caption)
                     } else {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 14))
                             .foregroundColor(Colors.safeGreen)
-                        Text("Backup active")
+                        Text("All backed up")
                             .font(Typography.caption)
                     }
                 }
@@ -450,9 +616,133 @@ struct RecordingStatusOverlay: View {
             }
 
             // Segment counter
-            Text("\(recordingService.currentChunkNumber) segments saved")
+            Text("\(recordingService.currentChunkNumber) segments • \(uploadService.chunksUploaded) uploaded")
                 .font(Typography.caption)
                 .foregroundColor(.white.opacity(0.7))
+        }
+    }
+}
+
+// MARK: - Camera Status Badge
+
+struct CameraStatusBadge: View {
+    let label: String
+    let isActive: Bool
+    let icon: String
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+        }
+        .foregroundColor(isActive ? .white : .white.opacity(0.4))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(isActive ? Colors.safeGreen.opacity(0.8) : Color.gray.opacity(0.3))
+        )
+    }
+}
+
+// MARK: - Quick Add Contact Sheet (During Recording)
+
+struct QuickAddContactSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var liveStreamService: LiveStreamService
+    
+    @State private var name = ""
+    @State private var phone = ""
+    @State private var isSending = false
+    @State private var sentSuccess = false
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name", text: $name)
+                    TextField("Phone", text: $phone)
+                        .keyboardType(.phonePad)
+                } header: {
+                    Text("Add Contact & Alert Immediately")
+                } footer: {
+                    Text("This contact will receive an emergency alert with your location right now.")
+                }
+                
+                Section {
+                    Button {
+                        addAndAlert()
+                    } label: {
+                        HStack {
+                            if isSending {
+                                ProgressView()
+                                    .tint(.white)
+                                Text("Sending Alert...")
+                            } else if sentSuccess {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Alert Sent!")
+                            } else {
+                                Image(systemName: "bolt.fill")
+                                Text("Add & Send Alert Now")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .foregroundColor(.white)
+                    }
+                    .listRowBackground(
+                        sentSuccess ? Colors.safeGreen : (name.isEmpty || phone.isEmpty ? Color.gray : Colors.witnessRed)
+                    )
+                    .disabled(name.isEmpty || phone.isEmpty || isSending)
+                }
+            }
+            .navigationTitle("Quick Add Contact")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+    
+    private func addAndAlert() {
+        isSending = true
+        
+        // Add contact
+        let contact = AlertService.EmergencyContact(
+            name: name,
+            phone: phone,
+            email: nil,
+            isLawyer: false,
+            priority: alertService.contacts.count + 1
+        )
+        alertService.addContact(contact)
+        
+        // Send immediate alert
+        Task {
+            await alertService.sendEmergencyAlert(
+                incidentID: appState.currentIncidentID ?? "UNKNOWN",
+                location: nil,
+                streamURL: liveStreamService.streamURL?.absoluteString
+            )
+            
+            await MainActor.run {
+                isSending = false
+                sentSuccess = true
+                
+                // Haptic success
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                
+                // Auto-dismiss after short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    dismiss()
+                }
+            }
         }
     }
 }
@@ -917,17 +1207,18 @@ struct RadialDial: View {
                                 // Just returned to center after selecting a digit
                                 if let target = currentTarget {
                                     onDigitEntered(target)
-
-                                    if enteredDigits.count >= requiredDigits {
-                                        // Complete now that all digits are entered
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            onComplete()
-                                        }
-                                    }
                                 }
                                 currentTarget = nil
                             }
                             isAtCenter = true
+                            
+                            // Check completion AFTER setting isAtCenter
+                            // This ensures we only trigger once per digit entry
+                            if enteredDigits.count >= requiredDigits {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                    onComplete()
+                                }
+                            }
                         } else {
                             // Outside center - find nearest digit
                             isAtCenter = false

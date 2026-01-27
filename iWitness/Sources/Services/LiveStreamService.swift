@@ -121,9 +121,11 @@ class LiveStreamService: ObservableObject {
 
     // MARK: - Segment
 
+    // MARK: - Segment
+
     private struct StreamSegment {
         let number: Int
-        let data: Data
+        let fileURL: URL
         let duration: TimeInterval
         let timestamp: Date
     }
@@ -199,26 +201,79 @@ class LiveStreamService: ObservableObject {
 
         uploadTask?.cancel()
         playlistUpdateTask?.cancel()
-        uploadQueue.removeAll()
-
+        
+        // Cleanup remaining files
+        cleanupTemporaryFiles()
+        
         streamURL = nil
         incidentID = nil
         streamID = nil
     }
+    
+    private func cleanupTemporaryFiles() {
+        for segment in uploadQueue {
+            try? FileManager.default.removeItem(at: segment.fileURL)
+        }
+        uploadQueue.removeAll()
+    }
 
     /// Queue a video segment for streaming
-    func queueSegment(data: Data, duration: TimeInterval) {
+    /// - Parameter url: URL to the video segment file (will be copied)
+    func queueSegment(from url: URL, duration: TimeInterval) {
         guard isStreaming else { return }
 
-        let segment = StreamSegment(
-            number: segmentNumber,
-            data: data,
-            duration: duration,
-            timestamp: Date()
-        )
+        do {
+            // Copy to temp directory for streaming
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("iv_stream_\(streamID ?? "temp")")
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            
+            let destURL = tempDir.appendingPathComponent("seg_\(segmentNumber).mp4")
+            if FileManager.default.fileExists(atPath: destURL.path) {
+                try FileManager.default.removeItem(at: destURL)
+            }
+            try FileManager.default.copyItem(at: url, to: destURL)
+            
+            let segment = StreamSegment(
+                number: segmentNumber,
+                fileURL: destURL,
+                duration: duration,
+                timestamp: Date()
+            )
 
-        segmentNumber += 1
-        uploadQueue.append(segment)
+            segmentNumber += 1
+            uploadQueue.append(segment)
+            
+            // Safety Check: Manage Buffer Size (Resilience vs Disk Space)
+            // Goal: Buffer as much as possible (e.g., 30 mins = ~1000 segments @ 2s)
+            // Hard limit: Stop buffering if disk is nearing full (< 500MB free)
+            
+            let MAX_BUFFER_SEGMENTS = 1200 // ~40 minutes
+            
+            if uploadQueue.count > MAX_BUFFER_SEGMENTS {
+                if let old = uploadQueue.first {
+                    try? FileManager.default.removeItem(at: old.fileURL)
+                    uploadQueue.removeFirst()
+                    print("[LiveStream] Dropped oldest segment (Max Buffer Reached)")
+                    streamHealth = .degraded
+                }
+            } else {
+                // Optional: Check actual disk space every 50 segments
+                if segmentNumber % 50 == 0 {
+                    if let freeSpace = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())[.systemFreeSize] as? Int64,
+                       freeSpace < 500_000_000 { // 500MB
+                        // Emergency cleanup
+                        if let old = uploadQueue.first {
+                            try? FileManager.default.removeItem(at: old.fileURL)
+                            uploadQueue.removeFirst()
+                             print("[LiveStream] Dropped oldest segment (Low Disk Space)")
+                        }
+                    }
+                }
+            }
+            
+        } catch {
+            print("[LiveStream] Failed to queue segment: \(error)")
+        }
     }
 
     // MARK: - HLS Playlist Management
@@ -249,19 +304,23 @@ class LiveStreamService: ObservableObject {
         uploadTask = Task {
             while !Task.isCancelled && isStreaming {
                 if let segment = uploadQueue.first {
-                    uploadQueue.removeFirst()
-
+                    // Don't remove yet - wait for success
+                    
                     do {
                         try await uploadSegment(segment)
+                        
+                        // Success - remove from queue and disk
+                        uploadQueue.removeFirst()
+                        try? FileManager.default.removeItem(at: segment.fileURL)
+                        
                         appendToPlaylist(segment: segment)
                         segmentsUploaded += 1
                         streamHealth = .good
                     } catch {
                         // Retry logic
-                        uploadQueue.insert(segment, at: 0)
                         streamHealth = .degraded
                         lastError = .uploadFailed(error.localizedDescription)
-                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second retry delay
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second retry delay
                     }
                 } else {
                     try? await Task.sleep(nanoseconds: 100_000_000) // 100ms poll
@@ -278,6 +337,8 @@ class LiveStreamService: ObservableObject {
             }
         }
     }
+    
+    // ... playlist updater ...
 
     // MARK: - Upload Methods
 
@@ -285,30 +346,51 @@ class LiveStreamService: ObservableObject {
         let filename = "segment_\(String(format: "%05d", segment.number)).mp4"
 
         if r2AccountID != nil {
-            try await uploadToR2(data: segment.data, filename: filename)
+            try await uploadToR2(fileURL: segment.fileURL, filename: filename)
         } else if let serverURL = customServerURL {
-            try await uploadToCustomServer(data: segment.data, filename: filename, serverURL: serverURL)
+            try await uploadToCustomServer(fileURL: segment.fileURL, filename: filename, serverURL: serverURL)
         } else if hasNASConfig {
-            try await uploadToNAS(data: segment.data, filename: filename)
+            try await uploadToNAS(fileURL: segment.fileURL, filename: filename)
         }
     }
-
+    
     private func uploadPlaylist() async throws {
-        let filename = "stream.m3u8"
-        let data = playlistContent.data(using: .utf8) ?? Data()
-
-        if r2AccountID != nil {
-            try await uploadToR2(data: data, filename: filename, contentType: "application/vnd.apple.mpegurl")
-        } else if let serverURL = customServerURL {
-            try await uploadToCustomServer(data: data, filename: filename, serverURL: serverURL)
-        } else if hasNASConfig {
-            try await uploadToNAS(data: data, filename: filename)
-        }
+         // ... (keep playlist upload as data since it's small text) ...
+         let filename = "stream.m3u8"
+         let data = playlistContent.data(using: .utf8) ?? Data()
+         
+         if r2AccountID != nil {
+             try await uploadToR2(data: data, filename: filename, contentType: "application/vnd.apple.mpegurl")
+         } else if let serverURL = customServerURL {
+             try await uploadToCustomServer(data: data, filename: filename, serverURL: serverURL)
+         } else if hasNASConfig {
+             try await uploadToNAS(data: data, filename: filename)
+         }
     }
 
     // MARK: - Cloudflare R2 Upload
 
     private func uploadToR2(data: Data, filename: String, contentType: String = "video/mp4") async throws {
+        let request = try createR2Request(filename: filename, contentType: contentType, contentLength: data.count)
+        
+        // For Data, we can just use data(for:) but need to attach body?
+        // Actually for PUT with data(for:), we attach body to request
+        var uploadRequest = request
+        uploadRequest.httpBody = data
+        let (_, response) = try await URLSession.shared.data(for: uploadRequest)
+        try validateResponse(response)
+    }
+    
+    private func uploadToR2(fileURL: URL, filename: String, contentType: String = "video/mp4") async throws {
+         let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int) ?? 0
+         let request = try createR2Request(filename: filename, contentType: contentType, contentLength: fileSize)
+         
+         // Use upload(for:fromFile:)
+         let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
+         try validateResponse(response)
+    }
+    
+    private func createR2Request(filename: String, contentType: String, contentLength: Int) throws -> URLRequest {
         guard let accountID = r2AccountID,
               let bucketName = r2BucketName,
               let accessKey = r2AccessKey,
@@ -326,32 +408,35 @@ class LiveStreamService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
-        request.httpBody = data
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
-        // Sign request with AWS Signature V4 (R2 is S3-compatible)
-        let signedRequest = try signAWSRequest(
+        // Sign request
+        return try signAWSRequest(
             request: request,
             accessKey: accessKey,
             secretKey: secretKey,
             region: "auto",
             service: "s3"
         )
-
-        let (_, response) = try await URLSession.shared.data(for: signedRequest)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw StreamError.uploadFailed("HTTP error")
-        }
     }
 
     // MARK: - Custom Server Upload (WebDAV)
 
     private func uploadToCustomServer(data: Data, filename: String, serverURL: URL) async throws {
-        guard let streamID = streamID else {
-            throw StreamError.notConfigured
-        }
+        var request = createCustomServerRequest(filename: filename, serverURL: serverURL)
+        request.httpBody = data
+        let (_, response) = try await URLSession.shared.data(for: request)
+        try validateResponse(response)
+    }
+    
+    private func uploadToCustomServer(fileURL: URL, filename: String, serverURL: URL) async throws {
+        let request = createCustomServerRequest(filename: filename, serverURL: serverURL)
+        let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
+        try validateResponse(response)
+    }
+    
+    private func createCustomServerRequest(filename: String, serverURL: URL) -> URLRequest {
+        guard let streamID = streamID else { fatalError("StreamID missing") } // Should be checked before
 
         let uploadURL = serverURL
             .appendingPathComponent("streams")
@@ -360,7 +445,6 @@ class LiveStreamService: ObservableObject {
 
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "PUT"
-        request.httpBody = data
 
         if let auth = customServerAuth {
             let credentials = "\(auth.username):\(auth.password)"
@@ -368,18 +452,26 @@ class LiveStreamService: ObservableObject {
                 request.setValue("Basic \(credData.base64EncodedString())", forHTTPHeaderField: "Authorization")
             }
         }
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw StreamError.uploadFailed("Upload failed")
-        }
+        return request
     }
 
     // MARK: - NAS Upload (WebDAV)
 
     private func uploadToNAS(data: Data, filename: String) async throws {
+        guard let request = try prepareNASRequest(filename: filename) else { return }
+        var uploadRequest = request
+        uploadRequest.httpBody = data
+        let (_, response) = try await URLSession.shared.data(for: uploadRequest)
+        try validateResponse(response)
+    }
+    
+    private func uploadToNAS(fileURL: URL, filename: String) async throws {
+        guard let request = try prepareNASRequest(filename: filename) else { return }
+        let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
+        try validateResponse(response)
+    }
+    
+    private func prepareNASRequest(filename: String) throws -> URLRequest? {
         guard let nasURLString = UserDefaults.standard.string(forKey: "nas_url"),
               let nasURL = URL(string: nasURLString),
               let streamID = streamID else {
@@ -389,30 +481,32 @@ class LiveStreamService: ObservableObject {
         let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
         let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
 
-        // Create stream directory path
+        // Ensure directory exists (MKCOL) - usually once is enough but checking here is safe
+        // (Moved ensureNASDirectory call to startStream or check once per session for performance?)
+        // optimizing: call ensureNASDirectory in startStream, not here every segment.
+
         let uploadURL = nasURL
             .appendingPathComponent("iwitness")
             .appendingPathComponent("streams")
             .appendingPathComponent(streamID)
             .appendingPathComponent(filename)
 
-        // Ensure directory exists (MKCOL for WebDAV)
-        try await ensureNASDirectory(streamID: streamID, nasURL: nasURL, username: username, password: password)
-
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "PUT"
-        request.httpBody = data
 
         let credentials = "\(username):\(password)"
         if let credData = credentials.data(using: .utf8) {
             request.setValue("Basic \(credData.base64EncodedString())", forHTTPHeaderField: "Authorization")
         }
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-
+        return request
+    }
+    
+    // MARK: - Helper
+    
+    private func validateResponse(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) || httpResponse.statusCode == 201 else {
-            throw StreamError.uploadFailed("NAS upload failed")
+            throw StreamError.uploadFailed("HTTP Error \((response as? HTTPURLResponse)?.statusCode ?? 0)")
         }
     }
 

@@ -59,29 +59,33 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     private var sessionStartTime: Date?
 
     // MARK: - Queue Item
-
-    private struct QueuedChunk: Codable {
-        let chunkID: String // Unique ID for tracking
-        let chunkData: Data
+    
+    struct QueuedChunk: Codable {
+        let chunkID: String
+        let relativePath: String // Relative to Application Support
         let incidentID: String
         let chunkNumber: Int
         let addedAt: Date
+        let fileHash: String // SHA256 of the data for integrity/S3
         var uploadAttempts: Int = 0
-        var uploadedTo: Set<String> = [] // Names of destinations successfully uploaded to
+        var uploadedTo: Set<String> = []
         
-        // Helper to reconstruct EncryptedChunk metadata if needed, 
-        // essentially we just need the raw data and destination paths
+        var fileURL: URL? {
+            guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+            return support.appendingPathComponent(relativePath)
+        }
     }
-
+    
     // MARK: - Errors
-
+    
     enum UploadError: LocalizedError {
         case noDestinations
         case networkUnavailable
         case authenticationFailed
         case uploadFailed(String)
         case allDestinationsFailed
-
+        case fileNotFound
+        
         var errorDescription: String? {
             switch self {
             case .noDestinations: return "No upload destinations configured"
@@ -89,6 +93,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             case .authenticationFailed: return "Authentication failed"
             case .uploadFailed(let reason): return "Upload failed: \(reason)"
             case .allDestinationsFailed: return "All upload destinations failed"
+            case .fileNotFound: return "Source file verification failed"
             }
         }
     }
@@ -99,6 +104,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         super.init()
         setupBackgroundSession()
         setupNetworkMonitor()
+        loadPersistedQueue()
     }
 
     private func setupBackgroundSession() {
@@ -122,6 +128,40 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             }
         }
         networkMonitor.start(queue: DispatchQueue.global(qos: .utility))
+    }
+    
+    // MARK: - Queue Persistence (Production Hardening)
+    
+    private let queuePersistenceKey = "com.iwitness.uploadQueue"
+    
+    private func loadPersistedQueue() {
+        guard let data = UserDefaults.standard.data(forKey: queuePersistenceKey),
+              let queue = try? JSONDecoder().decode([QueuedChunk].self, from: data) else {
+            return
+        }
+        
+        queueLock.lock()
+        pendingQueue = queue
+        queueLock.unlock()
+        
+        Task { @MainActor in
+            self.queueDepth = queue.count
+        }
+        
+        if !queue.isEmpty {
+            print("[iWitness] Restored \(queue.count) pending uploads from previous session")
+            processQueue()
+        }
+    }
+    
+    private func persistQueue() {
+        queueLock.lock()
+        let queue = pendingQueue
+        queueLock.unlock()
+        
+        if let data = try? JSONEncoder().encode(queue) {
+            UserDefaults.standard.set(data, forKey: queuePersistenceKey)
+        }
     }
 
     // MARK: - Configuration
@@ -156,42 +196,73 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
 
     // MARK: - Queue Management
-
-    func queueChunk(_ chunk: EncryptedChunk) {
-        let chunkData = chunk.serialize()
+    
+    /// Queue a file handling the iWitness container format (IWC)
+    /// - Parameters:
+    ///   - url: URL to the ready-to-upload .iwc file (EncryptedChunk serialized)
+    ///   - incidentID: Incident ID
+    ///   - chunkNumber: Sequence number
+    ///   - hash: SHA256 hash of the file content
+    func queueChunk(fileURL: URL, incidentID: String, chunkNumber: Int, hash: String) {
+        // Calculate relative path for persistence
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first,
+              let relativePath = fileURL.path.components(separatedBy: support.path).last?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) else {
+            print("[UploadService] Failed to determine relative path for \(fileURL)")
+            return
+        }
+        
         let queuedChunk = QueuedChunk(
             chunkID: UUID().uuidString,
-            chunkData: chunkData,
-            incidentID: chunk.header.incidentID,
-            chunkNumber: chunk.header.chunkNumber,
-            addedAt: Date()
+            relativePath: relativePath,
+            incidentID: incidentID,
+            chunkNumber: chunkNumber,
+            addedAt: Date(),
+            fileHash: hash
         )
-
+        
         queueLock.lock()
         pendingQueue.append(queuedChunk)
         queueLock.unlock()
-
+        
+        persistQueue()
+        
         Task { @MainActor in
             self.queueDepth = pendingQueue.count
         }
-
+        
         processQueue()
     }
     
     private func processQueue() {
         guard isNetworkAvailable else { return }
         
+        // Safety: Warn user if queue is accumulating too much (Edge Case: Stranded Data)
         queueLock.lock()
-        // Simple processing: take items that haven't been uploaded to all destinations
-        // In a real app, logic would be more complex (parallelism limit etc)
-        // For background URLSession, we can just fire off tasks.
+        let count = pendingQueue.count
+        queueLock.unlock()
         
+        if count > 50 && count % 50 == 0 { // Notify at 50, 100, etc.
+            Task { @MainActor in
+                AlertService().triggerLocalNotification(
+                    title: "Upload Queue High",
+                    body: "\(count) items pending upload. Check your internet connection or storage destination.",
+                    identifier: "upload_queue_warning"
+                )
+            }
+        }
+        
+        queueLock.lock()
         for i in 0..<pendingQueue.count {
-            var chunk = pendingQueue[i]
+            let chunk = pendingQueue[i]
             
             // Check if fully uploaded
             if hasUploadedToAllDestinations(chunk) {
-                // Should remove, but loop safety... for now just skip
+                continue
+            }
+            
+            // Verify file exists
+            guard let url = chunk.fileURL, FileManager.default.fileExists(atPath: url.path) else {
+                print("[UploadService] Error: File missing for chunk \(chunk.chunkNumber)")
                 continue
             }
             
@@ -216,12 +287,10 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     // MARK: - Background Upload Initiation
     
     private func startBackgroundUpload(chunk: QueuedChunk, destination: UploadDestination) {
-        // We need to write data to a temp file for background upload
-        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("iwc")
+        // Use the persistent file directly - NO COPYING to temp
+        guard let sourceURL = chunk.fileURL else { return }
         
         do {
-            try chunk.chunkData.write(to: tempFile)
-            
             var request: URLRequest?
             
             switch destination.type {
@@ -230,16 +299,15 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             case .s3Compatible:
                 request = try createS3Request(chunk: chunk, destination: destination)
             default:
-                // Local save doesn't use URLSession
                 Task { try await saveLocally(chunk: chunk, destination: destination) }
                 return
             }
             
             if let request = request {
-                let task = backgroundSession.uploadTask(with: request, fromFile: tempFile)
-                task.taskDescription = "\(chunk.chunkID)|\(destination.name)" // Store context in description
+                // uploadTask(withRequest:fromFile:) enables true background upload
+                let task = backgroundSession.uploadTask(with: request, fromFile: sourceURL)
+                task.taskDescription = "\(chunk.chunkID)|\(destination.name)"
                 
-                // Track task
                 activeTasksLock.lock()
                 activeTasks[task.taskIdentifier] = chunk
                 activeTasksLock.unlock()
@@ -289,21 +357,16 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     private func createS3Request(chunk: QueuedChunk, destination: UploadDestination) throws -> URLRequest {
         guard let creds = destination.credentials,
               let accessKey = creds.apiKey,
-              let secretKey = creds.secretKey else {
+              let _ = creds.secretKey else {
             throw UploadError.authenticationFailed
         }
 
         let key = "\(chunk.incidentID)/chunk_\(String(format: "%05d", chunk.chunkNumber)).iwc"
-        // Need to reconstruct URL manually for R2/S3 usually
         
-        // Simplified S3 signing (same as before)
         var request = URLRequest(url: destination.url.appendingPathComponent(key))
         request.httpMethod = "PUT"
         
-        // Add headers...
-        // For background upload, we CANNOT stream body to calculate hash. 
-        // We must calculate before creating request.
-        let contentHash = SHA256.hash(data: chunk.chunkData).compactMap { String(format: "%02x", $0) }.joined()
+        let contentHash = chunk.fileHash
         
         let date = ISO8601DateFormatter().string(from: Date())
         request.setValue(date, forHTTPHeaderField: "x-amz-date")
@@ -311,7 +374,6 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         
         // Sign
-        // Placeholder signature for MVP
         let signature = "placeholder_sig" 
         request.setValue("AWS4-HMAC-SHA256 Credential=\(accessKey)/...,Signature=\(signature)", forHTTPHeaderField: "Authorization")
         
@@ -321,13 +383,20 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     // MARK: - Local Save
     
     private func saveLocally(chunk: QueuedChunk, destination: UploadDestination) async throws {
-        // Implementation for local save (same as previous)
-        // ...
-        // Upon success, update state manually
+        guard let sourceURL = chunk.fileURL else { return }
+        let filename = "chunk_\(String(format: "%05d", chunk.chunkNumber)).iwc"
+        let destURL = destination.url.appendingPathComponent(filename)
+        
+        try? FileManager.default.removeItem(at: destURL)
+        try FileManager.default.copyItem(at: sourceURL, to: destURL)
+        
         handleSuccess(chunkID: chunk.chunkID, destinationName: destination.name)
     }
 
     // MARK: - URLSessionDelegate Methods
+    
+    private let maxRetryAttempts = 5
+    private let retryDelays: [TimeInterval] = [1, 5, 30, 120, 600] // 1s, 5s, 30s, 2min, 10min
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let description = task.taskDescription else { return }
@@ -337,31 +406,52 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         let chunkID = String(components[0])
         let destName = String(components[1])
         
-        // Clean up temp file
-        if let originalRequest = task.originalRequest, 
-           let fileURL = originalRequest.httpBodyStream == nil ? nil : URL(string: "file_from_task") { // Tricky to get original file back
-           // Background upload handles file cleanup automatically for the uploaded file copy
-           // We just need to handle our own task tracking
-        }
-        
-        if let error = error {
-            print("[iWitness] Background upload failed for \(chunkID) to \(destName): \(error)")
-            // Logic to retry? 
-            // URLSession automatically retries some errors. 
-            // We can leave it in the queue for next pass.
-        } else {
-            // Success
-             // Check status code
-            if let response = task.response as? HTTPURLResponse, (200...299).contains(response.statusCode) {
-                handleSuccess(chunkID: chunkID, destinationName: destName)
-            } else {
-                print("[iWitness] Server error for \(chunkID) to \(destName): \((task.response as? HTTPURLResponse)?.statusCode ?? 0)")
-            }
-        }
-        
         activeTasksLock.lock()
         activeTasks.removeValue(forKey: task.taskIdentifier)
         activeTasksLock.unlock()
+        
+        if let error = error {
+            print("[iWitness] Background upload failed for \(chunkID) to \(destName): \(error)")
+            handleFailure(chunkID: chunkID, destinationName: destName)
+        } else {
+            // Check status code
+            if let response = task.response as? HTTPURLResponse, (200...299).contains(response.statusCode) {
+                handleSuccess(chunkID: chunkID, destinationName: destName)
+            } else {
+                let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 0
+                print("[iWitness] Server error for \(chunkID) to \(destName): \(statusCode)")
+                handleFailure(chunkID: chunkID, destinationName: destName)
+            }
+        }
+    }
+    
+    private func handleFailure(chunkID: String, destinationName: String) {
+        queueLock.lock()
+        if let index = pendingQueue.firstIndex(where: { $0.chunkID == chunkID }) {
+            var chunk = pendingQueue[index]
+            chunk.uploadAttempts += 1
+            pendingQueue[index] = chunk
+            
+            if chunk.uploadAttempts < maxRetryAttempts {
+                // Schedule retry with exponential backoff
+                let delayIndex = min(chunk.uploadAttempts - 1, retryDelays.count - 1)
+                let delay = retryDelays[delayIndex]
+                print("[iWitness] Retry \(chunk.uploadAttempts) for \(chunkID) in \(delay)s")
+                
+                // Find the destination and retry after delay
+                if let destination = destinations.first(where: { $0.name == destinationName }) {
+                    let chunkCopy = chunk
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.startBackgroundUpload(chunk: chunkCopy, destination: destination)
+                    }
+                }
+            } else {
+                print("[iWitness] Max retries reached for \(chunkID). Will retry when network allows.")
+            }
+        }
+        queueLock.unlock()
+        
+        persistQueue()
     }
     
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
@@ -388,8 +478,10 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         }
         queueLock.unlock()
         
+        persistQueue() // Production hardening: persist completed state
+        
         Task { @MainActor in
-            self.queueDepth = pendingQueue.count // Should use lock-safe count
+            self.queueDepth = pendingQueue.count
             if self.pendingQueue.isEmpty {
                 self.isUploading = false
             }

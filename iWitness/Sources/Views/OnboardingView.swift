@@ -60,8 +60,11 @@ struct OnboardingView: View {
                 SecurityDrillPage()
                     .tag(5)
 
-                CompletePage(dismiss: dismiss)
+                InvitePage()
                     .tag(6)
+
+                CompletePage(dismiss: dismiss)
+                    .tag(7)
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -897,6 +900,79 @@ struct SafePINOnboardingPage: View {
 
     private var isValid: Bool {
         pin1.count == 4 && pin1 == pin2
+    }
+}
+
+// MARK: - Invite Page
+
+struct InvitePage: View {
+    @State private var isAppeared = false
+    
+    // TODO: Replace with real App Store URL
+    private let appURL = URL(string: "https://apps.apple.com/app/id673949313")!
+    private let shareMessage = "I'm using iWitness to protect myself. It's a black box for your phone. Download it here:"
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
+
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.blue)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared)
+
+            VStack(spacing: Spacing.xs) {
+                Text("Build Your Network")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
+
+                Text("Safety is stronger in numbers.\nInvite family and friends to join your safety network.")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+            
+            VStack(spacing: Spacing.md) {
+                ShareLink(item: appURL, message: Text(shareMessage)) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("Invite Contacts")
+                            .font(Typography.bodyLarge)
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(Spacing.Radius.md)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .staggeredEntrance(isPresented: isAppeared, index: 2)
+
+            Spacer()
+            
+            Text("Tip: Witnesses who are also users can receive richer alerts")
+                .font(Typography.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
+        }
     }
 }
 

@@ -7,20 +7,26 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingOnboarding = false
     @State private var showingSavedConfirmation = false
+    
+    // Calculator Camouflage
+    @State private var isCamouflageUnlocked = false
+    
+    private var isCamouflageEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "calculator_camouflage")
+    }
 
     var body: some View {
         ZStack {
-            if appState.isICEModeActive {
-                RecordingView()
-            } else if showingSavedConfirmation {
-                RecordingSavedView(isShowing: $showingSavedConfirmation)
+            // Show calculator camouflage if enabled and not unlocked
+            if isCamouflageEnabled && !isCamouflageUnlocked {
+                CalculatorCamouflageView(isUnlocked: $isCamouflageUnlocked)
+                    .transition(.opacity)
             } else {
-                HomeView(
-                    showingSettings: $showingSettings,
-                    showingOnboarding: $showingOnboarding
-                )
+                // Normal app flow
+                mainContent
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: isCamouflageUnlocked)
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -34,6 +40,20 @@ struct ContentView: View {
             if oldValue == .recording && newValue == .uploading {
                 showingSavedConfirmation = true
             }
+        }
+    }
+    
+    @ViewBuilder
+    private var mainContent: some View {
+        if appState.isICEModeActive {
+            RecordingView()
+        } else if showingSavedConfirmation {
+            RecordingSavedView(isShowing: $showingSavedConfirmation)
+        } else {
+            HomeView(
+                showingSettings: $showingSettings,
+                showingOnboarding: $showingOnboarding
+            )
         }
     }
 

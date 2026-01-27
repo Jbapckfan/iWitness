@@ -43,3 +43,4 @@ Carthage/Build/
 *.env
 credentials.json
 secrets.plist
+marketing/assets/*.mp4

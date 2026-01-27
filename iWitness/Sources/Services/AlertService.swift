@@ -806,6 +806,25 @@ extension AlertService {
         UNUserNotificationCenter.current().add(request)
     }
     
+    // MARK: - Generic Notifications
+    
+    func triggerLocalNotification(title: String, body: String, identifier: String = UUID().uuidString) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        
+        // Immediate simple notification
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("[AlertService] Notification failed: \(error)")
+            }
+        }
+    }
+    
     /// Formatted string for remaining time
     var deadManSwitchTimeRemaining: String {
         let minutes = deadManSwitchSecondsRemaining / 60

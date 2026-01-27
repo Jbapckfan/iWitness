@@ -41,10 +41,6 @@ struct iWitnessApp: App {
         alertService.loadTwilioConfig()
         connectivityGuardian.configure(alertService: alertService)
 
-        // Load saved upload destinations
-        migrateSecretsToKeychain()
-        loadSavedUploadDestinations()
-
         // Setup Watch connectivity
         setupWatchConnectivity()
 
@@ -57,7 +53,12 @@ struct iWitnessApp: App {
         // Listen for Siri notifications
         setupSiriNotifications()
 
-        // Defer permission prompts to onboarding flow to avoid first-launch UI contention
+        // Defer heavy config/keychain lifting to background
+        let uploadService = self.uploadService
+        Task.detached(priority: .userInitiated) {
+            Self.migrateSecretsToKeychain()
+            await Self.loadSavedUploadDestinationsBackground(uploadService: uploadService)
+        }
     }
 
     private func setupWatchConnectivity() {
@@ -110,7 +111,8 @@ struct iWitnessApp: App {
     // Permission requests are handled in Onboarding
 
     // MARK: - Migration
-    private func migrateSecretsToKeychain() {
+    private static func migrateSecretsToKeychain() {
+        // Making static to avoid capturing self, though not strictly necessary
         // NAS password
         if let legacyNAS = UserDefaults.standard.string(forKey: "nas_password"),
            !legacyNAS.isEmpty,
@@ -128,28 +130,41 @@ struct iWitnessApp: App {
         }
     }
 
-    private func loadSavedUploadDestinations() {
-        // Load NAS configuration from UserDefaults
+    private static func loadSavedUploadDestinationsBackground(uploadService: UploadService) async {
+        // Load NAS configuration
+        var nasConfig: (URL, String, String)?
         if let nasURLString = UserDefaults.standard.string(forKey: "nas_url"),
            let nasURL = URL(string: nasURLString) {
             let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
             let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
-            uploadService.addNASDestination(url: nasURL, username: username, password: password)
-            print("[iWitness] Loaded NAS destination: \(nasURLString)")
+            nasConfig = (nasURL, username, password)
         }
 
-        // Load Cloud (R2) configuration if configured
+        // Load Cloud (R2) configuration
+        var cloudConfig: (String, String, String, String)?
         if let accountID = UserDefaults.standard.string(forKey: "cloud_account_id"),
            let bucketName = UserDefaults.standard.string(forKey: "cloud_bucket"),
            let accessKey = UserDefaults.standard.string(forKey: "cloud_access_key"),
            let secretKey = KeychainHelper.shared.read(service: "iWitness", account: "cloud_secret_key") {
-            uploadService.addR2Destination(
-                accountID: accountID,
-                bucketName: bucketName,
-                accessKeyID: accessKey,
-                secretAccessKey: secretKey
-            )
-            print("[iWitness] Loaded R2 cloud destination")
+            cloudConfig = (accountID, bucketName, accessKey, secretKey)
+        }
+        
+        // Update Service on Main Actor
+        await MainActor.run {
+            if let (url, user, pass) = nasConfig {
+                uploadService.addNASDestination(url: url, username: user, password: pass)
+                print("[iWitness] Loaded NAS destination: \(url)")
+            }
+            
+            if let (acc, bucket, access, secret) = cloudConfig {
+                uploadService.addR2Destination(
+                    accountID: acc,
+                    bucketName: bucket,
+                    accessKeyID: access,
+                    secretAccessKey: secret
+                )
+                print("[iWitness] Loaded R2 cloud destination")
+            }
         }
     }
 

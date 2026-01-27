@@ -35,6 +35,7 @@
 		CMP004 /* AnimatedGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC025 /* AnimatedGradient.swift */; };
 		CMP005 /* TransitionModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC026 /* TransitionModifiers.swift */; };
 		WGT001 /* iWitnessLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC027 /* iWitnessLiveActivity.swift */; };
+		VW007 /* CalculatorCamouflageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC028 /* CalculatorCamouflageView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +70,7 @@
 		SRC025 /* AnimatedGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedGradient.swift; sourceTree = "<group>"; };
 		SRC026 /* TransitionModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitionModifiers.swift; sourceTree = "<group>"; };
 		SRC027 /* iWitnessLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iWitnessLiveActivity.swift; sourceTree = "<group>"; };
+		SRC028 /* CalculatorCamouflageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorCamouflageView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +175,7 @@
 				SRC011 /* SettingsView.swift */,
 				SRC012 /* OnboardingView.swift */,
 				SRC015 /* RecordingsView.swift */,
+				SRC028 /* CalculatorCamouflageView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -304,6 +307,7 @@
 				CMP004 /* AnimatedGradient.swift in Sources */,
 				CMP005 /* TransitionModifiers.swift in Sources */,
 				WGT001 /* iWitnessLiveActivity.swift in Sources */,
+				VW007 /* CalculatorCamouflageView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

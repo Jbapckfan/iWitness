@@ -25,22 +25,28 @@ class ChunkWriter {
     private var isWriting = false
     private let lock = NSLock()
 
-    // MARK: - Temp Storage
-
-    private let tempDirectory: URL
-
+    // MARK: - Storage
+    
+    private let outputDirectory: URL
+    
     // MARK: - Initialization
-
+    
     init(incidentID: String, chunkDuration: TimeInterval, quality: AppState.VideoQuality, encryptionService: EncryptionService) {
         self.incidentID = incidentID
         self.chunkDuration = chunkDuration
         self.quality = quality
         self.encryptionService = encryptionService
-
-        // Create temp directory for chunks
-        let tempBase = FileManager.default.temporaryDirectory
-        self.tempDirectory = tempBase.appendingPathComponent("iWitness/\(incidentID)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        
+        // Use Application Support for persistent storage (excluded from backup)
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupport = paths[0].appendingPathComponent("iWitness/PendingUploads", isDirectory: true)
+        self.outputDirectory = appSupport.appendingPathComponent(incidentID, isDirectory: true)
+        
+        do {
+            try FileManager.default.createDirectory(at: self.outputDirectory, withIntermediateDirectories: true)
+        } catch {
+            print("[ChunkWriter] Failed to create output directory: \(error)")
+        }
     }
 
     // MARK: - Quality Updates
@@ -66,47 +72,50 @@ class ChunkWriter {
             try setupWriter()
             isWriting = true
         } catch {
-            print("[iWitness] Failed to setup chunk writer: \(error)")
+            print("[ChunkWriter] Failed to setup chunk writer: \(error)")
             isWriting = false
         }
     }
 
-    func finalizeCurrentChunk() async -> Data? {
+    /// Finishes writing and returns the URL to the persistent file
+    func finalizeCurrentChunk() async -> URL? {
         lock.lock()
         let writer = assetWriter
         let wasWriting = isWriting
         isWriting = false
         sessionStarted = false
         lock.unlock()
-
+        
         guard wasWriting, let writer = writer else { return nil }
-
+        
         // Mark inputs as finished
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
-
+        
         // Async wait for writer to finish (non-blocking)
         await withCheckedContinuation { continuation in
             writer.finishWriting {
                 continuation.resume()
             }
         }
-
-        // Read the data
+        
         let outputURL = writer.outputURL
-        let data = try? Data(contentsOf: outputURL)
-
-        // Clean up temp file
-        try? FileManager.default.removeItem(at: outputURL)
-
-        // Clear references
+        
+        // clear references
         lock.lock()
         assetWriter = nil
         videoInput = nil
         audioInput = nil
         lock.unlock()
-
-        return data
+        
+        // Verify file exists and has size
+        guard FileManager.default.fileExists(atPath: outputURL.path),
+              let attrs = try? FileManager.default.attributesOfItem(atPath: outputURL.path),
+              let size = attrs[.size] as? Int64, size > 0 else {
+            return nil
+        }
+        
+        return outputURL
     }
 
     // MARK: - Sample Appending
@@ -142,16 +151,18 @@ class ChunkWriter {
 
     // MARK: - Private Helpers
 
+    // MARK: - Private Helpers
+    
     private func setupWriter() throws {
-        let outputURL = tempDirectory.appendingPathComponent("chunk_\(currentChunkNumber).mp4")
-
+        let outputURL = outputDirectory.appendingPathComponent("chunk_\(currentChunkNumber).mp4")
+        
         // Remove existing file
         try? FileManager.default.removeItem(at: outputURL)
-
+        
         // Create writer
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
-
+        
         // Video input
         let videoSettings = videoOutputSettings()
         let vidInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
@@ -160,7 +171,7 @@ class ChunkWriter {
             writer.add(vidInput)
         }
         self.videoInput = vidInput
-
+        
         // Audio input
         let audioSettings = audioOutputSettings()
         let audInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
@@ -169,15 +180,15 @@ class ChunkWriter {
             writer.add(audInput)
         }
         self.audioInput = audInput
-
+        
         // Start writing
         guard writer.startWriting() else {
             throw NSError(domain: "ChunkWriter", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to start writing"])
         }
-
+        
         self.assetWriter = writer
     }
-
+    
     private func videoOutputSettings() -> [String: Any] {
         let resolution = quality.resolution
         
@@ -213,10 +224,12 @@ class ChunkWriter {
             AVEncoderBitRateKey: 128000  // 128kbps for stereo
         ]
     }
-
+    
     // MARK: - Cleanup
-
+    
     func cleanup() {
-        try? FileManager.default.removeItem(at: tempDirectory)
+        // We do NOT remove the directory here because UploadService needs the files.
+        // Files are cleaned up by UploadService after success.
+        // We only clear this instance's reference
     }
 }
