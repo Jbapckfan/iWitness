@@ -1,0 +1,735 @@
+import SwiftUI
+
+struct ContentView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var recordingService: RecordingService
+    @EnvironmentObject var uploadService: UploadService
+    @State private var showingSettings = false
+    @State private var showingOnboarding = false
+    @State private var showingSavedConfirmation = false
+    
+    // Calculator Camouflage
+    @State private var isCamouflageUnlocked = false
+    @State private var isDuressActive = false
+    
+    // Superlock State
+    @State private var isSuperlocked = false
+    
+    private var isCamouflageEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "calculator_camouflage")
+    }
+
+    var body: some View {
+        ZStack {
+            // Show calculator camouflage if enabled and not unlocked
+            if isCamouflageEnabled && !isCamouflageUnlocked {
+                CalculatorCamouflageView(
+                    isUnlocked: $isCamouflageUnlocked,
+                    isDuressActive: $isDuressActive
+                )
+                .transition(.opacity)
+            } else if isDuressActive {
+                // Duress Mode: Show Fake Gallery
+                FakeGalleryView()
+                    .transition(.opacity)
+            } else {
+                // Normal app flow
+                mainContent
+            }
+            
+            // SUPERLOCK OVERLAY (Highest priority)
+            if isSuperlocked {
+                Color.black
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Attempt unlock on tap
+                        attemptSuperlockUnlock()
+                    }
+                    .overlay(
+                        // Subtle hint only if user taps
+                        Text(isSuperlocked ? "" : "") // Placeholder to keep view alive
+                    )
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: isCamouflageUnlocked)
+        .animation(.default, value: isSuperlocked)
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showingOnboarding) {
+            OnboardingView()
+        }
+        .onAppear {
+            checkFirstLaunch()
+        }
+        .onChange(of: appState.recordingMode) { oldValue, newValue in
+            if oldValue == .recording && newValue == .uploading {
+                showingSavedConfirmation = true
+            }
+        }
+        .onReceive(recordingService.$shouldLockScreen) { shouldLock in
+            if shouldLock {
+                isSuperlocked = true
+            }
+        }
+    }
+    
+    private func attemptSuperlockUnlock() {
+        VaultManager.shared.authenticate { success in
+            if success {
+                withAnimation {
+                    isSuperlocked = false
+                    // Reset service state so it can be triggered again
+                    recordingService.shouldLockScreen = false
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var mainContent: some View {
+        if appState.isICEModeActive {
+            RecordingView()
+        } else if showingSavedConfirmation {
+            RecordingSavedView(isShowing: $showingSavedConfirmation)
+        } else {
+            HomeView(
+                showingSettings: $showingSettings,
+                showingOnboarding: $showingOnboarding
+            )
+        }
+    }
+
+    private func checkFirstLaunch() {
+        if !UserDefaults.standard.bool(forKey: "onboarding_complete") {
+            showingOnboarding = true
+        }
+    }
+}
+
+// MARK: - Recording Saved Confirmation
+
+struct RecordingSavedView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var recordingService: RecordingService
+    @Binding var isShowing: Bool
+
+    @State private var isViewAppeared = false
+    @State private var iconScale: CGFloat = 0.5
+    @State private var glowRadius: CGFloat = 10
+
+    var body: some View {
+        ZStack {
+            // Premium success glow background
+            SuccessGlowBackground()
+
+            VStack(spacing: Spacing.lg) {
+                Spacer()
+
+                // Success icon with entrance animation
+                ZStack {
+                    // Glow behind icon
+                    Circle()
+                        .fill(Colors.safeGreen.opacity(0.2))
+                        .frame(width: 120, height: 120)
+                        .blur(radius: glowRadius)
+
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 80))
+                        .foregroundColor(Colors.safeGreen)
+                        .scaleEffect(iconScale)
+                }
+                .onAppear {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        iconScale = 1.0
+                    }
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                        glowRadius = 25
+                    }
+                }
+
+                VStack(spacing: Spacing.xs) {
+                    Text("RECORDING SAVED")
+                        .font(Typography.headline1)
+                        .tracking(1)
+
+                    Text("Your footage is safe")
+                        .font(Typography.bodyLarge)
+                        .foregroundColor(.secondary)
+                }
+                .fadeScaleEntrance(isPresented: isViewAppeared, delay: 0.2)
+
+                // Storage status in glass card
+                GlassCard(material: .thinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        // Photos backup - Front camera
+                        if recordingService.isDualCameraSupported {
+                            SaveStatusRow(
+                                title: "Front Camera",
+                                subtitle: recordingService.frontSavedToPhotos ? "Saved to Photos" : "Saving...",
+                                isComplete: recordingService.frontSavedToPhotos
+                            )
+
+                            SaveStatusRow(
+                                title: "Back Camera",
+                                subtitle: recordingService.backSavedToPhotos ? "Saved to Photos" : "Saving...",
+                                isComplete: recordingService.backSavedToPhotos
+                            )
+                        } else {
+                            SaveStatusRow(
+                                title: "Photos Library",
+                                subtitle: recordingService.savedToPhotos ? "Saved" : "Saving...",
+                                isComplete: recordingService.savedToPhotos
+                            )
+                        }
+
+                        Divider()
+                            .opacity(0.3)
+
+                        SaveStatusRow(
+                            title: "Secure Offsite Backup",
+                            subtitle: uploadService.queueDepth == 0 ? "Complete" : "\(uploadService.queueDepth) segments uploading...",
+                            isComplete: uploadService.queueDepth == 0
+                        )
+                    }
+                }
+                .padding(.horizontal, Spacing.lg)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 2)
+
+                Spacer()
+
+                // Done button
+                PremiumPrimaryButton(
+                    title: "DONE",
+                    icon: nil,
+                    color: Colors.safeGreen
+                ) {
+                    isShowing = false
+                    appState.reset()
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 3)
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isViewAppeared = true
+            }
+        }
+    }
+}
+
+// MARK: - Save Status Row
+
+struct SaveStatusRow: View {
+    let title: String
+    let subtitle: String
+    let isComplete: Bool
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            if isComplete {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Colors.safeGreen)
+                    .font(.system(size: 18))
+            } else {
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .tint(Colors.warningOrange)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Typography.bodyMedium)
+                    .fontWeight(.semibold)
+                Text(subtitle)
+                    .font(Typography.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Home View (Tactical Terminal)
+
+struct HomeView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var recordingService: RecordingService
+    @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var liveStreamService: LiveStreamService
+    @Binding var showingSettings: Bool
+    @Binding var showingOnboarding: Bool
+
+    @State private var isViewAppeared = false
+    
+    // Scrolling diag text
+    @State private var diagLog: [String] = []
+    let timer = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Background: Deep Black with Grid
+                Color.black.ignoresSafeArea()
+                TacticalGrid().opacity(0.3)
+                
+                VStack(spacing: 0) {
+                    // Header: System Identity
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("ON_THE_RECORD // V2.0")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(Colors.witnessRed)
+                            Text("SECURE_ENCLAVE: ACTIVE")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        
+                        // Settings / Info Gear
+                        HStack(spacing: 20) {
+                            Button { showingOnboarding = true } label: {
+                                Image(systemName: "questionmark.square.dashed")
+                                    .font(.system(size: 20))
+                            }
+                            Button { showingSettings = true } label: {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 20))
+                            }
+                        }
+                        .foregroundColor(.white)
+                    }
+                    .padding()
+                    .background(Colors.glassDark)
+                    
+                    // Main Terminal Display
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            
+                            // 1. Diagnostics Log (Aesthetic)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(diagLog.suffix(5), id: \.self) { log in
+                                    Text("> \(log)")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(.green.opacity(0.7))
+                                        .transition(.opacity)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(Color.black.opacity(0.5))
+                            .border(Color.green.opacity(0.2), width: 1)
+                            .padding(.horizontal)
+                            
+                            // 2. Critical Status check
+                            VStack(spacing: 12) {
+                                SystemCheckRow(label: "CONTACTS_LINK", status: !alertService.contacts.isEmpty)
+                                SystemCheckRow(label: "OFFSHORE_UPLINK", status: UserDefaults.standard.string(forKey: "nas_url") != nil)
+                                SystemCheckRow(label: "CAMERA_MATRIX", status: true)
+                            }
+                            .padding(.horizontal)
+                            
+                            Spacer(minLength: 40)
+                            
+                            // 3. Activation Core
+                            ZStack {
+                                // Industrial Ring
+                                Circle()
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                                    .frame(width: 260, height: 260)
+                                
+                                // Dashed Ring
+                                Circle()
+                                    .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                                    .frame(width: 290, height: 290)
+                                    .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
+                                    .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
+                                
+                                ActivationButton()
+                            }
+                            
+                            Text("SYSTEM_ARMED // READY_TO_ENGAGE")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .foregroundColor(Colors.safeGreen)
+                                .tracking(2)
+                                .padding(.top, 20)
+                            
+                        }
+                        .padding(.vertical)
+                    }
+                }
+            }
+            .navigationBarHidden(true)
+            .onAppear {
+                isViewAppeared = true
+                addLog("INIT_SYSTEM_CORE")
+            }
+            .onReceive(timer) { _ in
+                 addRandomLog()
+            }
+        }
+    }
+    
+    private func addLog(_ text: String) {
+        withAnimation {
+            diagLog.append(text)
+            if diagLog.count > 10 { diagLog.removeFirst() }
+        }
+    }
+    
+    private func addRandomLog() {
+        let logs = [
+            "CHECK_MEM_INTEGRITY... OK",
+            "PING_OFFSHORE... 24ms",
+            "ENCR_KEYS_VERIFIED",
+            "AUDIO_SUB_SYSTEM... READY",
+            "GPS_TRIANGULATION... ACQUIRED",
+            "OPTICAL_SENSORS... CALIBRATED"
+        ]
+        addLog(logs.randomElement()!)
+    }
+}
+
+// MARK: - Components
+
+struct SystemCheckRow: View {
+    let label: String
+    let status: Bool
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .foregroundColor(.white)
+            
+            Spacer()
+            
+            Text(status ? "[ONLINE]" : "[OFFLINE]")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(status ? Colors.safeGreen : Colors.errorRed)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.05))
+        .border(status ? Colors.safeGreen.opacity(0.3) : Colors.errorRed.opacity(0.3), width: 1)
+    }
+}
+
+// Re-using TacticalGrid from HUD
+
+
+// MARK: - Pressable Button Style
+
+struct PressableButtonStyle: ButtonStyle {
+    @Binding var isPressed: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, newValue in
+                isPressed = newValue
+            }
+    }
+}
+
+// MARK: - Activation Button
+
+struct ActivationButton: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var recordingService: RecordingService
+    @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var liveStreamService: LiveStreamService
+
+    @State private var isPressed = false
+    @State private var isActivating = false
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var glowIntensity: CGFloat = 0.4
+
+    var body: some View {
+        Button {
+            activateWitnessMode()
+        } label: {
+            ZStack {
+                // Outer glow ring
+                Circle()
+                    .fill(DesignSystem.witnessRed.opacity(0.15))
+                    .frame(width: 280, height: 280)
+                    .blur(radius: 20)
+                    .scaleEffect(pulseScale)
+
+                // Outer pulse ring
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                DesignSystem.witnessRed.opacity(0.5),
+                                DesignSystem.witnessRed.opacity(0.2)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 260, height: 260)
+                    .scaleEffect(pulseScale)
+
+                // Main button with premium gradient
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                DesignSystem.witnessRed,
+                                DesignSystem.witnessRed.opacity(0.85)
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.4), Color.white.opacity(0.1)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                    .shadow(color: DesignSystem.witnessRed.opacity(glowIntensity), radius: isPressed ? 35 : 25, y: 0)
+                    .scaleEffect(isPressed ? 0.95 : 1.0)
+
+                // Content
+                if isActivating {
+                    VStack(spacing: Spacing.sm) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                        Text("ACTIVATING")
+                            .font(Typography.headline3)
+                            .foregroundColor(.white)
+                    }
+                } else {
+                    VStack(spacing: Spacing.sm) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 56, weight: .medium))
+
+                        Text("WITNESS")
+                            .font(.system(size: 28, weight: .heavy))
+                            .tracking(1)
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+        .buttonStyle(PressableButtonStyle(isPressed: $isPressed))
+        .disabled(isActivating)
+        .accessibilityLabel("Activate Witness Mode")
+        .accessibilityHint("Tap to start recording and send alerts to your emergency contacts")
+        .onAppear {
+            startPulseAnimation()
+            startGlowAnimation()
+            startBreathingAnimation()
+        }
+    }
+
+    private func startPulseAnimation() {
+        withAnimation(
+            .easeInOut(duration: 2.5)
+            .repeatForever(autoreverses: false)
+        ) {
+            pulseScale = 1.3
+        }
+    }
+    
+    private func startBreathingAnimation() {
+        withAnimation(
+            .easeInOut(duration: 2.0)
+            .repeatForever(autoreverses: true)
+        ) {
+            // Subtle "breathing" of the main button
+            glowIntensity = 0.8
+        }
+    }
+
+    private func startGlowAnimation() {
+        withAnimation(
+            .easeInOut(duration: 2.0)
+            .repeatForever(autoreverses: true)
+        ) {
+            glowIntensity = 0.6
+        }
+    }
+
+    // ... (rest of method)
+
+    private func activateWitnessMode() {
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.impactOccurred()
+
+        // Show activating state
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isActivating = true
+        }
+
+        // Activate
+        appState.activateICEMode()
+
+        let incidentID = appState.currentIncidentID ?? "unknown"
+
+        // Start recording and streaming
+        Task {
+            do {
+                // 1. Start recording (saves to device + uploads chunks to NAS)
+                try await recordingService.startRecording(
+                    incidentID: incidentID,
+                    quality: appState.currentQuality
+                )
+
+                // 2. Start Live Activity for Dynamic Island
+                LiveActivityManager.shared.start(incidentID: incidentID)
+
+                // 3. Start live stream if configured (generates shareable URL)
+                var streamURLString: String? = nil
+                if liveStreamService.isConfigured {
+                    do {
+                        let streamURL = try await liveStreamService.startStream(incidentID: incidentID)
+                        streamURLString = streamURL.absoluteString
+                        print("[OnTheRecord] Live stream started: \(streamURLString ?? "none")")
+                    } catch {
+                        print("[OnTheRecord] Live stream failed (continuing without): \(error)")
+                        // Continue without live stream - recording still works
+                    }
+                }
+
+                // 4. Send alerts to contacts (includes live stream URL if available)
+                await alertService.sendEmergencyAlert(
+                    incidentID: incidentID,
+                    location: appState.currentLocation,
+                    streamURL: streamURLString
+                )
+
+                // Success haptic
+                let successGenerator = UINotificationFeedbackGenerator()
+                successGenerator.notificationOccurred(.success)
+
+            } catch {
+                print("[OnTheRecord] Failed to start recording: \(error)")
+
+                // Error haptic
+                let errorGenerator = UINotificationFeedbackGenerator()
+                errorGenerator.notificationOccurred(.error)
+
+                withAnimation {
+                    isActivating = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Readiness Bar
+
+struct ReadinessBar: View {
+    @EnvironmentObject var alertService: AlertService
+
+    private var hasContacts: Bool { !alertService.contacts.isEmpty }
+    private var hasStorage: Bool { UserDefaults.standard.string(forKey: "nas_url") != nil }
+
+    var body: some View {
+        GlassCard(material: .regularMaterial, padding: Spacing.md) {
+            HStack(spacing: Spacing.md) {
+                // Pulse Dot
+                Circle()
+                    .fill(Colors.safeGreen)
+                    .frame(width: 12, height: 12)
+                    .glowEffect(color: Colors.safeGreen, intensity: 0.6)
+                    .overlay(
+                        Circle()
+                            .stroke(Colors.safeGreen.opacity(0.5), lineWidth: 1)
+                            .scaleEffect(1.4)
+                            .opacity(0.5)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SYSTEM ARMED")
+                        .font(Typography.label)
+                        .fontWeight(.black)
+                        .foregroundColor(Colors.safeGreen)
+                        .tracking(1.5)
+                    
+                    Text("Ready for immediate recording")
+                        .font(Typography.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "shield.checkerboard")
+                    .font(.system(size: 24))
+                    .foregroundColor(Colors.safeGreen.opacity(0.8))
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                .stroke(
+                    LinearGradient(
+                        colors: [Colors.safeGreen.opacity(0.3), Colors.safeGreen.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+    }
+}
+
+// MARK: - TacticalGrid (Shared Component)
+
+struct TacticalGrid: View {
+    var body: some View {
+        GeometryReader { geometry in
+            Path { path in
+                let w = geometry.size.width
+                let h = geometry.size.height
+                
+                // Rule of thirds
+                path.move(to: CGPoint(x: w / 3, y: 0)); path.addLine(to: CGPoint(x: w / 3, y: h))
+                path.move(to: CGPoint(x: 2 * w / 3, y: 0)); path.addLine(to: CGPoint(x: 2 * w / 3, y: h))
+                path.move(to: CGPoint(x: 0, y: h / 3)); path.addLine(to: CGPoint(x: w, y: h / 3))
+                path.move(to: CGPoint(x: 0, y: 2 * h / 3)); path.addLine(to: CGPoint(x: w, y: 2 * h / 3))
+                
+                // Corner Brackets
+                // TL
+                path.move(to: CGPoint(x: 20, y: 60)); path.addLine(to: CGPoint(x: 20, y: 20))
+                path.addLine(to: CGPoint(x: 60, y: 20))
+                // TR
+                path.move(to: CGPoint(x: w - 60, y: 20)); path.addLine(to: CGPoint(x: w - 20, y: 20))
+                path.addLine(to: CGPoint(x: w - 20, y: 60))
+                // BL
+                path.move(to: CGPoint(x: 20, y: h - 60)); path.addLine(to: CGPoint(x: 20, y: h - 20))
+                path.addLine(to: CGPoint(x: 60, y: h - 20))
+                // BR
+                path.move(to: CGPoint(x: w - 60, y: h - 20)); path.addLine(to: CGPoint(x: w - 20, y: h - 20))
+                path.addLine(to: CGPoint(x: w - 20, y: h - 60))
+            }
+            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        }
+    }
+}
+
+#Preview {
+    ContentView()
+        .environmentObject(AppState())
+        .environmentObject(RecordingService())
+        .environmentObject(UploadService())
+        .environmentObject(AlertService())
+}
+

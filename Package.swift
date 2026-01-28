@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-    name: "iWitness",
+    name: "OnTheRecord",
     platforms: [
         .iOS(.v17)
     ],
     products: [
         .library(
-            name: "iWitnessCore",
-            targets: ["iWitnessCore"]
+            name: "OnTheRecordCore",
+            targets: ["OnTheRecordCore"]
         )
     ],
     targets: [
         .target(
-            name: "iWitnessCore",
+            name: "OnTheRecordCore",
             dependencies: [],
-            path: "iWitness/Sources"
+            path: "OnTheRecord/Sources"
         )
     ]
 )

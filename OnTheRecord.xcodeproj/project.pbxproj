@@ -1,0 +1,566 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3FC0561F863C59014F9D5653 /* RecordingHUDOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9808E844C3E3AB69B1647EF /* RecordingHUDOverlay.swift */; };
+		4A819BD58EF126F2D4263C1C /* WebDAVService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BDFDFA9233ED14AF37ADB6 /* WebDAVService.swift */; };
+		5AB893F3A722D01AEB4C105F /* OnTheRecordCloudService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11746190614D836983CCCCC4 /* OnTheRecordCloudService.swift */; };
+		77DE98D64C6A1CCF54FA0992 /* ShakeGestureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED54425D9DEB37FE0FFB9F67 /* ShakeGestureService.swift */; };
+		9818A55236B3468D0F269BC5 /* LegalComplianceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDBC26FEB709D33FD63F809 /* LegalComplianceService.swift */; };
+		APP001 /* OnTheRecordApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC001 /* OnTheRecordApp.swift */; };
+		CMP001 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC022 /* GlassCard.swift */; };
+		CMP002 /* PremiumButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC023 /* PremiumButton.swift */; };
+		CMP003 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC024 /* StatusBadge.swift */; };
+		CMP004 /* AnimatedGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC025 /* AnimatedGradient.swift */; };
+		CMP005 /* TransitionModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC026 /* TransitionModifiers.swift */; };
+		ED4586C70A5696AD26B83609 /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9780B3CB0F1305D3C0AE80B9 /* StoreManager.swift */; };
+		MOD001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC002 /* AppState.swift */; };
+		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ASSET01 /* Assets.xcassets */; };
+		SVC001 /* RecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC003 /* RecordingService.swift */; };
+		SVC002 /* ChunkWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC004 /* ChunkWriter.swift */; };
+		SVC003 /* EncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005 /* EncryptionService.swift */; };
+		SVC004 /* UploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006 /* UploadService.swift */; };
+		SVC005 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007 /* LocationService.swift */; };
+		SVC006 /* AlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008 /* AlertService.swift */; };
+		SVC007 /* PhoneConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC013 /* PhoneConnectivityManager.swift */; };
+		SVC008 /* SiriShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014 /* SiriShortcutManager.swift */; };
+		SVC009 /* NASBrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC016 /* NASBrowserService.swift */; };
+		SVC010 /* LiveStreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC017 /* LiveStreamService.swift */; };
+		SVC011 /* ConnectivityGuardian.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC018 /* ConnectivityGuardian.swift */; };
+		SVC012 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC019 /* LiveActivityManager.swift */; };
+		UTIL001 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC020 /* KeychainHelper.swift */; };
+		VW001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009 /* ContentView.swift */; };
+		VW002 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* RecordingView.swift */; };
+		VW003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011 /* SettingsView.swift */; };
+		VW004 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* OnboardingView.swift */; };
+		VW005 /* RecordingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC015 /* RecordingsView.swift */; };
+		VW006 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC021 /* DesignSystem.swift */; };
+		VW007 /* CalculatorCamouflageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC028 /* CalculatorCamouflageView.swift */; };
+		WGT001 /* OnTheRecordLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC027 /* OnTheRecordLiveActivity.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		11746190614D836983CCCCC4 /* OnTheRecordCloudService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnTheRecordCloudService.swift; sourceTree = "<group>"; };
+		9780B3CB0F1305D3C0AE80B9 /* StoreManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
+		9CDBC26FEB709D33FD63F809 /* LegalComplianceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LegalComplianceService.swift; sourceTree = "<group>"; };
+		ASSET01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B9808E844C3E3AB69B1647EF /* RecordingHUDOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingHUDOverlay.swift; sourceTree = "<group>"; };
+		ED54425D9DEB37FE0FFB9F67 /* ShakeGestureService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShakeGestureService.swift; sourceTree = "<group>"; };
+		ENT001 /* OnTheRecord.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OnTheRecord.entitlements; sourceTree = "<group>"; };
+		F7BDFDFA9233ED14AF37ADB6 /* WebDAVService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebDAVService.swift; sourceTree = "<group>"; };
+		INFO01 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		PROD01 /* OnTheRecord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OnTheRecord.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		SRC001 /* OnTheRecordApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnTheRecordApp.swift; sourceTree = "<group>"; };
+		SRC002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		SRC003 /* RecordingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingService.swift; sourceTree = "<group>"; };
+		SRC004 /* ChunkWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkWriter.swift; sourceTree = "<group>"; };
+		SRC005 /* EncryptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionService.swift; sourceTree = "<group>"; };
+		SRC006 /* UploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadService.swift; sourceTree = "<group>"; };
+		SRC007 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		SRC008 /* AlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertService.swift; sourceTree = "<group>"; };
+		SRC009 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		SRC010 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		SRC011 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		SRC012 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		SRC013 /* PhoneConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneConnectivityManager.swift; sourceTree = "<group>"; };
+		SRC014 /* SiriShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriShortcutManager.swift; sourceTree = "<group>"; };
+		SRC015 /* RecordingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingsView.swift; sourceTree = "<group>"; };
+		SRC016 /* NASBrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NASBrowserService.swift; sourceTree = "<group>"; };
+		SRC017 /* LiveStreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamService.swift; sourceTree = "<group>"; };
+		SRC018 /* ConnectivityGuardian.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityGuardian.swift; sourceTree = "<group>"; };
+		SRC019 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		SRC020 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		SRC021 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		SRC022 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		SRC023 /* PremiumButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumButton.swift; sourceTree = "<group>"; };
+		SRC024 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		SRC025 /* AnimatedGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedGradient.swift; sourceTree = "<group>"; };
+		SRC026 /* TransitionModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitionModifiers.swift; sourceTree = "<group>"; };
+		SRC027 /* OnTheRecordLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnTheRecordLiveActivity.swift; sourceTree = "<group>"; };
+		SRC028 /* CalculatorCamouflageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorCamouflageView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FRM001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		GRP001 /* OnTheRecord */ = {
+			isa = PBXGroup;
+			children = (
+				GRP003 /* Sources */,
+				GRP008 /* Resources */,
+			);
+			path = OnTheRecord;
+			sourceTree = "<group>";
+		};
+		GRP002 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				PROD01 /* OnTheRecord.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		GRP003 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				GRP004 /* App */,
+				GRP005 /* Models */,
+				GRP006 /* Services */,
+				GRP007 /* Views */,
+				GRP009 /* Utilities */,
+				GRP011 /* Widgets */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		GRP004 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				SRC001 /* OnTheRecordApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		GRP005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				SRC002 /* AppState.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		GRP006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				SRC003 /* RecordingService.swift */,
+				SRC004 /* ChunkWriter.swift */,
+				SRC005 /* EncryptionService.swift */,
+				SRC006 /* UploadService.swift */,
+				SRC007 /* LocationService.swift */,
+				SRC008 /* AlertService.swift */,
+				SRC013 /* PhoneConnectivityManager.swift */,
+				SRC014 /* SiriShortcutManager.swift */,
+				SRC016 /* NASBrowserService.swift */,
+				SRC017 /* LiveStreamService.swift */,
+				SRC018 /* ConnectivityGuardian.swift */,
+				SRC019 /* LiveActivityManager.swift */,
+				ED54425D9DEB37FE0FFB9F67 /* ShakeGestureService.swift */,
+				9CDBC26FEB709D33FD63F809 /* LegalComplianceService.swift */,
+				F7BDFDFA9233ED14AF37ADB6 /* WebDAVService.swift */,
+				11746190614D836983CCCCC4 /* OnTheRecordCloudService.swift */,
+				9780B3CB0F1305D3C0AE80B9 /* StoreManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		GRP007 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				GRP010 /* Components */,
+				SRC009 /* ContentView.swift */,
+				SRC021 /* DesignSystem.swift */,
+				SRC010 /* RecordingView.swift */,
+				SRC011 /* SettingsView.swift */,
+				SRC012 /* OnboardingView.swift */,
+				SRC015 /* RecordingsView.swift */,
+				SRC028 /* CalculatorCamouflageView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		GRP008 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				ASSET01 /* Assets.xcassets */,
+				INFO01 /* Info.plist */,
+				ENT001 /* OnTheRecord.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		GRP009 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				SRC020 /* KeychainHelper.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		GRP010 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				SRC025 /* AnimatedGradient.swift */,
+				SRC022 /* GlassCard.swift */,
+				SRC023 /* PremiumButton.swift */,
+				SRC024 /* StatusBadge.swift */,
+				SRC026 /* TransitionModifiers.swift */,
+				B9808E844C3E3AB69B1647EF /* RecordingHUDOverlay.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		GRP011 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				SRC027 /* OnTheRecordLiveActivity.swift */,
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+		ROOT01 = {
+			isa = PBXGroup;
+			children = (
+				GRP001 /* OnTheRecord */,
+				GRP002 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		TGT001 /* OnTheRecord */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFG003 /* Build configuration list for PBXNativeTarget "OnTheRecord" */;
+			buildPhases = (
+				SRC100 /* Sources */,
+				FRM001 /* Frameworks */,
+				RES100 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OnTheRecord;
+			productName = OnTheRecord;
+			productReference = PROD01 /* OnTheRecord.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PRJ001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					TGT001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = CFG001 /* Build configuration list for PBXProject "OnTheRecord" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				es,
+			);
+			mainGroup = ROOT01;
+			productRefGroup = GRP002 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				TGT001 /* OnTheRecord */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		RES100 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				RES001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		SRC100 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				APP001 /* OnTheRecordApp.swift in Sources */,
+				MOD001 /* AppState.swift in Sources */,
+				SVC001 /* RecordingService.swift in Sources */,
+				SVC002 /* ChunkWriter.swift in Sources */,
+				SVC003 /* EncryptionService.swift in Sources */,
+				SVC004 /* UploadService.swift in Sources */,
+				SVC005 /* LocationService.swift in Sources */,
+				SVC006 /* AlertService.swift in Sources */,
+				SVC007 /* PhoneConnectivityManager.swift in Sources */,
+				SVC008 /* SiriShortcutManager.swift in Sources */,
+				VW001 /* ContentView.swift in Sources */,
+				VW002 /* RecordingView.swift in Sources */,
+				VW003 /* SettingsView.swift in Sources */,
+				VW004 /* OnboardingView.swift in Sources */,
+				VW005 /* RecordingsView.swift in Sources */,
+				SVC009 /* NASBrowserService.swift in Sources */,
+				SVC010 /* LiveStreamService.swift in Sources */,
+				SVC011 /* ConnectivityGuardian.swift in Sources */,
+				SVC012 /* LiveActivityManager.swift in Sources */,
+				UTIL001 /* KeychainHelper.swift in Sources */,
+				VW006 /* DesignSystem.swift in Sources */,
+				CMP001 /* GlassCard.swift in Sources */,
+				CMP002 /* PremiumButton.swift in Sources */,
+				CMP003 /* StatusBadge.swift in Sources */,
+				CMP004 /* AnimatedGradient.swift in Sources */,
+				CMP005 /* TransitionModifiers.swift in Sources */,
+				WGT001 /* OnTheRecordLiveActivity.swift in Sources */,
+				VW007 /* CalculatorCamouflageView.swift in Sources */,
+				77DE98D64C6A1CCF54FA0992 /* ShakeGestureService.swift in Sources */,
+				9818A55236B3468D0F269BC5 /* LegalComplianceService.swift in Sources */,
+				3FC0561F863C59014F9D5653 /* RecordingHUDOverlay.swift in Sources */,
+				4A819BD58EF126F2D4263C1C /* WebDAVService.swift in Sources */,
+				5AB893F3A722D01AEB4C105F /* OnTheRecordCloudService.swift in Sources */,
+				ED4586C70A5696AD26B83609 /* StoreManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CFG101 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 529ZZJHQR4;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CFG102 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 529ZZJHQR4;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CFG201 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OnTheRecord/Resources/OnTheRecord.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OnTheRecord/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OnTheRecord;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iwitness.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CFG202 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OnTheRecord/Resources/OnTheRecord.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OnTheRecord/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OnTheRecord;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iwitness.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CFG001 /* Build configuration list for PBXProject "OnTheRecord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG101 /* Debug */,
+				CFG102 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFG003 /* Build configuration list for PBXNativeTarget "OnTheRecord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG201 /* Debug */,
+				CFG202 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PRJ001 /* Project object */;
+}

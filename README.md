@@ -1,4 +1,4 @@
-# iWitness
+# OnTheRecord
 
 **Evidence survivability software for civil liberties documentation.**
 
@@ -6,7 +6,7 @@
 
 ## Quick Start
 
-1. Open `iWitness.xcodeproj` in Xcode 15+
+1. Open `OnTheRecord.xcodeproj` in Xcode 15+
 2. Select your Apple Developer Team in Signing & Capabilities
 3. Connect your iPhone
 4. Build and run (Cmd+R)
@@ -14,10 +14,10 @@
 ## Project Structure
 
 ```
-iWitness/
+OnTheRecord/
 ├── Sources/
 │   ├── App/
-│   │   └── iWitnessApp.swift       # App entry point
+│   │   └── OnTheRecordApp.swift       # App entry point
 │   ├── Models/
 │   │   └── AppState.swift          # Global state management
 │   ├── Services/
@@ -34,7 +34,7 @@ iWitness/
 │       └── OnboardingView.swift    # First-launch setup
 └── Resources/
     ├── Info.plist                  # App permissions
-    ├── iWitness.entitlements       # Capabilities
+    ├── OnTheRecord.entitlements       # Capabilities
     └── Assets.xcassets/            # App icons & colors
 ```
 
@@ -51,7 +51,7 @@ iWitness/
 ## Setup Your NAS
 
 1. Enable WebDAV on your Ugreen NAS (UGOS Pro Settings)
-2. Create a folder for iWitness footage
+2. Create a folder for OnTheRecord footage
 3. Note the WebDAV URL (e.g., `https://192.168.1.100:5006/webdav/iwitness`)
 4. In the app, go to Settings > NAS Storage and enter credentials
 

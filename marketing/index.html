@@ -147,104 +147,280 @@
     <section class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
         <!-- Video Background -->
         <div class="absolute inset-0 z-0">
-            <video autoplay loop muted playsinline class="w-full h-full object-cover opacity-50 scale-105">
+            <video autoplay loop muted playsinline
+                class="w-full h-full object-cover opacity-30 grayscale contrast-125 scale-105">
                 <source src="assets/demo_reel.mp4" type="video/mp4">
             </video>
-            <div class="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent"></div>
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_#000_100%)]"></div>
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
+
+            <!-- Scanlines -->
+            <div
+                class="absolute inset-0 bg-[linear-gradient(transparent_50%,_rgba(0,0,0,0.5)_50%)] bg-[length:100%_4px] opacity-20 pointer-events-none">
+            </div>
         </div>
 
-        <div class="relative z-10 text-center max-w-5xl px-6 reveal active">
+        <div
+            class="relative z-10 text-center max-w-5xl px-6 reveal active border-l-4 border-red-600 pl-8 md:pl-0 md:border-l-0">
             <div
-                class="inline-flex items-center gap-2 mb-8 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md">
-                <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                <span class="text-gray-300 text-xs font-mono uppercase tracking-widest">System Online</span>
+                class="inline-flex items-center gap-2 mb-8 px-4 py-1.5 border border-red-500/30 bg-red-900/20 backdrop-blur-md">
+                <span class="w-2 h-2 bg-red-500 rounded-sm animate-pulse"></span>
+                <span class="text-red-500 text-xs font-mono uppercase tracking-[0.2em]">Rec_Mode: Active</span>
             </div>
 
-            <h1 class="text-6xl md:text-9xl font-black tracking-tighter mb-8 leading-[0.9]">
-                THE BLACK BOX<br>
-                <span class="text-gradient">FOR YOUR LIFE</span>
+            <h1 class="text-6xl md:text-9xl font-black tracking-tighter mb-8 leading-[0.9] font-mono">
+                YOUR WORD<br>
+                <span class="text-red-600">AGAINST THEIRS.</span><br>
+                <span class="text-white">YOU WIN.</span>
             </h1>
 
-            <p class="text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed font-light">
-                Secure your truth in an indestructible digital vault.
-                <span class="text-white font-medium">Dual-camera evidence.</span>
-                <span class="text-white font-medium">Hidden storage.</span>
-                <span class="text-white font-medium">Zero-fail uploads.</span>
+            <p
+                class="text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed font-mono uppercase text-xs md:text-sm tracking-widest">
+                <span class="bg-white text-black px-1">Evidence</span> is the only currency that matters.<br>
+                Secure it in an <span class="line-through text-red-500 opacity-50">app</span> indestructible black box.
             </p>
 
             <div class="flex flex-col md:flex-row gap-5 justify-center">
                 <button
-                    class="group bg-white text-black px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.2)]">
-                    <svg class="w-6 h-6 transition-transform group-hover:-translate-y-1" fill="currentColor"
-                        viewBox="0 0 24 24">
+                    class="group bg-red-600 text-white px-8 py-4 font-mono font-bold text-lg hover:bg-red-700 transition-all flex items-center justify-center gap-3 border border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)] clip-path-polygon">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                         <path
-                            d="M18.71 19.5c-.31.84-1.18 2.4-2.13 4.15-.65 1.18-1.34 2.34-2.22 2.34-.84 0-1.09-.5-2.06-.5-.97 0-1.28.5-2.1.5-.9 0-1.57-1.16-2.25-2.31-1.37-2.37-2.37-6.05-1.03-9.15.59-1.37 1.62-2.31 2.81-2.31 1.06 0 1.78.65 2.53.65.69 0 1.69-.72 2.78-.72 1.03 0 2.53.5 3.37 1.87-3.03 1.84-2.47 5.75.56 7.15zM13 3.5c.59-1.28.34-2.43-.09-3.5-1.06.37-2.6 1.75-2.6 3.5 0 .84.34 2.06 1.12 2.75 1.12 1.09 2.53.69 2.53-.16 0-.28 0-.5-.09-.59z" />
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
                     </svg>
-                    Download on App Store
+                    INITIATE_DOWNLOAD
                 </button>
-                <div class="text-xs text-gray-500 mt-4 md:hidden">Free Tier Includes Hidden Vault</div>
             </div>
         </div>
 
         <!-- Scroll Indicator -->
-        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3">
-                </path>
-            </svg>
+        <div
+            class="absolute bottom-10 left-1/2 -translate-x-1/2 opacity-50 font-mono text-[10px] tracking-widest animate-pulse">
+            SCROLL_TO_DECRYPT
         </div>
     </section>
 
     <!-- Features -->
-    <section id="features" class="py-32 px-6 relative z-10">
+    <section id="features" class="py-32 px-6 relative z-10 border-t border-white/10 bg-black">
         <div class="max-w-7xl mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <!-- Feature 1 -->
-                <div class="glass-panel p-10 rounded-[32px] hover:bg-white/5 transition-all group reveal stagger-1">
-                    <div
-                        class="w-16 h-16 bg-gradient-to-br from-gray-800 to-black rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                            </path>
-                        </svg>
+                <div
+                    class="border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-all group reveal stagger-1 relative overflow-hidden">
+                    <div class="absolute top-2 right-2 text-[10px] font-mono text-gray-600">FIG_01</div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-red-600/20 border border-red-600 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold font-mono uppercase">Total Vision</h3>
                     </div>
-                    <h3 class="text-3xl font-bold mb-4">Total Biometric Video</h3>
-                    <p class="text-gray-400 leading-relaxed">Capture the full context. Front and rear cameras record
-                        simultaneously, locking your perspective and the perpetrator's actions into a single, verifiable
-                        timeline.</p>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">
+                        > FRONT_CAM: ACTIVE<br>
+                        > REAR_CAM: ACTIVE<br>
+                        Capture the aggressor and your reaction. Single immutable timeline.
+                    </p>
                 </div>
 
                 <!-- Feature 2 -->
-                <div class="glass-panel p-10 rounded-[32px] hover:bg-white/5 transition-all group reveal stagger-2">
-                    <div
-                        class="w-16 h-16 bg-gradient-to-br from-gray-800 to-black rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                        <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                        </svg>
+                <div
+                    class="border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-all group reveal stagger-2 relative overflow-hidden">
+                    <div class="absolute top-2 right-2 text-[10px] font-mono text-gray-600">FIG_02</div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-red-600/20 border border-red-600 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold font-mono uppercase">Fail-Safe Write</h3>
                     </div>
-                    <h3 class="text-3xl font-bold mb-4">Zero-RAM Failover</h3>
-                    <p class="text-gray-400 leading-relaxed">Most apps crash and lose footage when memory fills.
-                        OnTheRecord writes directly to the disk continuously. If your phone dies, the evidence lives.</p>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">
+                        > MEM_BUFFER: BYPASSED<br>
+                        > DISK_WRITE: DIRECT<br>
+                        If your phone dies, the footage survives. No corruption. No loss.
+                    </p>
                 </div>
 
                 <!-- Feature 3 -->
-                <div class="glass-panel p-10 rounded-[32px] hover:bg-white/5 transition-all group reveal stagger-3">
-                    <div
-                        class="w-16 h-16 bg-gradient-to-br from-gray-800 to-black rounded-2xl flex items-center justify-center mb-8 border border-white/10 group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
-                            </path>
-                        </svg>
+                <div
+                    class="border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-all group reveal stagger-3 relative overflow-hidden">
+                    <div class="absolute top-2 right-2 text-[10px] font-mono text-gray-600">FIG_03</div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-red-600/20 border border-red-600 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                </path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold font-mono uppercase">Deep Vault</h3>
                     </div>
-                    <h3 class="text-3xl font-bold mb-4">Hidden Local Vault</h3>
-                    <p class="text-gray-400 leading-relaxed">Keep your evidence invisible. Recordings are stored in a
-                        secure app container, inaccessible to the Files app or casual snooping. PIN protected.</p>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">
+                        > PHOTOS_APP: INVISIBLE<br>
+                        > ICLOUD: BLOCKED<br>
+                        Evidence is sandboxed in an encrypted container. Forced unlock reveals nothing.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Threat Analysis (formerly Why OnTheRecord) -->
+    <section class="py-32 px-6 relative z-10 border-t border-white/10 bg-gradient-to-b from-red-950/10 to-transparent">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-20 reveal">
+                <span
+                    class="text-red-500 font-mono text-sm tracking-[0.3em] uppercase mb-4 block animate-pulse">Classified
+                    Briefing</span>
+                <h2 class="text-4xl md:text-6xl font-bold mb-6 tracking-tight font-mono">THREAT <span
+                        class="text-white">ANALYSIS</span></h2>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto font-mono text-xs md:text-sm">Sector surveillance
+                    indicates critical vulnerabilities in alternative solutions.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+                <!-- Threat 1: Stale Apps -->
+                <div
+                    class="border border-white/10 bg-black/50 p-8 reveal stagger-1 group hover:border-red-500/50 transition-all relative overflow-hidden">
+                    <div
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity font-mono text-xs text-red-500">
+                        ERR_CODE: ABANDONED
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="text-red-500 font-mono text-lg">[!]</span>
+                            <h3 class="text-xl font-bold text-white font-mono uppercase">Target: Legacy Code</h3>
+                        </div>
+                        <div class="space-y-4 font-mono text-sm">
+                            <div class="pl-4 border-l-2 border-red-500/30">
+                                <p class="text-gray-500 text-xs uppercase mb-1">Status</p>
+                                <p class="text-gray-300">Competitors dormant since <strong
+                                        class="text-red-400">DEC_2022</strong>. Unpatched.</p>
+                            </div>
+                            <div class="pl-4 border-l-2 border-green-500/50">
+                                <p class="text-green-500 text-xs uppercase mb-1">Action</p>
+                                <p class="text-white">Active dev cycle. Weekly security patches. iOS 18 Ready.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Threat 2: Encryption Keys -->
+                <div
+                    class="border border-white/10 bg-black/50 p-8 reveal stagger-2 group hover:border-red-500/50 transition-all relative overflow-hidden">
+                    <div
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity font-mono text-xs text-red-500">
+                        VULN_ID: ZERO_ACCESS
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="text-red-500 font-mono text-lg">[!]</span>
+                            <h3 class="text-xl font-bold text-white font-mono uppercase">Target: Central Key</h3>
+                        </div>
+                        <div class="space-y-4 font-mono text-sm">
+                            <div class="pl-4 border-l-2 border-red-500/30">
+                                <p class="text-gray-500 text-xs uppercase mb-1">Status</p>
+                                <p class="text-gray-300">They hold your keys. Subpoena = Full Decryption.</p>
+                            </div>
+                            <div class="pl-4 border-l-2 border-green-500/50">
+                                <p class="text-green-500 text-xs uppercase mb-1">Action</p>
+                                <p class="text-white"><strong>Client-Side Only.</strong> We cannot decrypt your data.
+                                    Impossible by design.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Threat 3: Visibility -->
+                <div
+                    class="border border-white/10 bg-black/50 p-8 reveal stagger-3 group hover:border-red-500/50 transition-all relative overflow-hidden">
+                    <div
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity font-mono text-xs text-red-500">
+                        SIG_DETECT: HIGH
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="text-red-500 font-mono text-lg">[!]</span>
+                            <h3 class="text-xl font-bold text-white font-mono uppercase">Target: Visual Sig</h3>
+                        </div>
+                        <div class="space-y-4 font-mono text-sm">
+                            <div class="pl-4 border-l-2 border-red-500/30">
+                                <p class="text-gray-500 text-xs uppercase mb-1">Status</p>
+                                <p class="text-gray-300">Obvious icons signal intent to aggressors.</p>
+                            </div>
+                            <div class="pl-4 border-l-2 border-green-500/50">
+                                <p class="text-green-500 text-xs uppercase mb-1">Action</p>
+                                <p class="text-white"><strong>Active Camouflage.</strong> App appears as functional
+                                    calculator. Hidden interface.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Threat 4: ACLU -->
+                <div
+                    class="border border-white/10 bg-black/50 p-8 reveal stagger-1 group hover:border-red-500/50 transition-all relative overflow-hidden">
+                    <div
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity font-mono text-xs text-red-500">
+                        SYS_FAIL: TERMINATED
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="text-red-500 font-mono text-lg">[!]</span>
+                            <h3 class="text-xl font-bold text-white font-mono uppercase">Target: Reliability</h3>
+                        </div>
+                        <div class="space-y-4 font-mono text-sm">
+                            <div class="pl-4 border-l-2 border-red-500/30">
+                                <p class="text-gray-500 text-xs uppercase mb-1">Status</p>
+                                <p class="text-gray-300">Market leader (ACLU) shutdown operations <strong>FEB
+                                        2025</strong>.</p>
+                            </div>
+                            <div class="pl-4 border-l-2 border-green-500/50">
+                                <p class="text-green-500 text-xs uppercase mb-1">Action</p>
+                                <p class="text-white"><strong>Survival Architecture.</strong> AGPLv3 Open Source. Cannot
+                                    be killed.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zero Knowledge Callout -->
+            <div class="mt-16 p-10 rounded-[32px] glass-panel-highlight text-center reveal overflow-hidden relative">
+                <div class="absolute inset-0 bg-gradient-to-r from-red-900/10 via-transparent to-red-900/10"></div>
+                <div class="relative z-10">
+                    <span
+                        class="inline-block px-4 py-1 rounded-full bg-white/10 text-white text-xs font-bold mb-6 border border-white/20">GUARANTEE</span>
+                    <h3 class="text-3xl md:text-4xl font-bold mb-6 text-white tracking-tight">Zero-Knowledge
+                        Architecture</h3>
+                    <p class="text-gray-300 text-lg max-w-3xl mx-auto leading-relaxed">
+                        Unlike every competitor, OnTheRecord uses <strong class="text-white">client-side AES-256
+                            encryption</strong>.
+                        Your keys never leave your device. Even if we are subpoenaed, we have <strong
+                            class="text-white">nothing to hand over</strong>.
+                        This isn't just policy—it's mathematics.
+                    </p>
+                    <div class="mt-8 flex justify-center gap-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-400">
+                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>Auditable Code (Coming Soon)</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-400">
+                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>Client-Side Keys</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -252,10 +428,12 @@
 
     <!-- Technology Deep Dive -->
     <section id="tech" class="py-32 px-6 relative z-10 border-t border-white/5">
+
         <div class="max-w-5xl mx-auto">
             <div class="text-center mb-20 reveal">
                 <h2 class="text-4xl md:text-5xl font-bold mb-6">Built Different</h2>
-                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Unlike standard camera apps, OnTheRecord was engineered
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto">Unlike standard camera apps, OnTheRecord was
+                    engineered
                     from the ground up for one purpose: ensuring your evidence survives.</p>
             </div>
 
@@ -322,114 +500,106 @@
     <!-- Pricing Tiers -->
     <section id="pricing" class="py-32 px-6 border-t border-white/5 bg-[#080808]">
         <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-24 reveal">
-                <h2 class="text-4xl md:text-5xl font-bold mb-6">Choose Your Armor</h2>
-                <p class="text-gray-400 text-lg">Protection for every threat level. Upgrade anytime.</p>
+            <!-- Coupon Banner -->
+            <div class="text-center mb-12 reveal">
+                <div
+                    class="inline-flex items-center gap-3 px-6 py-3 border border-cyan-500/50 bg-cyan-900/20 backdrop-blur-md">
+                    <span class="text-cyan-400 font-mono text-sm uppercase tracking-widest">Limited Offer</span>
+                    <span class="text-white font-mono font-bold">Use code <span
+                            class="text-cyan-300 bg-cyan-900/50 px-2 py-1">ICE</span> for 20% off Lifetime</span>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            <div class="text-center mb-16 reveal">
+                <h2 class="text-4xl md:text-6xl font-bold mb-6 font-mono tracking-tight">CLEARANCE <span
+                        class="text-white">LEVELS</span></h2>
+                <p class="text-gray-400 font-mono text-sm max-w-2xl mx-auto">Select your operational tier.</p>
+            </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 <!-- Free Tier -->
                 <div
-                    class="p-8 rounded-[24px] border border-white/10 bg-white/[0.02] flex flex-col reveal stagger-1 hover:border-white/20 transition-colors relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-1 bg-white/20"></div>
-                    <div class="mb-auto">
-                        <h3 class="text-xl font-bold mb-2 text-white">Witness</h3>
-                        <div class="text-4xl font-bold mb-6 font-mono">Free</div>
-                        <p class="text-gray-400 text-sm mb-8">Essential protection for everyone. No credit card
-                            required.</p>
-
-                        <ul class="space-y-4 mb-8 text-sm text-gray-300">
-                            <li class="flex gap-3 items-center"><span
-                                    class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">✓</span>
-                                <span>Dual Camera Recording</span>
-                            </li>
-                            <li class="flex gap-3 items-center"><span
-                                    class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">✓</span>
-                                <span>Save to Photos</span>
-                            </li>
-                            <li class="flex gap-3 items-center"><span
-                                    class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] text-green-400">★</span>
-                                <span class="text-white font-semibold">Hidden Local Vault</span>
-                            </li>
-                            <li class="flex gap-3 items-center"><span
-                                    class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">✓</span>
-                                <span>Fake "Calculator" PIN</span>
-                            </li>
-                        </ul>
-                    </div>
-                    <a href="#"
-                        class="block w-full py-4 rounded-xl border border-white/20 hover:bg-white hover:text-black transition-all text-center font-bold text-sm">Download
-                        Now</a>
+                    class="border border-white/10 p-8 hover:border-white/30 transition-all reveal stagger-1 bg-white/5 relative group">
+                    <div class="absolute top-0 right-0 p-4 font-mono text-xs text-gray-500">LVL_01</div>
+                    <h3 class="text-2xl font-bold text-white mb-2 font-mono">CIVILIAN</h3>
+                    <div class="text-4xl font-bold mb-6 font-mono text-gray-400">$0<span
+                            class="text-lg font-normal text-gray-500">/mo</span></div>
+                    <ul class="space-y-3 mb-8 text-gray-400 font-mono text-sm">
+                        <li class="flex items-center gap-3"><span class="text-white">✓</span> Local Hidden Vault</li>
+                        <li class="flex items-center gap-3"><span class="text-white">✓</span> Calculator Camouflage</li>
+                        <li class="flex items-center gap-3"><span class="text-white">✓</span> Dual-Camera Recording</li>
+                        <li class="flex items-center gap-3"><span class="text-white">✓</span> Local Export</li>
+                    </ul>
+                    <button
+                        class="w-full py-4 border border-white/20 text-white font-mono hover:bg-white hover:text-black transition-all uppercase tracking-widest text-sm">
+                        Authorize
+                    </button>
                 </div>
 
-                <!-- Guardian Tier -->
+                <!-- Pro Tier -->
                 <div
-                    class="p-1 rounded-[24px] bg-gradient-to-b from-red-600 via-red-900 to-black relative reveal stagger-2 transform md:-translate-y-6 shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col">
+                    class="border border-red-600/50 p-8 transition-all reveal stagger-2 bg-red-900/10 relative group shadow-[0_0_30px_rgba(220,38,38,0.1)]">
                     <div
-                        class="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
-                        Recommended</div>
-                    <div class="bg-[#111] p-8 rounded-[21px] h-full flex flex-col">
-                        <div class="mb-auto">
-                            <h3 class="text-xl font-bold mb-2 text-white">Guardian</h3>
-                            <div class="text-4xl font-bold mb-6 font-mono text-red-500">$4.99 <span
-                                    class="text-sm font-normal text-gray-500">/mo</span></div>
-                            <p class="text-gray-400 text-sm mb-8">Active countermeasures for high-risk situations.</p>
-
-                            <ul class="space-y-4 mb-8 text-sm text-gray-300">
-                                <li class="flex gap-3 items-center"><span class="text-red-500">✓</span>
-                                    <strong>Everything in Witness</strong>
-                                </li>
-                                <li class="flex gap-3 items-center"><span class="text-red-500">✓</span> <strong>Cloud
-                                        Backup</strong> (50GB)</li>
-                                <li class="flex gap-3 items-center"><span class="text-red-500">✓</span> <strong>Dead
-                                        Man's Switch</strong></li>
-                                <li class="flex gap-3 items-center"><span class="text-red-500">✓</span> <strong>Live
-                                        Stream Link</strong></li>
-                            </ul>
-                        </div>
-                        <a href="#"
-                            class="block w-full py-4 rounded-xl bg-red-600 hover:bg-red-700 transition-all text-center font-bold text-sm shadow-lg shadow-red-900/20">Start
-                            Free Trial</a>
+                        class="absolute -top-4 right-8 bg-red-600 text-white px-3 py-1 text-xs font-mono tracking-widest uppercase">
+                        Popular
                     </div>
+                    <h3 class="text-2xl font-bold text-white mb-2 font-mono">OPERATOR</h3>
+                    <div class="text-4xl font-bold mb-6 font-mono text-red-500">$4.99<span
+                            class="text-lg font-normal text-gray-400">/mo</span></div>
+                    <ul class="space-y-3 mb-8 text-gray-300 font-mono text-sm">
+                        <li class="flex items-center gap-3"><span class="text-red-500">✓</span> <strong>Everything in
+                                Civilian</strong></li>
+                        <li class="flex items-center gap-3"><span class="text-red-500">✓</span> Offshore Auto-Upload
+                        </li>
+                        <li class="flex items-center gap-3"><span class="text-red-500">✓</span> Emergency SMS Beacon
+                        </li>
+                        <li class="flex items-center gap-3"><span class="text-red-500">✓</span> Live Stream Relay</li>
+                        <li class="flex items-center gap-3"><span class="text-red-500">✓</span> Legal Evidence Export
+                        </li>
+                    </ul>
+                    <button
+                        class="w-full py-4 bg-red-600 text-white font-mono hover:bg-red-700 transition-all uppercase tracking-widest text-sm shadow-lg shadow-red-900/20">
+                        Initialize Access
+                    </button>
                 </div>
 
-                <!-- Defender Tier -->
+                <!-- Lifetime Tier -->
                 <div
-                    class="p-8 rounded-[24px] border border-white/10 bg-white/[0.02] flex flex-col reveal stagger-3 hover:border-white/20 transition-colors">
-                    <div class="mb-auto">
-                        <h3 class="text-xl font-bold mb-2 text-white">Defender</h3>
-                        <div class="text-4xl font-bold mb-6 font-mono">$9.99 <span
-                                class="text-sm font-normal text-gray-400">/mo</span></div>
-                        <p class="text-gray-400 text-sm mb-8">Professional grade archival and legal support tools.</p>
-
-                        <ul class="space-y-4 mb-8 text-sm text-gray-300">
-                            <li class="flex gap-3 items-center"><span class="text-white">✓</span> <strong>Everything in
-                                    Guardian</strong></li>
-                            <li class="flex gap-3 items-center"><span class="text-white">✓</span>
-                                <strong>Unlimited</strong> Storage
-                            </li>
-                            <li class="flex gap-3 items-center"><span class="text-white">✓</span> <strong>NAS /
-                                    WebDAV</strong> Support</li>
-                            <li class="flex gap-3 items-center"><span class="text-white">✓</span> <strong>4K
-                                    Resolution</strong> Support</li>
-                        </ul>
+                    class="border border-cyan-500/50 p-8 transition-all reveal stagger-3 bg-cyan-900/10 relative group shadow-[0_0_40px_rgba(6,182,212,0.15)]">
+                    <div
+                        class="absolute -top-4 right-8 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1 text-xs font-mono tracking-widest uppercase">
+                        Permanent
                     </div>
-                    <a href="#"
-                        class="block w-full py-4 rounded-xl border border-white/20 hover:bg-white/10 transition-all text-center font-bold text-sm">Upgrade</a>
+                    <h3 class="text-2xl font-bold text-white mb-2 font-mono">LIFETIME</h3>
+                    <div class="text-4xl font-bold mb-2 font-mono text-cyan-400">$99<span
+                            class="text-lg font-normal text-gray-400"> once</span></div>
+                    <p class="text-xs text-cyan-300/70 font-mono mb-6">$79 with code ICE</p>
+                    <ul class="space-y-3 mb-8 text-gray-300 font-mono text-sm">
+                        <li class="flex items-center gap-3"><span class="text-cyan-400">✓</span> <strong>Everything in
+                                Operator</strong></li>
+                        <li class="flex items-center gap-3"><span class="text-cyan-400">✓</span> Forever. No renewal.
+                        </li>
+                        <li class="flex items-center gap-3"><span class="text-cyan-400">★</span> <strong
+                                class="text-cyan-300">Intl. Encrypted Storage</strong></li>
+                        <li class="flex items-center gap-3"><span class="text-cyan-400">★</span> Priority Feature
+                            Requests</li>
+                    </ul>
+                    <button
+                        class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-mono hover:from-cyan-500 hover:to-blue-500 transition-all uppercase tracking-widest text-sm shadow-lg shadow-cyan-900/30">
+                        Secure Forever
+                    </button>
                 </div>
-
             </div>
         </div>
     </section>
 
-    <footer class="py-12 text-center text-gray-600 text-xs border-t border-white/5 mt-12 font-mono">
-        <p class="mb-4">&copy; 2026 OnTheRecord Security. "Proof Preserved."</p>
-        <div class="flex gap-6 justify-center">
-            <a href="privacy.html" class="hover:text-white transition-colors">Privacy</a>
-            <a href="tos.html" class="hover:text-white transition-colors">Terms</a>
-            <a href="mailto:support@ontherecord.app" class="hover:text-white transition-colors">Support</a>
-        </div>
+    <!-- Simple Footer -->
+    <footer class="py-12 px-6 border-t border-white/10 bg-black text-center">
+        <p class="text-gray-600 font-mono text-xs uppercase tracking-widest">
+            © 2026 OnTheRecord. All Rights Reserved.<br>
+            Designed for High-Assurance Environments.<br>
+            <span class="text-red-900/50">NO_LOGS // NO_TRACKING // NO_COMPROMISE</span>
+        </p>
     </footer>
 
     <!-- Scroll Reveal Script -->
