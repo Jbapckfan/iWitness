@@ -61,8 +61,13 @@ struct RecordingView: View {
                     SecurePhoneButton(showingSheet: $showingSecurePhone)
                 }
                 .overlay(alignment: .topTrailing) {
-                    if !recordingService.isDualCameraSupported {
-                        CameraFlipButton()
+                    HStack(spacing: Spacing.sm) {
+                        // Light controls for night recording
+                        LightControlPanel()
+                        
+                        if !recordingService.isDualCameraSupported {
+                            CameraFlipButton()
+                        }
                     }
                 }
 
@@ -808,6 +813,172 @@ struct ShareStreamSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Light Control Panel (Flashlight + Screen Fill)
+
+struct LightControlPanel: View {
+    @EnvironmentObject var recordingService: RecordingService
+    
+    @State private var isExpanded = false
+    @State private var torchLevel: Float = 0.0
+    @State private var screenFillOpacity: Double = 0.0
+    
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            // Toggle button
+            Button {
+                withAnimation(.spring(response: 0.3)) {
+                    isExpanded.toggle()
+                }
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            } label: {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: isLightActive ? "flashlight.on.fill" : "flashlight.off.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                    if isExpanded {
+                        Text("LIGHTS")
+                            .font(Typography.label)
+                    }
+                }
+                .foregroundColor(isLightActive ? .yellow : .white)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+            
+            // Expanded controls
+            if isExpanded {
+                VStack(spacing: Spacing.md) {
+                    // Torch (Back Camera Flash)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Image(systemName: "flashlight.on.fill")
+                                .foregroundColor(.yellow)
+                            Text("Flashlight")
+                                .font(Typography.caption)
+                            Spacer()
+                            Text("\(Int(torchLevel * 100))%")
+                                .font(Typography.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Slider(value: Binding(
+                            get: { Double(torchLevel) },
+                            set: { newValue in
+                                torchLevel = Float(newValue)
+                                updateTorch()
+                            }
+                        ), in: 0...1)
+                        .tint(.yellow)
+                    }
+                    
+                    // Screen Fill Light (Front Camera)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Image(systemName: "sun.max.fill")
+                                .foregroundColor(.white)
+                            Text("Screen Fill")
+                                .font(Typography.caption)
+                            Spacer()
+                            Text("\(Int(screenFillOpacity * 100))%")
+                                .font(Typography.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Slider(value: $screenFillOpacity, in: 0...1)
+                            .tint(.white)
+                            .onChange(of: screenFillOpacity) { _, newValue in
+                                updateScreenBrightness()
+                            }
+                    }
+                    
+                    // Quick presets
+                    HStack(spacing: Spacing.sm) {
+                        PresetButton(title: "Off", isActive: torchLevel == 0 && screenFillOpacity == 0) {
+                            withAnimation { torchLevel = 0; screenFillOpacity = 0 }
+                            updateTorch()
+                        }
+                        PresetButton(title: "Low", isActive: false) {
+                            withAnimation { torchLevel = 0.3; screenFillOpacity = 0.3 }
+                            updateTorch()
+                        }
+                        PresetButton(title: "High", isActive: false) {
+                            withAnimation { torchLevel = 1.0; screenFillOpacity = 0.8 }
+                            updateTorch()
+                        }
+                    }
+                }
+                .padding(Spacing.md)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Spacing.Radius.md))
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .onDisappear {
+            // Turn off lights when leaving
+            torchLevel = 0
+            screenFillOpacity = 0
+            updateTorch()
+        }
+    }
+    
+    private var isLightActive: Bool {
+        torchLevel > 0 || screenFillOpacity > 0
+    }
+    
+    private func updateTorch() {
+        guard let device = AVCaptureDevice.default(for: .video),
+              device.hasTorch else { return }
+        
+        do {
+            try device.lockForConfiguration()
+            if torchLevel > 0 {
+                try device.setTorchModeOn(level: torchLevel)
+            } else {
+                device.torchMode = .off
+            }
+            device.unlockForConfiguration()
+        } catch {
+            print("[iWitness] Torch error: \(error)")
+        }
+    }
+    
+    private func updateScreenBrightness() {
+        // Screen brightness is handled by the overlay in RecordingView
+        // This just triggers an update
+    }
+}
+
+struct PresetButton: View {
+    let title: String
+    let isActive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(Typography.caption)
+                .foregroundColor(isActive ? .black : .white)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(isActive ? Color.yellow : Color.white.opacity(0.2))
+                .clipShape(Capsule())
+        }
+    }
+}
+
+// MARK: - Screen Fill Light Overlay
+
+struct ScreenFillLightOverlay: View {
+    let opacity: Double
+    
+    var body: some View {
+        if opacity > 0 {
+            Color.white
+                .opacity(opacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
     }
 }

@@ -260,6 +260,11 @@ struct SettingsView: View {
                         }
                     }
 
+                    Toggle("Auto-Record on Launch", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "auto_record_on_launch") },
+                        set: { UserDefaults.standard.set($0, forKey: "auto_record_on_launch") }
+                    ))
+
                     NavigationLink {
                         GuidedAccessSetupView()
                     } label: {
