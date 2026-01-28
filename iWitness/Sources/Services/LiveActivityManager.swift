@@ -35,7 +35,7 @@ class LiveActivityManager {
                     pushType: nil
                 )
             } catch {
-                print("[iWitness] Live Activity start failed: \(error)")
+                print("[OnTheRecord] Live Activity start failed: \(error)")
             }
         } else if #available(iOS 16.1, *) {
             // Fallback for iOS 16.1
@@ -49,7 +49,7 @@ class LiveActivityManager {
                     pushType: nil
                 )
             } catch {
-                print("[iWitness] Live Activity start failed: \(error)")
+                print("[OnTheRecord] Live Activity start failed: \(error)")
             }
         }
         #endif

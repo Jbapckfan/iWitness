@@ -101,7 +101,7 @@ struct WelcomePage: View {
             }
 
             VStack(spacing: Spacing.xs) {
-                Text("Welcome to iWitness")
+                Text("Welcome to OnTheRecord")
                     .font(Typography.displayMedium)
                     .foregroundColor(.white)
 
@@ -196,7 +196,7 @@ struct PermissionsPage: View {
                     .font(Typography.headline1)
                     .foregroundColor(.white)
 
-                Text("iWitness needs these permissions to protect you")
+                Text("OnTheRecord needs these permissions to protect you")
                     .font(Typography.bodyMedium)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
@@ -720,7 +720,7 @@ struct CompletePage: View {
                     .font(Typography.displayMedium)
                     .foregroundColor(.white)
 
-                Text("iWitness is set up and ready to protect you.")
+                Text("OnTheRecord is set up and ready to protect you.")
                     .font(Typography.bodyMedium)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
@@ -910,7 +910,7 @@ struct InvitePage: View {
     
     // TODO: Replace with real App Store URL
     private let appURL = URL(string: "https://apps.apple.com/app/id673949313")!
-    private let shareMessage = "I'm using iWitness to protect myself. It's a black box for your phone. Download it here:"
+    private let shareMessage = "I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:"
 
     var body: some View {
         VStack(spacing: Spacing.lg) {

@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>iWitness</string>
+    <string>OnTheRecord</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -48,17 +48,17 @@
 
     <!-- Privacy Permissions -->
     <key>NSCameraUsageDescription</key>
-    <string>iWitness needs camera access to record video from front and back cameras for evidence documentation.</string>
+    <string>OnTheRecord needs camera access to record video from front and back cameras for evidence documentation.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>iWitness needs microphone access to capture audio during recording.</string>
+    <string>OnTheRecord needs microphone access to capture audio during recording.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>iWitness shares your location with emergency contacts when you activate recording.</string>
+    <string>OnTheRecord shares your location with emergency contacts when you activate recording.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>iWitness needs continuous location access to track your position during an incident and share it with your emergency contacts.</string>
+    <string>OnTheRecord needs continuous location access to track your position during an incident and share it with your emergency contacts.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>iWitness saves recordings to your photo library as a local backup.</string>
+    <string>OnTheRecord saves recordings to your photo library as a local backup.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>iWitness saves recordings to your photo library as a local backup.</string>
+    <string>OnTheRecord saves recordings to your photo library as a local backup.</string>
 
     <!-- Background Modes -->
     <key>UIBackgroundModes</key>
@@ -72,8 +72,8 @@
     <!-- Siri Shortcuts Support -->
     <key>NSUserActivityTypes</key>
     <array>
-        <string>com.iwitness.activate</string>
-        <string>com.iwitness.safe</string>
+        <string>com.ontherecord.activate</string>
+        <string>com.ontherecord.safe</string>
     </array>
 
     <!-- Encryption Export Compliance -->

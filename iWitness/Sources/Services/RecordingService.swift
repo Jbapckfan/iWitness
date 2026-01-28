@@ -625,10 +625,10 @@ class RecordingService: NSObject, ObservableObject {
         let tempDir = FileManager.default.temporaryDirectory
 
         if useDualCamera {
-            frontVideoURL = tempDir.appendingPathComponent("iWitness_\(incidentID)_front.mov")
-            backVideoURL = tempDir.appendingPathComponent("iWitness_\(incidentID)_back.mov")
+            frontVideoURL = tempDir.appendingPathComponent("OnTheRecord_\(incidentID)_front.mov")
+            backVideoURL = tempDir.appendingPathComponent("OnTheRecord_\(incidentID)_back.mov")
         } else {
-            localVideoURL = tempDir.appendingPathComponent("iWitness_\(incidentID).mov")
+            localVideoURL = tempDir.appendingPathComponent("OnTheRecord_\(incidentID).mov")
         }
 
         // Start capture session and movie recording
@@ -709,7 +709,7 @@ class RecordingService: NSObject, ObservableObject {
         let newPosition: AVCaptureDevice.Position = (currentCameraPosition == .front) ? .back : .front
 
         guard let newCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
-            print("[iWitness] Could not get camera for position: \(newPosition)")
+            print("[OnTheRecord] Could not get camera for position: \(newPosition)")
             return
         }
         
@@ -731,7 +731,7 @@ class RecordingService: NSObject, ObservableObject {
                     session.addInput(newInput)
                 }
             } catch {
-                print("[iWitness] Failed to add new camera input: \(error)")
+                print("[OnTheRecord] Failed to add new camera input: \(error)")
             }
 
             session.commitConfiguration()
@@ -843,7 +843,7 @@ class RecordingService: NSObject, ObservableObject {
                     if success {
                         try? FileManager.default.removeItem(at: url)
                     } else {
-                        print("[iWitness] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
+                        print("[OnTheRecord] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
                     }
                 }
             }
@@ -861,11 +861,11 @@ class RecordingService: NSObject, ObservableObject {
             try FileManager.default.copyItem(at: url, to: tempCopy)
             let success = VaultManager.shared.moveFileToVault(from: tempCopy)
             if success {
-                print("[iWitness] Hidden vault backup created for \(isFront ? "front" : "back") camera")
+                print("[OnTheRecord] Hidden vault backup created for \(isFront ? "front" : "back") camera")
             }
             return success
         } catch {
-            print("[iWitness] Failed to create vault backup: \(error)")
+            print("[OnTheRecord] Failed to create vault backup: \(error)")
             return false
         }
     }
@@ -888,7 +888,7 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         if success {
-            print("[iWitness] Video saved to \(scheme) (front: \(isFront))")
+            print("[OnTheRecord] Video saved to \(scheme) (front: \(isFront))")
         }
     }
     
@@ -918,11 +918,11 @@ class RecordingService: NSObject, ObservableObject {
             break
         case .serious:
             // Hot - downgrade to medium (720p)
-            print("[iWitness] Thermal state SERIOUS. Downgrading to medium quality.")
+            print("[OnTheRecord] Thermal state SERIOUS. Downgrading to medium quality.")
             newQuality = .medium
         case .critical:
             // Very hot - downgrade to low (480p) to keep camera alive
-            print("[iWitness] Thermal state CRITICAL. Downgrading to low quality.")
+            print("[OnTheRecord] Thermal state CRITICAL. Downgrading to low quality.")
             newQuality = .low
         @unknown default:
             break
@@ -961,7 +961,7 @@ extension RecordingService: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapt
 extension RecordingService: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
         if let error = error {
-            print("[iWitness] Recording error: \(error.localizedDescription)")
+            print("[OnTheRecord] Recording error: \(error.localizedDescription)")
             return
         }
 

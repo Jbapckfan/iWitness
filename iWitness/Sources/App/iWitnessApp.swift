@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct iWitnessApp: App {
+struct OnTheRecordApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var recordingService = RecordingService()
     @StateObject private var uploadService = UploadService()
@@ -116,16 +116,16 @@ struct iWitnessApp: App {
         // NAS password
         if let legacyNAS = UserDefaults.standard.string(forKey: "nas_password"),
            !legacyNAS.isEmpty,
-           KeychainHelper.shared.read(service: "iWitness", account: "nas_password") == nil {
-            _ = KeychainHelper.shared.save(service: "iWitness", account: "nas_password", value: legacyNAS)
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "nas_password") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "nas_password", value: legacyNAS)
             UserDefaults.standard.removeObject(forKey: "nas_password")
         }
 
         // Cloud secret key
         if let legacyCloud = UserDefaults.standard.string(forKey: "cloud_secret_key"),
            !legacyCloud.isEmpty,
-           KeychainHelper.shared.read(service: "iWitness", account: "cloud_secret_key") == nil {
-            _ = KeychainHelper.shared.save(service: "iWitness", account: "cloud_secret_key", value: legacyCloud)
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "cloud_secret_key") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "cloud_secret_key", value: legacyCloud)
             UserDefaults.standard.removeObject(forKey: "cloud_secret_key")
         }
     }
@@ -136,7 +136,7 @@ struct iWitnessApp: App {
         if let nasURLString = UserDefaults.standard.string(forKey: "nas_url"),
            let nasURL = URL(string: nasURLString) {
             let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
-            let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
+            let password = KeychainHelper.shared.read(service: "OnTheRecord", account: "nas_password") ?? ""
             nasConfig = (nasURL, username, password)
         }
 
@@ -145,7 +145,7 @@ struct iWitnessApp: App {
         if let accountID = UserDefaults.standard.string(forKey: "cloud_account_id"),
            let bucketName = UserDefaults.standard.string(forKey: "cloud_bucket"),
            let accessKey = UserDefaults.standard.string(forKey: "cloud_access_key"),
-           let secretKey = KeychainHelper.shared.read(service: "iWitness", account: "cloud_secret_key") {
+           let secretKey = KeychainHelper.shared.read(service: "OnTheRecord", account: "cloud_secret_key") {
             cloudConfig = (accountID, bucketName, accessKey, secretKey)
         }
         
@@ -153,7 +153,7 @@ struct iWitnessApp: App {
         await MainActor.run {
             if let (url, user, pass) = nasConfig {
                 uploadService.addNASDestination(url: url, username: user, password: pass)
-                print("[iWitness] Loaded NAS destination: \(url)")
+                print("[OnTheRecord] Loaded NAS destination: \(url)")
             }
             
             if let (acc, bucket, access, secret) = cloudConfig {
@@ -163,7 +163,7 @@ struct iWitnessApp: App {
                     accessKeyID: access,
                     secretAccessKey: secret
                 )
-                print("[iWitness] Loaded R2 cloud destination")
+                print("[OnTheRecord] Loaded R2 cloud destination")
             }
         }
     }
@@ -221,7 +221,7 @@ struct iWitnessApp: App {
             LiveActivityManager.shared.start(incidentID: appState.currentIncidentID ?? "unknown")
 
         } catch {
-            print("[iWitness] Failed to start recording: \(error)")
+            print("[OnTheRecord] Failed to start recording: \(error)")
         }
     }
 

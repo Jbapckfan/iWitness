@@ -479,7 +479,7 @@ class LiveStreamService: ObservableObject {
         }
 
         let username = UserDefaults.standard.string(forKey: "nas_username") ?? ""
-        let password = KeychainHelper.shared.read(service: "iWitness", account: "nas_password") ?? ""
+        let password = KeychainHelper.shared.read(service: "OnTheRecord", account: "nas_password") ?? ""
 
         // Ensure directory exists (MKCOL) - usually once is enough but checking here is safe
         // (Moved ensureNASDirectory call to startStream or check once per session for performance?)

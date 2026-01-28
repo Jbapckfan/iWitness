@@ -3,7 +3,7 @@ import Intents
 import IntentsUI
 
 /// Manages Siri Shortcuts for voice activation
-/// User can say "Hey Siri, [custom phrase]" to activate iWitness
+/// User can say "Hey Siri, [custom phrase]" to activate OnTheRecord
 class SiriShortcutManager: NSObject, ObservableObject {
     // MARK: - Singleton
 
@@ -33,7 +33,7 @@ class SiriShortcutManager: NSObject, ObservableObject {
         activity.becomeCurrent()
 
         isShortcutDonated = true
-        print("[iWitness] Siri shortcut donated: Activate Witness")
+        print("[OnTheRecord] Siri shortcut donated: Activate Witness")
     }
 
     /// Donate the "I'm Safe" shortcut to Siri
@@ -46,7 +46,7 @@ class SiriShortcutManager: NSObject, ObservableObject {
         activity.persistentIdentifier = Self.safeActivityType
 
         activity.becomeCurrent()
-        print("[iWitness] Siri shortcut donated: I'm Safe")
+        print("[OnTheRecord] Siri shortcut donated: I'm Safe")
     }
 
     // MARK: - Handle Shortcuts

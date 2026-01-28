@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Calculator Camouflage View
-/// Looks like a normal calculator but reveals iWitness when PIN is entered
+/// Looks like a normal calculator but reveals OnTheRecord when PIN is entered
 struct CalculatorCamouflageView: View {
     @Binding var isUnlocked: Bool
     

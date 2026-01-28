@@ -74,7 +74,7 @@ class LocationService: NSObject, ObservableObject {
                 return formatPlacemark(placemark)
             }
         } catch {
-            print("[iWitness] Reverse geocoding failed: \(error)")
+            print("[OnTheRecord] Reverse geocoding failed: \(error)")
         }
 
         return nil
@@ -104,7 +104,7 @@ class LocationService: NSObject, ObservableObject {
 
     /// Generates a shareable maps link
     func getMapsLink(for location: Location) -> URL? {
-        return URL(string: "https://maps.apple.com/?ll=\(location.latitude),\(location.longitude)&q=iWitness%20Location")
+        return URL(string: "https://maps.apple.com/?ll=\(location.latitude),\(location.longitude)&q=OnTheRecord%20Location")
     }
 
     /// Generates a Google Maps link (more universally accessible)
@@ -166,7 +166,7 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("[iWitness] Location error: \(error)")
+        print("[OnTheRecord] Location error: \(error)")
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

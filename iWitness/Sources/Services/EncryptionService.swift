@@ -70,7 +70,7 @@ class EncryptionService {
 
         var error: Unmanaged<CFError>?
         guard let privKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            print("[iWitness] Failed to generate key pair: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            print("[OnTheRecord] Failed to generate key pair: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return
         }
 
@@ -89,7 +89,7 @@ class EncryptionService {
 
     /// Derives a chunk-specific key using HKDF
     private func deriveChunkKey(masterKey: SymmetricKey, chunkNumber: Int) -> SymmetricKey {
-        let info = "iWitness-chunk-\(chunkNumber)".data(using: .utf8)!
+        let info = "OnTheRecord-chunk-\(chunkNumber)".data(using: .utf8)!
         let derivedKey = HKDF<SHA256>.deriveKey(
             inputKeyMaterial: masterKey,
             info: info,
@@ -191,7 +191,7 @@ class EncryptionService {
             keyData as CFData,
             &error
         ) else {
-            print("[iWitness] Key wrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            print("[OnTheRecord] Key wrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return nil
         }
 
@@ -208,7 +208,7 @@ class EncryptionService {
             wrappedKey as CFData,
             &error
         ) else {
-            print("[iWitness] Key unwrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            print("[OnTheRecord] Key unwrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return nil
         }
 

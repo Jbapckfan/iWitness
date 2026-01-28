@@ -1,10 +1,10 @@
 import Foundation
 
-/// Manages iWitness Cloud storage service - a managed cloud backup for users without NAS
+/// Manages OnTheRecord Cloud storage service - a managed cloud backup for users without NAS
 @MainActor
-class iWitnessCloudService: ObservableObject {
+class OnTheRecordCloudService: ObservableObject {
     
-    static let shared = iWitnessCloudService()
+    static let shared = OnTheRecordCloudService()
     
     // MARK: - Configuration
     
@@ -32,7 +32,7 @@ class iWitnessCloudService: ObservableObject {
     
     // MARK: - Authentication
     
-    /// Register new user with iWitness Cloud
+    /// Register new user with OnTheRecord Cloud
     func register(email: String) async throws -> Bool {
         let url = URL(string: "\(apiEndpoint)/register")!
         var request = URLRequest(url: url)
@@ -97,7 +97,7 @@ class iWitnessCloudService: ObservableObject {
     
     // MARK: - Upload
     
-    /// Upload encrypted video chunk to iWitness Cloud
+    /// Upload encrypted video chunk to OnTheRecord Cloud
     func uploadChunk(data: Data, filename: String, incidentID: String) async throws {
         guard let token = apiToken, let userID = userID else {
             throw CloudError.notAuthenticated
@@ -178,16 +178,16 @@ class iWitnessCloudService: ObservableObject {
     
     private func saveCredentials() {
         if let userID = userID {
-            _ = KeychainHelper.shared.save(service: "iWitness", account: "cloud_user_id", value: userID)
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "cloud_user_id", value: userID)
         }
         if let token = apiToken {
-            _ = KeychainHelper.shared.save(service: "iWitness", account: "cloud_api_token", value: token)
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "cloud_api_token", value: token)
         }
     }
     
     private func loadCredentials() {
-        userID = KeychainHelper.shared.load(service: "iWitness", account: "cloud_user_id")
-        apiToken = KeychainHelper.shared.load(service: "iWitness", account: "cloud_api_token")
+        userID = KeychainHelper.shared.load(service: "OnTheRecord", account: "cloud_user_id")
+        apiToken = KeychainHelper.shared.load(service: "OnTheRecord", account: "cloud_api_token")
         
         isConfigured = userID != nil && apiToken != nil
         isAuthenticated = isConfigured
@@ -196,8 +196,8 @@ class iWitnessCloudService: ObservableObject {
     func logout() {
         userID = nil
         apiToken = nil
-        KeychainHelper.shared.delete(service: "iWitness", account: "cloud_user_id")
-        KeychainHelper.shared.delete(service: "iWitness", account: "cloud_api_token")
+        KeychainHelper.shared.delete(service: "OnTheRecord", account: "cloud_user_id")
+        KeychainHelper.shared.delete(service: "OnTheRecord", account: "cloud_api_token")
         isConfigured = false
         isAuthenticated = false
         storageUsed = 0
@@ -250,7 +250,7 @@ class iWitnessCloudService: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .notAuthenticated:
-                return "Not logged in to iWitness Cloud"
+                return "Not logged in to OnTheRecord Cloud"
             case .registrationFailed:
                 return "Failed to create account"
             case .loginFailed:
@@ -270,7 +270,7 @@ class iWitnessCloudService: ObservableObject {
 
 // MARK: - Storage Formatting
 
-extension iWitnessCloudService {
+extension OnTheRecordCloudService {
     var storageUsedFormatted: String {
         ByteCountFormatter.string(fromByteCount: storageUsed, countStyle: .file)
     }

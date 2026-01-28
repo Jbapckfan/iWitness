@@ -7,7 +7,7 @@ import ActivityKit
 // MARK: - Live Activity Widget
 
 @available(iOS 16.1, *)
-struct iWitnessLiveActivity: Widget {
+struct OnTheRecordLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: IWitnessAttributes.self) { context in
             // Lock screen / banner view
@@ -32,7 +32,7 @@ struct iWitnessLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    Text("iWitness Recording")
+                    Text("OnTheRecord Recording")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.8))
                 }
@@ -86,7 +86,7 @@ struct LockScreenLiveActivityView: View {
                 PulsingDot()
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("iWitness Recording")
+                    Text("OnTheRecord Recording")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
 

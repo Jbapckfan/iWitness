@@ -940,7 +940,7 @@ struct LightControlPanel: View {
             }
             device.unlockForConfiguration()
         } catch {
-            print("[iWitness] Torch error: \(error)")
+            print("[OnTheRecord] Torch error: \(error)")
         }
     }
     

@@ -1,7 +1,7 @@
 import Foundation
 import StoreKit
 
-/// Manages in-app purchases and subscriptions for iWitness Pro
+/// Manages in-app purchases and subscriptions for OnTheRecord Pro
 @MainActor
 class StoreManager: ObservableObject {
     
@@ -250,7 +250,7 @@ extension StoreManager {
         
         // Defender tier ($9.99/mo)
         case liveStreaming           // HLS stream to cloud
-        case cloudBackup             // iWitness Cloud storage
+        case cloudBackup             // OnTheRecord Cloud storage
         case priorityUpload          // Concurrent multi-destination
         case deadManSwitch           // Auto-alert if unresponsive
         case lawyerEscalation        // Auto-notify lawyer if no safe signal
@@ -277,7 +277,7 @@ extension StoreManager {
             case .liveLocation: return "Live Location Sharing"
             case .quickAlerts: return "Quick Alert Messages"
             case .liveStreaming: return "Live Streaming"
-            case .cloudBackup: return "iWitness Cloud"
+            case .cloudBackup: return "OnTheRecord Cloud"
             case .priorityUpload: return "Priority Multi-Upload"
             case .deadManSwitch: return "Dead Man's Switch"
             case .lawyerEscalation: return "Lawyer Auto-Escalation"

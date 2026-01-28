@@ -60,7 +60,7 @@ class NASBrowserService: ObservableObject {
     }
 
     private var nasPassword: String? {
-        KeychainHelper.shared.read(service: "iWitness", account: "nas_password")
+        KeychainHelper.shared.read(service: "OnTheRecord", account: "nas_password")
     }
 
     private var authHeader: String? {
@@ -83,17 +83,17 @@ class NASBrowserService: ObservableObject {
         error = nil
         incidents = []
 
-        let iWitnessURL = baseURL.appendingPathComponent("iWitness")
+        let OnTheRecordURL = baseURL.appendingPathComponent("OnTheRecord")
 
         do {
             // List incident directories
-            let incidentIDs = try await listWebDAVDirectory(iWitnessURL)
+            let incidentIDs = try await listWebDAVDirectory(OnTheRecordURL)
 
             var loadedIncidents: [Incident] = []
 
             for incidentID in incidentIDs {
                 // Get chunk count for each incident
-                let incidentURL = iWitnessURL.appendingPathComponent(incidentID)
+                let incidentURL = OnTheRecordURL.appendingPathComponent(incidentID)
                 let chunks = try await listWebDAVDirectory(incidentURL)
                 let chunkCount = chunks.filter { $0.hasSuffix(".iwc") }.count
 
@@ -129,7 +129,7 @@ class NASBrowserService: ObservableObject {
         decryptionProgress = 0
         currentlyPlaying = incident
 
-        let incidentURL = baseURL.appendingPathComponent("iWitness/\(incident.id)")
+        let incidentURL = baseURL.appendingPathComponent("OnTheRecord/\(incident.id)")
 
         // Get list of chunks
         let chunkFiles = try await listWebDAVDirectory(incidentURL)
@@ -142,7 +142,7 @@ class NASBrowserService: ObservableObject {
 
         // Create temp directory for this incident
         let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("iWitness_playback")
+            .appendingPathComponent("OnTheRecord_playback")
             .appendingPathComponent(incident.id)
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
@@ -309,7 +309,7 @@ class NASBrowserService: ObservableObject {
 
     func clearPlaybackCache() {
         let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("iWitness_playback")
+            .appendingPathComponent("OnTheRecord_playback")
         try? FileManager.default.removeItem(at: tempDir)
         currentlyPlaying = nil
         decryptionProgress = 0

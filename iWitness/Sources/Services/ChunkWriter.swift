@@ -39,7 +39,7 @@ class ChunkWriter {
         
         // Use Application Support for persistent storage (excluded from backup)
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupport = paths[0].appendingPathComponent("iWitness/PendingUploads", isDirectory: true)
+        let appSupport = paths[0].appendingPathComponent("OnTheRecord/PendingUploads", isDirectory: true)
         self.outputDirectory = appSupport.appendingPathComponent(incidentID, isDirectory: true)
         
         do {

@@ -263,7 +263,7 @@ struct HomeView: View {
                 .padding(.horizontal, Spacing.screenPadding)
                 .padding(.vertical, Spacing.md)
             }
-            .navigationTitle("iWitness")
+            .navigationTitle("OnTheRecord")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
@@ -602,9 +602,9 @@ struct ActivationButton: View {
                     do {
                         let streamURL = try await liveStreamService.startStream(incidentID: incidentID)
                         streamURLString = streamURL.absoluteString
-                        print("[iWitness] Live stream started: \(streamURLString ?? "none")")
+                        print("[OnTheRecord] Live stream started: \(streamURLString ?? "none")")
                     } catch {
-                        print("[iWitness] Live stream failed (continuing without): \(error)")
+                        print("[OnTheRecord] Live stream failed (continuing without): \(error)")
                         // Continue without live stream - recording still works
                     }
                 }
@@ -621,7 +621,7 @@ struct ActivationButton: View {
                 successGenerator.notificationOccurred(.success)
 
             } catch {
-                print("[iWitness] Failed to start recording: \(error)")
+                print("[OnTheRecord] Failed to start recording: \(error)")
 
                 // Error haptic
                 let errorGenerator = UINotificationFeedbackGenerator()

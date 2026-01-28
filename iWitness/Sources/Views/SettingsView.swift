@@ -184,7 +184,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Voice & Watch")
                 } footer: {
-                    Text("Use Siri or your Apple Watch to activate iWitness hands-free.")
+                    Text("Use Siri or your Apple Watch to activate OnTheRecord hands-free.")
                 }
 
                 // Security & Recording Section
@@ -317,12 +317,12 @@ struct SettingsView: View {
 
                 // Community Section (Growth)
                 Section {
-                    ShareLink(item: URL(string: "https://apps.apple.com/app/id673949313")!, message: Text("I'm using iWitness to protect myself. It's a black box for your phone. Download it here:")) {
+                    ShareLink(item: URL(string: "https://apps.apple.com/app/id673949313")!, message: Text("I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:")) {
                         Label("Invite Friends & Family", systemImage: "square.and.arrow.up")
                     }
                     
                     Button {
-                        if let url = URL(string: "https://twitter.com/intent/tweet?text=I%27m%20using%20iWitness%20to%20protect%20myself.%20Check%20it%20out!") {
+                        if let url = URL(string: "https://twitter.com/intent/tweet?text=I%27m%20using%20OnTheRecord%20to%20protect%20myself.%20Check%20it%20out!") {
                             UIApplication.shared.open(url)
                         }
                     } label: {
@@ -438,9 +438,9 @@ struct SettingsView: View {
         if UIApplication.shared.supportsAlternateIcons {
             UIApplication.shared.setAlternateIconName("CalculatorIcon") { error in
                 if let error = error {
-                    print("[iWitness] Failed to set calculator icon: \(error)")
+                    print("[OnTheRecord] Failed to set calculator icon: \(error)")
                 } else {
-                    print("[iWitness] Calculator camouflage icon set")
+                    print("[OnTheRecord] Calculator camouflage icon set")
                 }
             }
         }
@@ -450,9 +450,9 @@ struct SettingsView: View {
         if UIApplication.shared.supportsAlternateIcons {
             UIApplication.shared.setAlternateIconName(nil) { error in
                 if let error = error {
-                    print("[iWitness] Failed to reset icon: \(error)")
+                    print("[OnTheRecord] Failed to reset icon: \(error)")
                 } else {
-                    print("[iWitness] Default icon restored")
+                    print("[OnTheRecord] Default icon restored")
                 }
             }
         }
@@ -679,7 +679,7 @@ struct NASSetupView: View {
         UserDefaults.standard.set(nasURL, forKey: "nas_url")
         UserDefaults.standard.set(username, forKey: "nas_username")
         // Store password in Keychain
-        _ = KeychainHelper.shared.save(service: "iWitness", account: "nas_password", value: password)
+        _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "nas_password", value: password)
 
         // Configure upload service
         if let url = URL(string: nasURL) {
@@ -921,7 +921,7 @@ struct CloudSetupView: View {
         UserDefaults.standard.set(bucketName, forKey: "cloud_bucket")
         UserDefaults.standard.set(accessKeyID, forKey: "cloud_access_key")
         // Store secret in Keychain
-        _ = KeychainHelper.shared.save(service: "iWitness", account: "cloud_secret_key", value: secretAccessKey)
+        _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "cloud_secret_key", value: secretAccessKey)
 
         // Configure upload service
         uploadService.addR2Destination(
@@ -952,7 +952,7 @@ struct GuidedAccessSetupView: View {
         ("Step 2", "Turn on Guided Access"),
         ("Step 3", "Set a passcode (use a DIFFERENT passcode than your phone unlock)"),
         ("Step 4", "Enable 'Accessibility Shortcut'"),
-        ("During Recording", "Triple-click the side button to activate Guided Access. This prevents Control Center access and exiting iWitness.")
+        ("During Recording", "Triple-click the side button to activate Guided Access. This prevents Control Center access and exiting OnTheRecord.")
     ]
 
     var body: some View {
@@ -966,7 +966,7 @@ struct GuidedAccessSetupView: View {
                             Image(systemName: "lock.iphone")
                                 .font(.system(size: 24))
                                 .foregroundColor(.purple)
-                            Text("Guided Access locks your iPhone to iWitness and prevents exiting the app.")
+                            Text("Guided Access locks your iPhone to OnTheRecord and prevents exiting the app.")
                                 .font(Typography.bodyMedium)
                                 .foregroundColor(.secondary)
                         }
@@ -1242,7 +1242,7 @@ struct SiriSettingsView: View {
                                     .font(Typography.bodyLarge)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.white)
-                                Text("Add Siri Shortcuts to activate iWitness or mark yourself safe using just your voice.")
+                                Text("Add Siri Shortcuts to activate OnTheRecord or mark yourself safe using just your voice.")
                                     .font(Typography.bodyMedium)
                                     .foregroundColor(.secondary)
                             }
@@ -1348,7 +1348,7 @@ struct SiriSettingsView: View {
                                 }
                             }
 
-                            Text("With the iWitness Watch app installed, you can:")
+                            Text("With the OnTheRecord Watch app installed, you can:")
                                 .font(Typography.caption)
                                 .foregroundColor(.secondary)
 
@@ -1569,7 +1569,7 @@ struct TwilioSetupView: View {
             do {
                 let result = try await alertService.sendSMSViaTwilio(
                     to: "+15551234567", // Test number
-                    message: "iWitness test message"
+                    message: "OnTheRecord test message"
                 )
 
                 if result.success {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Design System
-// Premium design tokens for iWitness - glassmorphism with subtle polish
+// Premium design tokens for OnTheRecord - glassmorphism with subtle polish
 
 struct DesignSystem {
     // Keep original emergency colors for backwards compatibility

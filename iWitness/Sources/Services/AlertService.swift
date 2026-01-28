@@ -117,7 +117,7 @@ class AlertService: ObservableObject {
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
         } catch {
-            print("[iWitness] Notification permission error: \(error)")
+            print("[OnTheRecord] Notification permission error: \(error)")
             return false
         }
     }
@@ -216,7 +216,7 @@ class AlertService: ObservableObject {
         var message = """
         🚨 WITNESS ALERT
 
-        iWitness mode activated.
+        OnTheRecord mode activated.
         """
 
         if let address = address {
@@ -243,7 +243,7 @@ class AlertService: ObservableObject {
         // Email would typically go through a backend service
         // For MVP, we'll compose an email URL
 
-        let subject = "🚨 iWitness Emergency Alert"
+        let subject = "🚨 OnTheRecord Emergency Alert"
         let body = formatEmailBody(location: location, address: address)
 
         let emailURL = "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
@@ -261,7 +261,7 @@ class AlertService: ObservableObject {
         var body = """
         WITNESS ALERT
 
-        iWitness emergency recording has been activated.
+        OnTheRecord emergency recording has been activated.
 
         INCIDENT ID: \(currentIncidentID ?? "Unknown")
         TIME: \(ISO8601DateFormatter().string(from: Date()))
@@ -293,7 +293,7 @@ class AlertService: ObservableObject {
         body += """
 
         ---
-        This is an automated alert from iWitness.
+        This is an automated alert from OnTheRecord.
         Please check on the sender immediately.
         """
 
@@ -311,7 +311,7 @@ class AlertService: ObservableObject {
             let message = """
             ⚠️ ESCALATION - NO RESPONSE
 
-            Previous iWitness alert was not confirmed.
+            Previous OnTheRecord alert was not confirmed.
             Incident ID: \(incidentID)
 
             IMMEDIATE ATTENTION REQUIRED
@@ -341,7 +341,7 @@ class AlertService: ObservableObject {
         let message = """
         ✅ SAFE
 
-        iWitness recording has ended.
+        OnTheRecord recording has ended.
         User has indicated they are safe.
 
         Incident ID: \(currentIncidentID ?? "Unknown")
@@ -427,8 +427,8 @@ extension AlertService {
             isMock: true
         )
 
-        print("[iWitness] MOCK Twilio SMS sent to \(phone)")
-        print("[iWitness] Message: \(message.prefix(50))...")
+        print("[OnTheRecord] MOCK Twilio SMS sent to \(phone)")
+        print("[OnTheRecord] Message: \(message.prefix(50))...")
 
         twilioStatus = .mockMode
         return result
@@ -511,10 +511,10 @@ extension AlertService {
                     let result = try await sendSMSViaTwilio(to: contact.phone, message: message)
                     if result.success {
                         alertsSent += 1
-                        print("[iWitness] Alert sent to \(contact.displayName): \(result.messageID)")
+                        print("[OnTheRecord] Alert sent to \(contact.displayName): \(result.messageID)")
                     }
                 } catch {
-                    print("[iWitness] Failed to send alert to \(contact.displayName): \(error)")
+                    print("[OnTheRecord] Failed to send alert to \(contact.displayName): \(error)")
                 }
             }
         }

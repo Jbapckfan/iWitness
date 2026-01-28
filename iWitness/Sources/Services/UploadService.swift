@@ -149,7 +149,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         }
         
         if !queue.isEmpty {
-            print("[iWitness] Restored \(queue.count) pending uploads from previous session")
+            print("[OnTheRecord] Restored \(queue.count) pending uploads from previous session")
             processQueue()
         }
     }
@@ -197,7 +197,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
     // MARK: - Queue Management
     
-    /// Queue a file handling the iWitness container format (IWC)
+    /// Queue a file handling the OnTheRecord container format (IWC)
     /// - Parameters:
     ///   - url: URL to the ready-to-upload .iwc file (EncryptedChunk serialized)
     ///   - incidentID: Incident ID
@@ -320,14 +320,14 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             }
             
         } catch {
-            print("[iWitness] Failed to start background upload: \(error)")
+            print("[OnTheRecord] Failed to start background upload: \(error)")
         }
     }
     
     // MARK: - Request Creation
     
     private func createWebDAVRequest(chunk: QueuedChunk, destination: UploadDestination) throws -> URLRequest {
-        let filename = "iWitness/\(chunk.incidentID)/chunk_\(String(format: "%05d", chunk.chunkNumber)).iwc"
+        let filename = "OnTheRecord/\(chunk.incidentID)/chunk_\(String(format: "%05d", chunk.chunkNumber)).iwc"
         let uploadURL = destination.url.appendingPathComponent(filename)
 
         var request = URLRequest(url: uploadURL)
@@ -349,7 +349,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         // In this architecture, we assume the directory structure is pre-created or flat,
         // OR we rely on the server handling it.
         // Standard WebDAV requires parent dirs to exist.
-        // For MVP High Assurance, we assume the root (iWitness) exists.
+        // For MVP High Assurance, we assume the root (OnTheRecord) exists.
         
         return request
     }
@@ -411,7 +411,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         activeTasksLock.unlock()
         
         if let error = error {
-            print("[iWitness] Background upload failed for \(chunkID) to \(destName): \(error)")
+            print("[OnTheRecord] Background upload failed for \(chunkID) to \(destName): \(error)")
             handleFailure(chunkID: chunkID, destinationName: destName)
         } else {
             // Check status code
@@ -419,7 +419,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 handleSuccess(chunkID: chunkID, destinationName: destName)
             } else {
                 let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 0
-                print("[iWitness] Server error for \(chunkID) to \(destName): \(statusCode)")
+                print("[OnTheRecord] Server error for \(chunkID) to \(destName): \(statusCode)")
                 handleFailure(chunkID: chunkID, destinationName: destName)
             }
         }
@@ -436,7 +436,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 // Schedule retry with exponential backoff
                 let delayIndex = min(chunk.uploadAttempts - 1, retryDelays.count - 1)
                 let delay = retryDelays[delayIndex]
-                print("[iWitness] Retry \(chunk.uploadAttempts) for \(chunkID) in \(delay)s")
+                print("[OnTheRecord] Retry \(chunk.uploadAttempts) for \(chunkID) in \(delay)s")
                 
                 // Find the destination and retry after delay
                 if let destination = destinations.first(where: { $0.name == destinationName }) {
@@ -446,7 +446,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                     }
                 }
             } else {
-                print("[iWitness] Max retries reached for \(chunkID). Will retry when network allows.")
+                print("[OnTheRecord] Max retries reached for \(chunkID). Will retry when network allows.")
             }
         }
         queueLock.unlock()
