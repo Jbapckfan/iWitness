@@ -5,6 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OnTheRecord | The Black Box for Your Life</title>
+
+    <!-- Favicon: red recording dot -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23050505'/><circle cx='16' cy='16' r='8' fill='%23E63333'/></svg>" type="image/svg+xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="OnTheRecord — The Black Box for Your Life">
+    <meta property="og:description" content="Encrypted dual-camera recording with real-time offsite upload. Your evidence survives — even if your phone doesn't.">
+    <meta property="og:url" content="https://ontherecord.app">
+    <meta property="og:image" content="https://ontherecord.app/assets/og-image.png">
+    <meta property="og:site_name" content="OnTheRecord">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="OnTheRecord — The Black Box for Your Life">
+    <meta name="twitter:description" content="Encrypted dual-camera recording with real-time offsite upload. Your evidence survives — even if your phone doesn't.">
+    <meta name="twitter:image" content="https://ontherecord.app/assets/og-image.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
@@ -136,10 +154,33 @@
                 <a href="#features" class="hover:text-white transition-colors">Mission</a>
                 <a href="#tech" class="hover:text-white transition-colors">Technology</a>
                 <a href="#pricing" class="hover:text-white transition-colors">Encrypted Vault</a>
+                <a href="/about.html" class="hover:text-white transition-colors">About</a>
+                <a href="/privacy.html" class="hover:text-white transition-colors">Privacy</a>
             </div>
-            <a href="#"
-                class="bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all transform hover:-translate-y-0.5 shadow-lg">Get
-                Access</a>
+            <div class="flex items-center gap-4">
+                <a href="#"
+                    class="hidden md:inline-block bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all transform hover:-translate-y-0.5 shadow-lg no-underline">Get
+                    Access</a>
+                <!-- Mobile Hamburger -->
+                <button class="md:hidden text-white focus:outline-none" id="mobile-menu-btn" aria-label="Menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div class="hidden md:hidden max-w-6xl mx-auto mt-2 glass-panel rounded-2xl px-6 py-4" id="mobile-menu">
+            <div class="flex flex-col gap-4 text-sm font-medium text-gray-400">
+                <a href="#features" class="hover:text-white transition-colors py-2">Mission</a>
+                <a href="#tech" class="hover:text-white transition-colors py-2">Technology</a>
+                <a href="#pricing" class="hover:text-white transition-colors py-2">Encrypted Vault</a>
+                <a href="/about.html" class="hover:text-white transition-colors py-2">About</a>
+                <a href="/privacy.html" class="hover:text-white transition-colors py-2">Privacy</a>
+                <a href="#"
+                    class="bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm text-center hover:bg-gray-200 transition-all no-underline">Get
+                    Access</a>
+            </div>
         </div>
     </nav>
 
@@ -265,6 +306,26 @@
                         > ICLOUD: BLOCKED<br>
                         Evidence is sandboxed in an encrypted container. Forced unlock reveals nothing.
                     </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof -->
+    <section class="py-20 px-6 relative z-10 bg-black">
+        <div class="max-w-5xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 reveal">
+                <div class="glass-panel rounded-2xl p-8 text-center">
+                    <div class="text-4xl font-black font-mono text-white mb-3">AGPLv3</div>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">Open Source. Auditable. Trustless.</p>
+                </div>
+                <div class="glass-panel rounded-2xl p-8 text-center">
+                    <div class="text-4xl font-black font-mono text-white mb-3">256-bit</div>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">AES-GCM Military-Grade Encryption</p>
+                </div>
+                <div class="glass-panel rounded-2xl p-8 text-center">
+                    <div class="text-4xl font-black font-mono text-white mb-3">2 sec</div>
+                    <p class="text-gray-400 text-sm font-mono leading-relaxed">Max data loss window</p>
                 </div>
             </div>
         </div>
@@ -593,13 +654,31 @@
         </div>
     </section>
 
-    <!-- Simple Footer -->
-    <footer class="py-12 px-6 border-t border-white/10 bg-black text-center">
-        <p class="text-gray-600 font-mono text-xs uppercase tracking-widest">
-            © 2026 OnTheRecord. All Rights Reserved.<br>
-            Designed for High-Assurance Environments.<br>
-            <span class="text-red-900/50">NO_LOGS // NO_TRACKING // NO_COMPROMISE</span>
-        </p>
+    <!-- Footer -->
+    <footer class="py-12 px-6 border-t border-white/10 bg-black">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-black border border-white/10 rounded-lg flex items-center justify-center">
+                        <div class="w-2 h-2 bg-red-600 rounded-full"></div>
+                    </div>
+                    <span class="font-bold text-sm tracking-tight font-mono text-gray-400">OnTheRecord</span>
+                </div>
+                <div class="flex flex-wrap justify-center gap-6 text-gray-500 font-mono text-xs uppercase tracking-widest">
+                    <a href="/privacy.html" class="hover:text-white transition-colors">Privacy Policy</a>
+                    <a href="/tos.html" class="hover:text-white transition-colors">Terms of Service</a>
+                    <a href="/about.html" class="hover:text-white transition-colors">Press Kit</a>
+                    <a href="https://github.com/jamesalford/OnTheRecord" class="hover:text-white transition-colors">GitHub</a>
+                </div>
+            </div>
+            <div class="text-center">
+                <p class="text-gray-600 font-mono text-xs uppercase tracking-widest">
+                    &copy; 2026 OnTheRecord. All Rights Reserved.<br>
+                    Designed for High-Assurance Environments.<br>
+                    <span class="text-red-900/50">NO_LOGS // NO_TRACKING // NO_COMPROMISE</span>
+                </p>
+            </div>
+        </div>
     </footer>
 
     <!-- Scroll Reveal Script -->
@@ -621,6 +700,21 @@
         document.querySelectorAll('.reveal').forEach((element) => {
             observer.observe(element);
         });
+
+        // Mobile menu toggle
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (menuBtn && mobileMenu) {
+            menuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+            // Close menu when a link is clicked
+            mobileMenu.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                });
+            });
+        }
 
         // Sticky Nav Blur Effect
         window.addEventListener('scroll', () => {

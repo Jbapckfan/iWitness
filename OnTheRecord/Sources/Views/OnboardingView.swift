@@ -324,7 +324,7 @@ struct PermissionButton: View {
                         .fontWeight(.semibold)
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xxs + 2)
-                        .background(Color.blue)
+                        .background(Colors.witnessRed)
                         .foregroundColor(.white)
                         .cornerRadius(Spacing.Radius.xs)
                 }
@@ -335,6 +335,8 @@ struct PermissionButton: View {
         }
         .buttonStyle(PremiumPressStyle(isPressed: $isPressed))
         .disabled(isGranted)
+        .accessibilityLabel("\(title): \(isGranted ? "granted" : "not granted")")
+        .accessibilityHint("Tap to enable")
     }
 }
 
@@ -351,13 +353,13 @@ struct ContactsSetupPage: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(Colors.witnessRed.opacity(0.2))
                     .frame(width: 100, height: 100)
                     .blur(radius: 25)
 
                 Image(systemName: "person.2.circle.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .foregroundColor(Colors.witnessRed)
             }
             .fadeScaleEntrance(isPresented: isAppeared)
 
@@ -382,7 +384,7 @@ struct ContactsSetupPage: View {
                     PremiumPrimaryButton(
                         title: "Add Contact",
                         icon: "person.badge.plus",
-                        color: .blue
+                        color: Colors.witnessRed
                     ) {
                         showingAddContact = true
                     }
@@ -446,13 +448,13 @@ struct StorageSetupPage: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.orange.opacity(0.2))
+                    .fill(Colors.warningOrange.opacity(0.2))
                     .frame(width: 100, height: 100)
                     .blur(radius: 25)
 
                 Image(systemName: "externaldrive.badge.checkmark")
                     .font(.system(size: 60))
-                    .foregroundColor(.orange)
+                    .foregroundColor(Colors.warningOrange)
             }
             .fadeScaleEntrance(isPresented: isAppeared)
 
@@ -555,7 +557,7 @@ struct StorageOption: View {
                         .fontWeight(.semibold)
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xxs + 2)
-                        .background(Color.blue)
+                        .background(Colors.witnessRed)
                         .foregroundColor(.white)
                         .cornerRadius(Spacing.Radius.xs)
                 }
@@ -567,6 +569,7 @@ struct StorageOption: View {
         }
         .buttonStyle(PremiumPressStyle(isPressed: $isPressed))
         .disabled(isDisabled || isConfigured)
+        .accessibilityLabel("\(title): \(isConfigured ? "configured" : "not set up")")
     }
 }
 
@@ -582,13 +585,13 @@ struct SecurityDrillPage: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.yellow.opacity(0.2))
+                    .fill(Colors.warningOrange.opacity(0.2))
                     .frame(width: 100, height: 100)
                     .blur(radius: 25)
 
                 Image(systemName: "lock.shield.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(Colors.warningOrange)
             }
             .fadeScaleEntrance(isPresented: isAppeared)
 
@@ -794,7 +797,7 @@ struct SafePINOnboardingPage: View {
     @State private var saved = false
     @State private var isAppeared = false
 
-    private let pinColor = Color(red: 0.2, green: 0.8, blue: 0.3)
+    private let pinColor = Colors.safeGreen
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -908,8 +911,7 @@ struct SafePINOnboardingPage: View {
 struct InvitePage: View {
     @State private var isAppeared = false
     
-    // TODO: Replace with real App Store URL
-    private let appURL = URL(string: "https://apps.apple.com/app/id673949313")!
+    private let appURL = URL(string: "https://ontherecord.app/download")!
     private let shareMessage = "I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:"
 
     var body: some View {
@@ -918,13 +920,13 @@ struct InvitePage: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(Colors.witnessRed.opacity(0.2))
                     .frame(width: 100, height: 100)
                     .blur(radius: 25)
 
                 Image(systemName: "person.3.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .foregroundColor(Colors.witnessRed)
             }
             .fadeScaleEntrance(isPresented: isAppeared)
 
@@ -951,7 +953,7 @@ struct InvitePage: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(Colors.witnessRed)
                     .foregroundColor(.white)
                     .cornerRadius(Spacing.Radius.md)
                 }

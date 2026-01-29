@@ -81,6 +81,15 @@
     <true/>
 
 
+    <!-- Local Network (Witness Beacon P2P + NAS Discovery) -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>OnTheRecord uses the local network to discover nearby NAS devices for evidence backup and to connect with Witness Beacon peers for evidence redundancy.</string>
+    <key>NSBonjourServiceTypes</key>
+    <array>
+        <string>_witness-beacon._tcp</string>
+        <string>_webdav._tcp</string>
+    </array>
+
     <!-- App Transport Security -->
     <key>NSAppTransportSecurity</key>
     <dict>

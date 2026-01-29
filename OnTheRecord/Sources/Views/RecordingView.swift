@@ -10,9 +10,11 @@ struct RecordingView: View {
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var connectivityGuardian: ConnectivityGuardian
     @EnvironmentObject var liveStreamService: LiveStreamService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showingSecurePhone = false
     @State private var screenFillOpacity: Double = 0.0
+    @State private var showingPINDial = false
     private var stealthGestureEnabled: Bool { UserDefaults.standard.bool(forKey: "stealth_blackout_gesture") }
 
     var body: some View {
@@ -109,10 +111,15 @@ struct RecordingView: View {
                 Spacer()
 
                 // Action buttons - clear hierarchy
-                ActionButtonsPanel()
+                ActionButtonsPanel(showingPINDial: $showingPINDial)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.horizontal, Spacing.screenPadding)
+            .padding(.bottom, Spacing.screenPadding)
+
+            // PIN dial overlay — rendered at top-level ZStack for fullscreen
+            if showingPINDial {
+                PINDialOverlay(showingDial: $showingPINDial)
+            }
         }
         .statusBar(hidden: true)
         .sheet(isPresented: $showingSecurePhone) {
@@ -137,6 +144,7 @@ struct ConnectivityWarningBanner: View {
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
+
             Image(systemName: "wifi.slash")
                 .font(.system(size: 18, weight: .bold))
 
@@ -154,7 +162,7 @@ struct ConnectivityWarningBanner: View {
             if secondsDisconnected > 30 {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(Colors.warningOrange)
             }
         }
         .foregroundColor(.white)
@@ -171,6 +179,7 @@ struct ConnectivityWarningBanner: View {
         )
         .padding(.horizontal, Spacing.xxs)
         .padding(.top, Spacing.xs)
+        .accessibilityLabel("Signal lost")
     }
 }
 
@@ -202,7 +211,7 @@ struct SecurePhoneSheet: View {
                     VStack(spacing: 12) {
                         Image(systemName: "lock.shield.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(Colors.warningOrange)
 
                         Text("Secure Your Phone")
                             .font(.title.bold())
@@ -218,7 +227,7 @@ struct SecurePhoneSheet: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("DISABLE \(connectivityGuardian.biometricType.uppercased()) NOW", systemImage: "faceid")
                             .font(.headline)
-                            .foregroundColor(.red)
+                            .foregroundColor(Colors.witnessRed)
 
                         Text("Press and hold **Side + Volume** buttons for 2 seconds")
                             .font(.body)
@@ -262,7 +271,7 @@ struct SecurePhoneSheet: View {
                         .cornerRadius(12)
                     }
                     .padding()
-                    .background(Color.red.opacity(0.1))
+                    .background(Colors.witnessRed.opacity(0.1))
                     .cornerRadius(16)
 
                     // Other steps
@@ -274,15 +283,18 @@ struct SecurePhoneSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Shake to Escalate", systemImage: "hand.raised.fill")
                             .font(.headline)
-                            .foregroundColor(.orange)
+                            .foregroundColor(Colors.warningOrange)
 
                         Text("If you're restrained and can't touch the screen, **shake your phone vigorously 3 times** to send an escalation alert to all contacts.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                     .padding()
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(16)
+                    .glassBackground()
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Spacing.Radius.md)
+                            .fill(Colors.warningOrange.opacity(0.08))
+                    )
 
                     Spacer(minLength: 40)
                 }
@@ -323,8 +335,7 @@ struct SecureStepRow: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .glassBackground()
     }
 }
 
@@ -412,21 +423,27 @@ struct DualCameraPreviewView: View {
 
 private struct BackCameraLayer: UIViewRepresentable {
     let recordingService: RecordingService
-    
+
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         view.backgroundColor = .black
-        
+
         if let layer = recordingService.backPreviewLayer {
             layer.videoGravity = .resizeAspectFill
             view.layer.addSublayer(layer)
         }
-        
+
         return view
     }
-    
+
     func updateUIView(_ uiView: UIView, context: Context) {
         if let layer = recordingService.backPreviewLayer {
+            // Add layer if it wasn't available during makeUIView (race with session setup)
+            if layer.superlayer !== uiView.layer {
+                uiView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
+                layer.videoGravity = .resizeAspectFill
+                uiView.layer.addSublayer(layer)
+            }
             layer.frame = uiView.bounds
         }
     }
@@ -455,6 +472,8 @@ private struct FrontCameraPiP: View {
             )
             .shadow(color: .black.opacity(0.5), radius: 12, x: 0, y: 6)
             .shadow(color: Colors.safeGreen.opacity(0.15), radius: 20, x: 0, y: 0)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Front camera picture in picture")
     }
 }
 
@@ -462,22 +481,27 @@ private struct FrontCameraPiP: View {
 
 private struct FrontCameraLayer: UIViewRepresentable {
     let recordingService: RecordingService
-    
+
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         view.backgroundColor = .black
         view.clipsToBounds = true
-        
+
         if let layer = recordingService.frontPreviewLayer {
             layer.videoGravity = .resizeAspectFill
             view.layer.addSublayer(layer)
         }
-        
+
         return view
     }
-    
+
     func updateUIView(_ uiView: UIView, context: Context) {
         if let layer = recordingService.frontPreviewLayer {
+            if layer.superlayer !== uiView.layer {
+                uiView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
+                layer.videoGravity = .resizeAspectFill
+                uiView.layer.addSublayer(layer)
+            }
             layer.frame = uiView.bounds
         }
     }
@@ -493,6 +517,7 @@ struct CameraPreviewView: UIViewRepresentable {
         view.backgroundColor = .black
 
         if let previewLayer = recordingService.previewLayer {
+            previewLayer.videoGravity = .resizeAspectFill
             previewLayer.frame = UIScreen.main.bounds
             view.layer.addSublayer(previewLayer)
         }
@@ -502,6 +527,11 @@ struct CameraPreviewView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         if let previewLayer = recordingService.previewLayer {
+            if previewLayer.superlayer !== uiView.layer {
+                uiView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
+                previewLayer.videoGravity = .resizeAspectFill
+                uiView.layer.addSublayer(previewLayer)
+            }
             previewLayer.frame = uiView.bounds
         }
     }
@@ -516,6 +546,7 @@ struct CameraFlipButton: View {
         PremiumIconButton(icon: "camera.rotate.fill", size: 44, style: .glass) {
             recordingService.flipCamera()
         }
+        .accessibilityLabel("Switch camera")
         .padding(.top, Spacing.xs)
     }
 }
@@ -548,6 +579,7 @@ struct RecordingHeader: View {
                 .foregroundColor(.white)
                 .monospacedDigit()
                 .shadow(color: Colors.witnessRed.opacity(0.3), radius: 10)
+                .accessibilityLabel("Recording time: \(appState.formattedDuration)")
         }
         .padding(.vertical, Spacing.lg)
     }
@@ -586,6 +618,7 @@ struct RecordingStatusOverlay: View {
                 LiveBadge(segmentCount: liveStreamService.segmentsUploaded) {
                     showingShareSheet = true
                 }
+                .accessibilityLabel("Live stream active")
                 .sheet(isPresented: $showingShareSheet) {
                     ShareStreamSheet(streamURL: liveStreamService.streamURL)
                 }
@@ -596,7 +629,7 @@ struct RecordingStatusOverlay: View {
                 HStack(spacing: Spacing.sm) {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.green)
+                        .foregroundColor(Colors.safeGreen)
                     
                     Text("\(alertService.alertsSent) contacts notified")
                         .font(Typography.caption)
@@ -615,7 +648,7 @@ struct RecordingStatusOverlay: View {
                             Text("Add")
                                 .font(Typography.caption)
                         }
-                        .foregroundColor(.yellow)
+                        .foregroundColor(Colors.warningOrange)
                     }
                 }
                 .foregroundColor(.white)
@@ -636,7 +669,7 @@ struct RecordingStatusOverlay: View {
                     } else if uploadService.queueDepth > 0 {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.orange)
+                            .foregroundColor(Colors.warningOrange)
                         Text("\(uploadService.queueDepth) pending")
                             .font(Typography.caption)
                     } else {
@@ -673,12 +706,13 @@ struct CameraStatusBadge: View {
                 .font(.system(size: 10, weight: .bold))
         }
         .foregroundColor(isActive ? .white : .white.opacity(0.4))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Spacing.xs)
+        .padding(.vertical, Spacing.xxs)
         .background(
             Capsule()
                 .fill(isActive ? Colors.safeGreen.opacity(0.8) : Color.gray.opacity(0.3))
         )
+        .accessibilityLabel("\(label) camera \(isActive ? "active" : "inactive")")
     }
 }
 
@@ -793,7 +827,7 @@ struct ShareStreamSheet: View {
             VStack(spacing: 24) {
                 Image(systemName: "dot.radiowaves.left.and.right")
                     .font(.system(size: 60))
-                    .foregroundColor(.red)
+                    .foregroundColor(Colors.witnessRed)
 
                 Text("Share Live Stream")
                     .font(.title2.bold())
@@ -852,9 +886,10 @@ struct ShareStreamSheet: View {
 struct LightControlPanel: View {
     @EnvironmentObject var recordingService: RecordingService
     @Binding var screenFillOpacity: Double
-    
+
     @State private var isExpanded = false
     @State private var torchLevel: Float = 0.0
+    @State private var originalBrightness: CGFloat?
     
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -879,7 +914,8 @@ struct LightControlPanel: View {
                 .padding(.vertical, Spacing.xs)
                 .background(.ultraThinMaterial, in: Capsule())
             }
-            
+            .accessibilityLabel(isLightActive ? "Lights on" : "Lights off")
+
             // Expanded controls
             if isExpanded {
                 VStack(spacing: Spacing.md) {
@@ -946,10 +982,14 @@ struct LightControlPanel: View {
             }
         }
         .onDisappear {
-            // Turn off lights when leaving
+            // Turn off lights and restore brightness when leaving
             torchLevel = 0
             screenFillOpacity = 0
             updateTorch()
+            if let saved = originalBrightness {
+                UIScreen.main.brightness = saved
+                originalBrightness = nil
+            }
         }
     }
     
@@ -970,13 +1010,20 @@ struct LightControlPanel: View {
             }
             device.unlockForConfiguration()
         } catch {
-            print("[OnTheRecord] Torch error: \(error)")
+            debugLog("[OnTheRecord] Torch error: \(error)")
         }
     }
     
     private func updateScreenBrightness() {
-        // Screen brightness is handled by the overlay in RecordingView
-        // This just triggers an update
+        if originalBrightness == nil {
+            originalBrightness = UIScreen.main.brightness
+        }
+        if screenFillOpacity > 0 {
+            UIScreen.main.brightness = 1.0
+        } else if let saved = originalBrightness {
+            UIScreen.main.brightness = saved
+            originalBrightness = nil
+        }
     }
 }
 
@@ -1017,63 +1064,26 @@ struct ScreenFillLightOverlay: View {
 
 struct ActionButtonsPanel: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var alertService: AlertService
-    @EnvironmentObject var liveStreamService: LiveStreamService
 
-    @State private var safeButtonOffset: CGFloat = 0
-    @State private var isEndingRecording = false
+    @Binding var showingPINDial: Bool
 
     var body: some View {
         VStack(spacing: Spacing.md) {
             // I'M SAFE - Primary action with PIN dial
-            SafeButton(
-                isProcessing: $isEndingRecording,
-                action: endRecordingSafe
-            )
+            SafeButton(showingDial: $showingPINDial)
 
-            // NEED HELP - Secondary action with premium styling
-            PremiumSecondaryButton(
-                title: "NEED HELP",
-                subtitle: "Send escalation alert, keep recording",
-                icon: "exclamationmark.triangle.fill",
-                color: Colors.warningOrange
-            ) {
-                requestHelp()
+            // NEED HELP - Hidden when PIN dial is active
+            if !showingPINDial {
+                PremiumSecondaryButton(
+                    title: "NEED HELP",
+                    subtitle: "Send escalation alert, keep recording",
+                    icon: "exclamationmark.triangle.fill",
+                    color: Colors.warningOrange
+                ) {
+                    requestHelp()
+                }
             }
-        }
-    }
-
-    private func endRecordingSafe() {
-        isEndingRecording = true
-
-        // Haptic
-        let generator = UIImpactFeedbackGenerator(style: .heavy)
-        generator.impactOccurred()
-
-        Task {
-            // Stop recording (saves to Photos + finalizes NAS upload)
-            await recordingService.stopRecording()
-
-            // Stop live stream if active
-            if liveStreamService.isStreaming {
-                await liveStreamService.stopStream()
-            }
-
-            // End Live Activity (Dynamic Island)
-            LiveActivityManager.shared.end()
-
-            // Notify contacts that user is safe
-            await alertService.sendSafeSignal()
-            appState.markSafe()
-
-            // Success haptic
-            let successGenerator = UINotificationFeedbackGenerator()
-            successGenerator.notificationOccurred(.success)
-
-            // Wait for uploads to complete
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            appState.reset()
         }
     }
 
@@ -1094,18 +1104,77 @@ struct ActionButtonsPanel: View {
 // MARK: - Safe Button with Radial PIN Dial
 
 struct SafeButton: View {
-    @Binding var isProcessing: Bool
-    let action: () -> Void
+    @Binding var showingDial: Bool
+
+    @State private var showingSetup = false
+
+    // Get stored PIN if configured
+    private var storedPIN: [Int]? {
+        guard let pinString = UserDefaults.standard.string(forKey: "safe_pin"), !pinString.isEmpty else { return nil }
+        return pinString.compactMap { Int(String($0)) }
+    }
+
+    var body: some View {
+        Button {
+            guard storedPIN != nil else {
+                showingSetup = true
+                return
+            }
+            withAnimation(AnimationPresets.entrance) { showingDial = true }
+            let generator = UIImpactFeedbackGenerator(style: .medium); generator.impactOccurred()
+        } label: {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "checkmark.shield.fill")
+                    .font(.system(size: 28, weight: .semibold))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("I'M SAFE")
+                        .font(Typography.headline3)
+                    Text("Hold & enter PIN to confirm")
+                        .font(Typography.caption)
+                        .opacity(0.9)
+                }
+
+                Spacer()
+
+                Image(systemName: "dial.medium.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .opacity(0.7)
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, Spacing.lg)
+            .frame(height: 72)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                    .fill(Colors.safeGreen)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Spacing.Radius.lg)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: Colors.safeGreen.opacity(0.5), radius: 12, y: 4)
+        }
+        .sheet(isPresented: $showingSetup) {
+            SafePINSetupView()
+        }
+    }
+}
+
+// MARK: - PIN Dial Fullscreen Overlay
+
+struct PINDialOverlay: View {
+    @Binding var showingDial: Bool
 
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var alertService: AlertService
+    @EnvironmentObject var recordingService: RecordingService
+    @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var liveStreamService: LiveStreamService
 
-    @State private var showingDial = false
-    @State private var showingSetup = false
     @State private var enteredDigits: [Int] = []
     @State private var currentTarget: Int? = nil
     @State private var isAtCenter = true
-    @State private var dragLocation: CGPoint = .zero
     @State private var shakeOffset: CGFloat = 0
     @State private var failedAttempts = 0
 
@@ -1114,13 +1183,11 @@ struct SafeButton: View {
     private let digitRadius: CGFloat = 110
     private let requiredDigits = 4
 
-    // Get stored PIN if configured
     private var storedPIN: [Int]? {
         guard let pinString = UserDefaults.standard.string(forKey: "safe_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
     }
 
-    // Optional duress PIN
     private var duressPIN: [Int]? {
         guard let pinString = UserDefaults.standard.string(forKey: "duress_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
@@ -1128,96 +1195,35 @@ struct SafeButton: View {
 
     var body: some View {
         ZStack {
-            if showingDial {
-                // Fullscreen overlay for dial
-                Color.black.opacity(0.9)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        // Cancel on tap outside
-                        withAnimation(.spring(response: 0.3)) {
-                            showingDial = false
-                            resetDial()
-                        }
+            // Fullscreen dimmed background
+            Color.black.opacity(0.9)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3)) {
+                        showingDial = false
+                        resetDial()
                     }
-
-                // Radial dial
-                RadialDial(
-                    enteredDigits: $enteredDigits,
-                    currentTarget: $currentTarget,
-                    isAtCenter: $isAtCenter,
-                    onDigitEntered: handleDigitEntered,
-                    onComplete: handlePINComplete,
-                    onCancel: {
-                        withAnimation(.spring(response: 0.3)) {
-                            showingDial = false
-                            resetDial()
-                        }
-                    },
-                    dialSize: dialSize,
-                    centerRadius: centerRadius,
-                    digitRadius: digitRadius,
-                    requiredDigits: requiredDigits
-                )
-                .offset(x: shakeOffset)
-            } else {
-                // Initial button with premium styling
-                Button {
-                    // Require Safe PIN to be set before showing dial
-                    guard storedPIN != nil else {
-                        showingSetup = true
-                        return
-                    }
-                    withAnimation(AnimationPresets.entrance) { showingDial = true }
-                    let generator = UIImpactFeedbackGenerator(style: .medium); generator.impactOccurred()
-                } label: {
-                    HStack(spacing: Spacing.md) {
-                        if isProcessing {
-                            ProgressView()
-                                .tint(.white)
-                                .scaleEffect(1.2)
-                        } else {
-                            Image(systemName: "checkmark.shield.fill")
-                                .font(.system(size: 28, weight: .semibold))
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(isProcessing ? "ENDING..." : "I'M SAFE")
-                                .font(Typography.headline3)
-                            if !isProcessing {
-                                Text("Hold & enter PIN to confirm")
-                                    .font(Typography.caption)
-                                    .opacity(0.9)
-                            }
-                        }
-
-                        Spacer()
-
-                        if !isProcessing {
-                            Image(systemName: "dial.medium.fill")
-                                .font(.system(size: 20, weight: .bold))
-                                .opacity(0.7)
-                        }
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, Spacing.lg)
-                    .frame(height: 72)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: Spacing.Radius.lg)
-                            .fill(Colors.safeGreen)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Spacing.Radius.lg)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
-                    .shadow(color: Colors.safeGreen.opacity(0.5), radius: 12, y: 4)
                 }
-                .disabled(isProcessing)
-            }
-        }
-        .frame(height: 72)
-        .sheet(isPresented: $showingSetup) {
-            SafePINSetupView()
+
+            // Radial dial
+            RadialDial(
+                enteredDigits: $enteredDigits,
+                currentTarget: $currentTarget,
+                isAtCenter: $isAtCenter,
+                onDigitEntered: handleDigitEntered,
+                onComplete: handlePINComplete,
+                onCancel: {
+                    withAnimation(.spring(response: 0.3)) {
+                        showingDial = false
+                        resetDial()
+                    }
+                },
+                dialSize: dialSize,
+                centerRadius: centerRadius,
+                digitRadius: digitRadius,
+                requiredDigits: requiredDigits
+            )
+            .offset(x: shakeOffset)
         }
     }
 
@@ -1229,18 +1235,15 @@ struct SafeButton: View {
 
     private func handlePINComplete() {
         if let sp = storedPIN, enteredDigits == sp {
-            // Correct PIN!
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
 
             withAnimation(.spring(response: 0.3)) {
                 showingDial = false
-                isProcessing = true
             }
             resetDial()
-            action()
+            endRecordingSafe()
         } else {
-            // Wrong PIN
             failedAttempts += 1
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
@@ -1290,6 +1293,29 @@ struct SafeButton: View {
         }
     }
 
+    private func endRecordingSafe() {
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.impactOccurred()
+
+        Task {
+            await recordingService.stopRecording()
+
+            if liveStreamService.isStreaming {
+                await liveStreamService.stopStream()
+            }
+
+            LiveActivityManager.shared.end()
+            await alertService.sendSafeSignal()
+            appState.markSafe()
+
+            let successGenerator = UINotificationFeedbackGenerator()
+            successGenerator.notificationOccurred(.success)
+
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            appState.reset()
+        }
+    }
+
     private func resetDial() {
         enteredDigits = []
         currentTarget = nil
@@ -1330,6 +1356,8 @@ struct RadialDial: View {
                         .animation(.spring(response: 0.2), value: enteredDigits.count)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(enteredDigits.count) of \(requiredDigits) digits entered")
 
             Text("Drag to each digit, return to center")
                 .font(.system(size: 14, weight: .medium))
@@ -1359,6 +1387,8 @@ struct RadialDial: View {
                     .scaleEffect(currentTarget == digit ? 1.15 : 1.0)
                     .offset(x: position.x, y: position.y)
                     .animation(.spring(response: 0.2), value: currentTarget)
+                    .accessibilityLabel("Digit \(digit)")
+                    .accessibilityHint("Drag to this digit to enter it")
                 }
 
                 // Center return zone
@@ -1379,6 +1409,7 @@ struct RadialDial: View {
                 }
                 .scaleEffect(isAtCenter ? 1.1 : 1.0)
                 .animation(.spring(response: 0.2), value: isAtCenter)
+                .accessibilityLabel(enteredDigits.isEmpty ? "Start point. Begin dragging from here." : "Return to center to confirm digit")
 
                 // Drag line indicator
                 if let drag = dragLocation, !isAtCenter {
@@ -1447,7 +1478,10 @@ struct RadialDial: View {
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
             }
+            .accessibilityLabel("Cancel unlock")
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Secure unlock dial")
     }
 
     private func angleForDigit(_ digit: Int) -> Double {
@@ -1480,4 +1514,6 @@ struct RadialDial: View {
         .environmentObject(RecordingService())
         .environmentObject(UploadService())
         .environmentObject(AlertService())
+        .environmentObject(ConnectivityGuardian())
+        .environmentObject(LiveStreamService())
 }

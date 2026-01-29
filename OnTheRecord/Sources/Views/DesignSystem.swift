@@ -43,6 +43,16 @@ struct Typography {
     // Monospaced (for timers)
     static let timerLarge = Font.system(size: 64, weight: .heavy, design: .monospaced)
     static let timerMedium = Font.system(size: 32, weight: .bold, design: .monospaced)
+
+    // HUD (monospaced, for recording overlay)
+    static let hudLabel = Font.system(size: 10, weight: .bold, design: .monospaced)
+    static let hudValue = Font.system(size: 10, weight: .regular, design: .monospaced)
+
+    // Terminal (monospaced, for home screen tactical display)
+    static let terminalBody = Font.system(size: 14, weight: .medium, design: .monospaced)
+    static let terminalBold = Font.system(size: 14, weight: .bold, design: .monospaced)
+    static let terminalSmall = Font.system(size: 12, weight: .bold, design: .monospaced)
+    static let terminalLog = Font.system(size: 10, design: .monospaced)
 }
 
 // MARK: - Spacing
