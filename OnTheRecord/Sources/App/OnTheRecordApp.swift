@@ -32,6 +32,9 @@ struct OnTheRecordApp: App {
     @StateObject private var connectivityGuardian = ConnectivityGuardian()
     @StateObject private var locationService = LocationService()
     @StateObject private var witnessBeaconService = WitnessBeaconService.shared
+    @StateObject private var appLockService = AppLockService.shared
+
+    @Environment(\.scenePhase) private var scenePhase
 
     // Watch connectivity
     private let phoneConnectivity = PhoneConnectivityManager.shared
@@ -41,24 +44,36 @@ struct OnTheRecordApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(appState)
-                .environmentObject(recordingService)
-                .environmentObject(uploadService)
-                .environmentObject(alertService)
-                .environmentObject(liveStreamService)
-                .environmentObject(connectivityGuardian)
-                .environmentObject(locationService)
-                .environmentObject(witnessBeaconService)
-                .onAppear {
-                    setupServices()
-                }
-                .onContinueUserActivity(SiriShortcutManager.activateActivityType) { activity in
-                    handleSiriActivate(activity)
-                }
-                .onContinueUserActivity(SiriShortcutManager.safeActivityType) { activity in
-                    handleSiriSafe(activity)
-                }
+            if appLockService.isLocked && appLockService.isEnabled {
+                AppLockView(lockService: appLockService)
+            } else {
+                ContentView()
+                    .environmentObject(appState)
+                    .environmentObject(recordingService)
+                    .environmentObject(uploadService)
+                    .environmentObject(alertService)
+                    .environmentObject(liveStreamService)
+                    .environmentObject(connectivityGuardian)
+                    .environmentObject(locationService)
+                    .environmentObject(witnessBeaconService)
+                    .onAppear {
+                        setupServices()
+                    }
+                    .onContinueUserActivity(SiriShortcutManager.activateActivityType) { activity in
+                        handleSiriActivate(activity)
+                    }
+                    .onContinueUserActivity(SiriShortcutManager.pulledOverActivityType) { activity in
+                        handleSiriActivate(activity)
+                    }
+                    .onContinueUserActivity(SiriShortcutManager.safeActivityType) { activity in
+                        handleSiriSafe(activity)
+                    }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                appLockService.lock()
+            }
         }
     }
 
@@ -79,6 +94,7 @@ struct OnTheRecordApp: App {
         // Donate Siri shortcuts slightly later to avoid first-launch contention
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             siriManager.donateActivateShortcut()
+            siriManager.donatePulledOverShortcut()
             siriManager.donateSafeShortcut()
         }
 
@@ -134,6 +150,9 @@ struct OnTheRecordApp: App {
 
         // Load audio enhancement settings
         AudioEnhancementService.shared.loadSettings()
+
+        // Pre-warm camera for faster activation
+        recordingService.prewarmCameraSession()
 
         // Auto-record on launch if enabled
         if UserDefaults.standard.bool(forKey: "auto_record_on_launch") {

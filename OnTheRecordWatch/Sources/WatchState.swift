@@ -17,7 +17,30 @@ class WatchState: ObservableObject {
         case error = "Error"
     }
 
+    // MARK: - Command Delivery Status
+
+    /// Tracks the delivery status of a command sent to the iPhone
+    enum CommandStatus: Equatable {
+        case idle
+        case sending
+        case confirmed
+        case queued    // Sent via application context (phone not reachable)
+        case failed(String)
+
+        static func == (lhs: CommandStatus, rhs: CommandStatus) -> Bool {
+            switch (lhs, rhs) {
+            case (.idle, .idle), (.sending, .sending), (.confirmed, .confirmed), (.queued, .queued):
+                return true
+            case (.failed(let a), .failed(let b)):
+                return a == b
+            default:
+                return false
+            }
+        }
+    }
+
     @Published var status: RecordingStatus = .idle
+    @Published var commandStatus: CommandStatus = .idle
     @Published var isConnectedToPhone: Bool = false
     @Published var recordingDuration: TimeInterval = 0
     @Published var chunksUploaded: Int = 0
@@ -40,6 +63,26 @@ class WatchState: ObservableObject {
 
     func playUrgentHaptic() {
         WKInterfaceDevice.current().play(.directionUp)
+    }
+
+    func playWarningHaptic() {
+        WKInterfaceDevice.current().play(.retry)
+    }
+
+    // MARK: - Command Status Management
+
+    /// Reset command status to idle after a delay
+    func resetCommandStatusAfterDelay(_ seconds: TimeInterval = 3.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard let self = self else { return }
+            // Only reset if still showing a terminal state
+            if self.commandStatus == .confirmed || self.commandStatus == .queued {
+                self.commandStatus = .idle
+            }
+            if case .failed = self.commandStatus {
+                self.commandStatus = .idle
+            }
+        }
     }
 
     // MARK: - Timer

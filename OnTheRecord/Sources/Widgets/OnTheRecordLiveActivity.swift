@@ -50,6 +50,9 @@ struct OnTheRecordLiveActivity: Widget {
                     Circle()
                         .fill(Color.red)
                         .frame(width: 8, height: 8)
+                        .shadow(color: Color.red.opacity(0.6), radius: 3)
+                        .shadow(color: Color.red.opacity(0.25), radius: 8)
+                        .shadow(color: Color.red.opacity(0.1), radius: 14)
                     Text("REC")
                         .font(.system(size: 12, weight: .black))
                         .foregroundColor(.red)
@@ -67,6 +70,9 @@ struct OnTheRecordLiveActivity: Widget {
                     Circle()
                         .fill(Color.red)
                         .frame(width: 10, height: 10)
+                        .shadow(color: Color.red.opacity(0.6), radius: 4)
+                        .shadow(color: Color.red.opacity(0.25), radius: 10)
+                        .shadow(color: Color.red.opacity(0.1), radius: 16)
                 }
             }
         }
@@ -139,6 +145,9 @@ struct PulsingDot: View {
             Circle()
                 .fill(Color.red)
                 .frame(width: 12, height: 12)
+                .shadow(color: Color.red.opacity(0.6), radius: 4)
+                .shadow(color: Color.red.opacity(0.25), radius: 10)
+                .shadow(color: Color.red.opacity(0.1), radius: 18)
         }
         .onAppear {
             withAnimation(

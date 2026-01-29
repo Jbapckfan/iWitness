@@ -355,6 +355,28 @@ struct SettingsView: View {
                     Text("Quick Alerts send pre-written messages instantly. Dead Man's Switch alerts contacts if you don't check in.")
                 }
 
+                // Security Section
+                Section {
+                    Toggle("App Lock", isOn: Binding(
+                        get: { AppLockService.shared.isEnabled },
+                        set: { AppLockService.shared.setEnabled($0) }
+                    ))
+
+                    if AppLockService.shared.isEnabled {
+                        HStack {
+                            Image(systemName: AppLockService.shared.biometricType == .faceID ? "faceid" : "touchid")
+                                .foregroundColor(.green)
+                            Text("Using \(AppLockService.shared.biometricName)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Security")
+                } footer: {
+                    Text("When enabled, OnTheRecord requires \(AppLockService.shared.biometricName) or device passcode each time you open the app. Protects your recordings if someone else has access to your unlocked phone.")
+                }
+
                 // Advanced Recording Section
                 Section {
                     Toggle("Live Transcription", isOn: Binding(
@@ -376,6 +398,12 @@ struct SettingsView: View {
                         set: { UserDefaults.standard.set($0, forKey: "watermark_enabled") }
                     ))
 
+                    Toggle("3D Depth Capture (LiDAR)", isOn: Binding(
+                        get: { UserDefaults.standard.object(forKey: "depth_capture_enabled") as? Bool ?? true },
+                        set: { UserDefaults.standard.set($0, forKey: "depth_capture_enabled") }
+                    ))
+                    .disabled(!DepthCaptureService.shared.isLiDARAvailable)
+
                     Toggle("Geo-Fence Auto-Record", isOn: Binding(
                         get: { UserDefaults.standard.bool(forKey: "geofence_monitoring_enabled") },
                         set: {
@@ -389,7 +417,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Advanced Recording")
                 } footer: {
-                    Text("Live Transcription converts speech to text in real-time (on-device). Audio Enhancement boosts voice clarity. Watermarking embeds invisible origin metadata in every frame. Geo-Fence starts recording automatically when you enter marked zones.")
+                    Text("Live Transcription converts speech to text in real-time (on-device). Audio Enhancement boosts voice clarity in exported evidence packages (originals preserved). Watermarking embeds invisible origin metadata in every frame. 3D Depth Capture uses LiDAR to record spatial data (supported devices only). Geo-Fence starts recording automatically when you enter marked zones.")
                 }
 
                 // Community Section (Growth)
@@ -1427,7 +1455,7 @@ struct SiriSettingsView: View {
                     }
                     .fadeScaleEntrance(isPresented: isAppeared)
 
-                    // Activate Witness Shortcut
+                    // Start Recording Shortcut
                     GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             HStack {
@@ -1435,7 +1463,7 @@ struct SiriSettingsView: View {
                                     .foregroundColor(Colors.witnessRed)
                                     .font(.title2)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Activate Witness")
+                                    Text("Put This On The Record")
                                         .font(Typography.bodyLarge)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.white)
@@ -1450,9 +1478,9 @@ struct SiriSettingsView: View {
                                 .foregroundColor(.secondary)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\"Hey Siri, Witness Mode\"")
-                                Text("\"Hey Siri, Start Recording\"")
-                                Text("\"Hey Siri, Emergency Record\"")
+                                Text("\"Hey Siri, put this on the record\"")
+                                Text("\"Hey Siri, start recording\"")
+                                Text("\"Hey Siri, start OnTheRecord\"")
                             }
                             .font(Typography.caption)
                             .italic()
@@ -1460,12 +1488,51 @@ struct SiriSettingsView: View {
 
                             AddToSiriButton(
                                 activityType: SiriShortcutManager.activateActivityType,
-                                title: "Activate Witness",
-                                phrase: "Witness Mode"
+                                title: "Put This On The Record",
+                                phrase: "Put this on the record"
                             )
                         }
                     }
                     .staggeredEntrance(isPresented: isAppeared, index: 1)
+
+                    // Pulled Over Shortcut
+                    GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            HStack {
+                                Image(systemName: "car.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.title2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("I'm Being Pulled Over")
+                                        .font(Typography.bodyLarge)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                    Text("Start recording discreetly")
+                                        .font(Typography.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+
+                            Text("Example phrases:")
+                                .font(Typography.caption)
+                                .foregroundColor(.secondary)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\"Hey Siri, I'm being pulled over\"")
+                                Text("\"Hey Siri, traffic stop\"")
+                            }
+                            .font(Typography.caption)
+                            .italic()
+                            .foregroundColor(.white.opacity(0.7))
+
+                            AddToSiriButton(
+                                activityType: SiriShortcutManager.pulledOverActivityType,
+                                title: "I'm Being Pulled Over",
+                                phrase: "I'm being pulled over"
+                            )
+                        }
+                    }
+                    .staggeredEntrance(isPresented: isAppeared, index: 2)
 
                     // Safe Shortcut
                     GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
@@ -1491,8 +1558,7 @@ struct SiriSettingsView: View {
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("\"Hey Siri, I'm Safe\"")
-                                Text("\"Hey Siri, Stop Witness\"")
-                                Text("\"Hey Siri, All Clear\"")
+                                Text("\"Hey Siri, all clear\"")
                             }
                             .font(Typography.caption)
                             .italic()
@@ -1505,7 +1571,7 @@ struct SiriSettingsView: View {
                             )
                         }
                     }
-                    .staggeredEntrance(isPresented: isAppeared, index: 2)
+                    .staggeredEntrance(isPresented: isAppeared, index: 3)
 
                     // Apple Watch section
                     GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
@@ -1537,7 +1603,7 @@ struct SiriSettingsView: View {
                             }
                         }
                     }
-                    .staggeredEntrance(isPresented: isAppeared, index: 3)
+                    .staggeredEntrance(isPresented: isAppeared, index: 4)
 
                     // Tips
                     GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
@@ -1561,7 +1627,7 @@ struct SiriSettingsView: View {
                                 .foregroundColor(Colors.warningOrange)
                         }
                     }
-                    .staggeredEntrance(isPresented: isAppeared, index: 4)
+                    .staggeredEntrance(isPresented: isAppeared, index: 5)
                 }
                 .padding()
             }

@@ -226,8 +226,8 @@ private struct IncidentRow: View {
     }
 
     private var formattedDuration: String {
-        // Each chunk is ~2 seconds
-        let totalSeconds = incident.chunkCount * 2
+        // Each chunk is ~0.5 seconds
+        let totalSeconds = max(incident.chunkCount / 2, 1)
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return String(format: "%d:%02d", minutes, seconds)

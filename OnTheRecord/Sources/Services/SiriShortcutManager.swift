@@ -13,6 +13,7 @@ class SiriShortcutManager: NSObject, ObservableObject {
 
     static let activateActivityType = "com.ontherecord.activate"
     static let safeActivityType = "com.ontherecord.safe"
+    static let pulledOverActivityType = "com.ontherecord.pulledover"
 
     // MARK: - Published State
 
@@ -20,11 +21,11 @@ class SiriShortcutManager: NSObject, ObservableObject {
 
     // MARK: - Donate Shortcuts
 
-    /// Donate the "Activate Witness" shortcut to Siri
+    /// Donate the "Put this on the record" shortcut to Siri
     func donateActivateShortcut() {
         let activity = NSUserActivity(activityType: Self.activateActivityType)
-        activity.title = "Activate Witness Mode"
-        activity.suggestedInvocationPhrase = "Witness Mode"
+        activity.title = "Put This On The Record"
+        activity.suggestedInvocationPhrase = "Put this on the record"
         activity.isEligibleForSearch = true
         activity.isEligibleForPrediction = true
         activity.persistentIdentifier = Self.activateActivityType
@@ -33,7 +34,20 @@ class SiriShortcutManager: NSObject, ObservableObject {
         activity.becomeCurrent()
 
         isShortcutDonated = true
-        debugLog("[OnTheRecord] Siri shortcut donated: Activate Witness")
+        debugLog("[OnTheRecord] Siri shortcut donated: Put this on the record")
+    }
+
+    /// Donate the "I'm being pulled over" shortcut to Siri
+    func donatePulledOverShortcut() {
+        let activity = NSUserActivity(activityType: Self.pulledOverActivityType)
+        activity.title = "I'm Being Pulled Over"
+        activity.suggestedInvocationPhrase = "I'm being pulled over"
+        activity.isEligibleForSearch = true
+        activity.isEligibleForPrediction = true
+        activity.persistentIdentifier = Self.pulledOverActivityType
+
+        activity.becomeCurrent()
+        debugLog("[OnTheRecord] Siri shortcut donated: I'm being pulled over")
     }
 
     /// Donate the "I'm Safe" shortcut to Siri
@@ -56,6 +70,10 @@ class SiriShortcutManager: NSObject, ObservableObject {
     func handleUserActivity(_ activity: NSUserActivity) -> Bool {
         switch activity.activityType {
         case Self.activateActivityType:
+            NotificationCenter.default.post(name: .siriActivateWitness, object: nil)
+            return true
+
+        case Self.pulledOverActivityType:
             NotificationCenter.default.post(name: .siriActivateWitness, object: nil)
             return true
 

@@ -176,6 +176,10 @@ class ConnectivityGuardian: ObservableObject {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
+        // Notify UploadService to retry any deferred uploads
+        debugLog("[ConnectivityGuardian] Network restored. Triggering deferred upload retry.")
+        NotificationCenter.default.post(name: .networkRestored, object: nil)
+
         // If we were disconnected for a while, send reconnection notice
         if disconnectedDuration > 5, currentIncidentID != nil {
             Task {
@@ -222,7 +226,11 @@ class ConnectivityGuardian: ObservableObject {
         // Send via Twilio if configured (might work via cached request)
         if alertService.useTwilio {
             for contact in alertService.contacts {
-                _ = try? await alertService.sendSMSViaTwilio(to: contact.phone, message: message)
+                do {
+                    _ = try await alertService.sendSMSViaTwilio(to: contact.phone, message: message)
+                } catch {
+                    debugLog("[ConnectivityGuardian] Failed to send emergency SMS to \(contact.phone): \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -239,7 +247,11 @@ class ConnectivityGuardian: ObservableObject {
 
         if alertService.useTwilio {
             for contact in alertService.contacts.prefix(1) { // Just notify primary contact
-                _ = try? await alertService.sendSMSViaTwilio(to: contact.phone, message: message)
+                do {
+                    _ = try await alertService.sendSMSViaTwilio(to: contact.phone, message: message)
+                } catch {
+                    debugLog("[ConnectivityGuardian] Failed to send reconnection SMS to \(contact.phone): \(error.localizedDescription)")
+                }
             }
         }
     }

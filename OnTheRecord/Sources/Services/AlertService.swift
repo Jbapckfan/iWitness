@@ -610,7 +610,11 @@ extension AlertService {
         // Send via Twilio (required for background delivery)
         if useTwilio {
             for contact in contacts {
-                _ = try? await sendSMSViaTwilio(to: contact.phone, message: fullMessage)
+                do {
+                    _ = try await sendSMSViaTwilio(to: contact.phone, message: fullMessage)
+                } catch {
+                    debugLog("[AlertService] Failed to send quick alert SMS to \(contact.phone): \(error.localizedDescription)")
+                }
             }
         } else {
             debugLog("[AlertService] Twilio not configured. Quick alert cannot be sent in background.")
@@ -714,7 +718,11 @@ extension AlertService {
         // Send to all contacts
         if useTwilio {
             for contact in contacts {
-                _ = try? await sendSMSViaTwilio(to: contact.phone, message: message)
+                do {
+                    _ = try await sendSMSViaTwilio(to: contact.phone, message: message)
+                } catch {
+                    debugLog("[AlertService] Failed to send dead man's switch SMS to \(contact.phone): \(error.localizedDescription)")
+                }
             }
         }
         

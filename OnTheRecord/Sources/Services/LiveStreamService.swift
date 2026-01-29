@@ -51,7 +51,7 @@ class LiveStreamService: ObservableObject {
             StreamConfig(
                 destination: .cloudflareR2,
                 quality: .adaptive,
-                segmentDuration: 2.0,
+                segmentDuration: 0.5,
                 enableEncryption: false // For live viewing, encryption complicates playback
             )
         }

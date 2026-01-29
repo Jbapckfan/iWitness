@@ -121,12 +121,52 @@ class EvidenceExportService {
             }
         }
 
-        // 6. Generate manifest file
+        // 6. Audio Enhancement (optional enhanced copies alongside originals)
+        if AudioEnhancementService.shared.config.isEnabled {
+            let chunksDir = exportDir.appendingPathComponent("chunks", isDirectory: true)
+            if FileManager.default.fileExists(atPath: chunksDir.path) {
+                let enhancedDir = exportDir.appendingPathComponent("enhanced", isDirectory: true)
+                try FileManager.default.createDirectory(at: enhancedDir, withIntermediateDirectories: true)
+
+                let chunkFiles = try FileManager.default.contentsOfDirectory(
+                    at: chunksDir,
+                    includingPropertiesForKeys: nil
+                )
+
+                for file in chunkFiles {
+                    let outputURL = enhancedDir.appendingPathComponent(file.lastPathComponent)
+                    do {
+                        try await AudioEnhancementService.shared.enhanceAudioFile(
+                            inputURL: file,
+                            outputURL: outputURL
+                        )
+                        let data = try Data(contentsOf: outputURL)
+                        let hash = SHA256.hash(data: data).compactMap { String(format: "%02x", $0) }.joined()
+                        let size = Int64(data.count)
+                        manifest.append(("enhanced/\(file.lastPathComponent)", hash, size))
+                        debugLog("[EvidenceExport] Enhanced audio created: enhanced/\(file.lastPathComponent)")
+                    } catch {
+                        debugLog("[EvidenceExport] Audio enhancement failed for \(file.lastPathComponent): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+
+        // 7. Timestamp anchor chain
+        if let anchorData = try? await TimestampAnchorService.shared.exportAnchors(incidentID: incidentID) {
+            let anchorURL = exportDir.appendingPathComponent("timestamp_anchors.json")
+            try? anchorData.write(to: anchorURL)
+            let anchorHash = SHA256.hash(data: anchorData).compactMap { String(format: "%02x", $0) }.joined()
+            manifest.append(("timestamp_anchors.json", anchorHash, Int64(anchorData.count)))
+            debugLog("[EvidenceExport] Timestamp anchor chain added (\(anchorData.count) bytes)")
+        }
+
+        // 8. Generate manifest file
         let manifestContent = generateManifest(entries: manifest, incidentID: incidentID)
         let manifestURL = exportDir.appendingPathComponent("MANIFEST.sha256")
         try manifestContent.write(to: manifestURL, atomically: true, encoding: .utf8)
 
-        // 7. Create ZIP archive via NSFileCoordinator
+        // 9. Create ZIP archive via NSFileCoordinator
         let zipURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("OnTheRecord_Evidence_\(incidentID).zip")
         try? FileManager.default.removeItem(at: zipURL)

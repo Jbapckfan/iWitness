@@ -40,80 +40,58 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         session?.activate()
     }
 
+    // MARK: - Command Delivery Callback
+
+    /// Called when a command delivery result is determined (confirmed, queued, or failed)
+    var onCommandResult: ((Bool, Bool) -> Void)?  // (confirmed: Bool, queued: Bool)
+
     // MARK: - Commands to iPhone
 
     /// Tell iPhone to activate OnTheRecord mode
     func sendActivateCommand() {
-        guard let session = session, session.isReachable else {
-            lastError = "iPhone not reachable"
-            return
-        }
-
         let message: [String: Any] = [
             "command": "activate",
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        session.sendMessage(message, replyHandler: { response in
+        sendCommandWithConfirmation(message) { [weak self] confirmed in
             DispatchQueue.main.async {
-                self.lastMessage = response
-                if response["status"] as? String == "activated" {
-                    self.onRecordingStarted?()
+                if confirmed {
+                    self?.onRecordingStarted?()
                 }
             }
-        }, errorHandler: { error in
-            DispatchQueue.main.async {
-                self.lastError = error.localizedDescription
-            }
-        })
+        }
     }
 
     /// Tell iPhone to mark as safe
     func sendSafeCommand() {
-        guard let session = session, session.isReachable else {
-            lastError = "iPhone not reachable"
-            return
-        }
-
         let message: [String: Any] = [
             "command": "safe",
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        session.sendMessage(message, replyHandler: { response in
+        sendCommandWithConfirmation(message) { [weak self] confirmed in
             DispatchQueue.main.async {
-                self.lastMessage = response
-                if response["status"] as? String == "safe" {
-                    self.onRecordingStopped?()
+                if confirmed {
+                    self?.onRecordingStopped?()
                 }
             }
-        }, errorHandler: { error in
-            DispatchQueue.main.async {
-                self.lastError = error.localizedDescription
-            }
-        })
+        }
     }
 
     /// Tell iPhone to escalate (need help)
     func sendEscalateCommand() {
-        guard let session = session, session.isReachable else {
-            lastError = "iPhone not reachable"
-            return
-        }
-
         let message: [String: Any] = [
             "command": "escalate",
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        session.sendMessage(message, replyHandler: { _ in }, errorHandler: { error in
-            DispatchQueue.main.async {
-                self.lastError = error.localizedDescription
-            }
-        })
+        sendCommandWithConfirmation(message) { _ in
+            // Escalation sent — UI feedback handled by commandStatus
+        }
     }
 
-    /// Request status update from iPhone
+    /// Request status update from iPhone (best-effort, no confirmation needed)
     func requestStatus() {
         guard let session = session, session.isReachable else { return }
 
@@ -126,6 +104,84 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 self.onStatusUpdate?(response)
             }
         }, errorHandler: { _ in })
+    }
+
+    // MARK: - Command Delivery with Confirmation
+
+    /// Sends a command to the iPhone with delivery acknowledgment.
+    /// If the phone is unreachable, falls back to application context (queued delivery).
+    /// - Parameters:
+    ///   - command: The command dictionary to send
+    ///   - completion: Called with `true` if the phone acknowledged, `false` otherwise
+    private func sendCommandWithConfirmation(_ command: [String: Any], completion: @escaping (Bool) -> Void) {
+        guard let session = session, session.isReachable else {
+            #if DEBUG
+            print("[WatchConnectivity] Phone not reachable, attempting context transfer")
+            #endif
+            lastError = "iPhone not reachable"
+
+            // Fallback to application context (queued, delivered when phone is available)
+            do {
+                try session?.updateApplicationContext(command)
+                #if DEBUG
+                print("[WatchConnectivity] Command queued via application context")
+                #endif
+                DispatchQueue.main.async {
+                    self.onCommandResult?(false, true) // Not confirmed, but queued
+                }
+                completion(false)
+            } catch {
+                #if DEBUG
+                print("[WatchConnectivity] Failed to queue command: \(error.localizedDescription)")
+                #endif
+                DispatchQueue.main.async {
+                    self.lastError = error.localizedDescription
+                    self.onCommandResult?(false, false) // Not confirmed, not queued
+                }
+                completion(false)
+            }
+            return
+        }
+
+        session.sendMessage(command, replyHandler: { reply in
+            let acknowledged = reply["acknowledged"] as? Bool ?? false
+            #if DEBUG
+            print("[WatchConnectivity] Phone reply: acknowledged=\(acknowledged)")
+            #endif
+            DispatchQueue.main.async {
+                self.lastMessage = reply
+                if acknowledged {
+                    self.onCommandResult?(true, false) // Confirmed
+                } else {
+                    self.onCommandResult?(false, false) // Reply received but not acknowledged
+                }
+            }
+            completion(acknowledged)
+        }, errorHandler: { error in
+            #if DEBUG
+            print("[WatchConnectivity] Command delivery failed: \(error.localizedDescription)")
+            #endif
+
+            // Fallback: try application context
+            var queued = false
+            do {
+                try self.session?.updateApplicationContext(command)
+                queued = true
+                #if DEBUG
+                print("[WatchConnectivity] Command queued via application context after send failure")
+                #endif
+            } catch {
+                #if DEBUG
+                print("[WatchConnectivity] Failed to queue fallback command: \(error.localizedDescription)")
+                #endif
+            }
+
+            DispatchQueue.main.async {
+                self.lastError = error.localizedDescription
+                self.onCommandResult?(false, queued)
+            }
+            completion(false)
+        })
     }
 }
 

@@ -229,6 +229,10 @@ class RecordingService: NSObject, ObservableObject {
     @MainActor @Published var frontSavedToPhotos = false
     @MainActor @Published var backSavedToPhotos = false
     @MainActor @Published var isDualCameraSupported = false
+    @Published var sessionInterrupted: Bool = false
+    @Published var interruptionReason: String?
+    @Published var lowDiskSpace: Bool = false
+    @Published var batteryCritical: Bool = false
 
     // MARK: - Camera Preview Layers (for UI)
 
@@ -242,7 +246,7 @@ class RecordingService: NSObject, ObservableObject {
 
     // MARK: - Configuration
 
-    private let chunkDuration: TimeInterval = 2.0
+    private let chunkDuration: TimeInterval = 0.5
     private var currentQuality: AppState.VideoQuality = .high
     @Published var currentCameraPosition: AVCaptureDevice.Position = .front
 
@@ -273,6 +277,9 @@ class RecordingService: NSObject, ObservableObject {
     // Thermal state monitoring
     private var thermalStateObservation: NSObjectProtocol?
 
+    // Battery monitoring
+    private var batteryMonitorTimer: Timer?
+
     // MARK: - Session Management
 
     private var currentIncidentID: String?
@@ -300,6 +307,7 @@ class RecordingService: NSObject, ObservableObject {
         case sessionConfigurationFailed
         case photoLibraryAccessDenied
         case multiCamNotSupported
+        case insufficientStorage
 
         var errorDescription: String? {
             switch self {
@@ -315,6 +323,8 @@ class RecordingService: NSObject, ObservableObject {
                 return "Photo library access is required"
             case .multiCamNotSupported:
                 return "Dual camera recording not supported on this device"
+            case .insufficientStorage:
+                return "Insufficient storage space to record"
             }
         }
     }
@@ -385,6 +395,30 @@ class RecordingService: NSObject, ObservableObject {
         let supported = AVCaptureMultiCamSession.isMultiCamSupported
         Task { @MainActor in
             self.isDualCameraSupported = supported
+        }
+    }
+
+    // MARK: - Camera Pre-warming
+
+    /// Pre-initialize camera session for faster activation
+    func prewarmCameraSession() {
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            do {
+                if AVCaptureMultiCamSession.isMultiCamSupported {
+                    if self.multiCamSession == nil {
+                        try self.setupDualCameraSession()
+                        debugLog("[RecordingService] Camera session pre-warmed (dual camera)")
+                    }
+                } else {
+                    if self.singleCamSession == nil {
+                        try self.setupSingleCameraSession()
+                        debugLog("[RecordingService] Camera session pre-warmed (single camera)")
+                    }
+                }
+            } catch {
+                debugLog("[RecordingService] Camera pre-warm failed (will retry at record time): \(error.localizedDescription)")
+            }
         }
     }
 
@@ -576,7 +610,11 @@ class RecordingService: NSObject, ObservableObject {
         }
         self.backPreviewLayer = backPreview
 
+        // Configure LiDAR depth capture (best-effort, no-op on non-LiDAR devices)
+        let _ = depthCaptureService.configureDepthCapture(session: session, backCameraInput: backInput)
+
         self.multiCamSession = session
+        registerSessionNotifications(for: session)
     }
 
     // MARK: - Single Camera Session Setup (Fallback)
@@ -636,6 +674,97 @@ class RecordingService: NSObject, ObservableObject {
         self.frontPreviewLayer = preview
 
         self.singleCamSession = session
+        registerSessionNotifications(for: session)
+    }
+
+    // MARK: - Battery Monitoring
+
+    private func startBatteryMonitoring() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        batteryMonitorTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let level = UIDevice.current.batteryLevel
+            let state = UIDevice.current.batteryState
+
+            if level >= 0 && level <= 0.05 && state != .charging {
+                debugLog("[RecordingService] CRITICAL: Battery at \(Int(level * 100))%")
+                Task { @MainActor in
+                    self.batteryCritical = true
+                }
+                // Send emergency alert if possible
+                Task {
+                    await self.stopRecording()
+                    debugLog("[RecordingService] Recording stopped due to critical battery")
+                }
+            } else if level >= 0 && level <= 0.10 && state != .charging {
+                debugLog("[RecordingService] WARNING: Battery at \(Int(level * 100))%")
+            }
+        }
+    }
+
+    private func stopBatteryMonitoring() {
+        batteryMonitorTimer?.invalidate()
+        batteryMonitorTimer = nil
+        UIDevice.current.isBatteryMonitoringEnabled = false
+    }
+
+    // MARK: - Disk Space Monitoring
+
+    private func availableDiskSpaceMB() -> Int64 {
+        let fileURL = URL(fileURLWithPath: NSHomeDirectory())
+        do {
+            let values = try fileURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            if let capacity = values.volumeAvailableCapacityForImportantUsage {
+                return capacity / (1024 * 1024)
+            }
+        } catch {
+            debugLog("[RecordingService] Failed to check disk space: \(error.localizedDescription)")
+        }
+        return Int64.max // Assume plenty if check fails
+    }
+
+    // MARK: - Session Notifications
+
+    private func registerSessionNotifications(for session: AVCaptureSession) {
+        NotificationCenter.default.addObserver(forName: .AVCaptureSessionWasInterrupted, object: session, queue: .main) { [weak self] notification in
+            guard let self = self else { return }
+            self.sessionInterrupted = true
+
+            if let reason = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int,
+               let interruptionReason = AVCaptureSession.InterruptionReason(rawValue: reason) {
+                switch interruptionReason {
+                case .videoDeviceNotAvailableInBackground:
+                    self.interruptionReason = "Recording paused (app in background)"
+                case .audioDeviceInUseByAnotherClient:
+                    self.interruptionReason = "Recording interrupted (phone call)"
+                case .videoDeviceInUseByAnotherClient:
+                    self.interruptionReason = "Camera in use by another app"
+                case .videoDeviceNotAvailableDueToSystemPressure:
+                    self.interruptionReason = "Recording interrupted (system pressure)"
+                case .videoDeviceNotAvailableWithMultipleForegroundApps:
+                    self.interruptionReason = "Recording interrupted (split screen)"
+                @unknown default:
+                    self.interruptionReason = "Recording interrupted"
+                }
+            }
+            debugLog("[RecordingService] Session INTERRUPTED: \(self.interruptionReason ?? "unknown")")
+        }
+
+        NotificationCenter.default.addObserver(forName: .AVCaptureSessionInterruptionEnded, object: session, queue: .main) { [weak self] notification in
+            guard let self = self else { return }
+            self.sessionInterrupted = false
+            self.interruptionReason = nil
+            debugLog("[RecordingService] Session interruption ENDED - recording resumed")
+        }
+
+        NotificationCenter.default.addObserver(forName: .AVCaptureSessionRuntimeError, object: session, queue: .main) { [weak self] notification in
+            guard let self = self else { return }
+            if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError {
+                debugLog("[RecordingService] Session runtime ERROR: \(error.localizedDescription)")
+                self.interruptionReason = "Recording error: \(error.localizedDescription)"
+                self.sessionInterrupted = true
+            }
+        }
     }
 
     // MARK: - Recording Control
@@ -649,9 +778,24 @@ class RecordingService: NSObject, ObservableObject {
             throw RecordingError.microphoneAccessDenied
         }
 
+        // Check available disk space
+        let availableMB = availableDiskSpaceMB()
+        if availableMB < 100 {
+            throw RecordingError.insufficientStorage
+        }
+        if availableMB < 500 {
+            await MainActor.run { self.lowDiskSpace = true }
+            debugLog("[RecordingService] WARNING: Low disk space (\(availableMB)MB available)")
+        }
+
         self.currentIncidentID = incidentID
         self.currentQuality = quality
         self.lastChunkHash = nil
+
+        // Start a new timestamp anchor chain for this recording
+        await MainActor.run {
+            TimestampAnchorService.shared.startNewChain(incidentID: incidentID)
+        }
 
         // Request photo library permission
         _ = await requestPhotoLibraryPermission()
@@ -737,7 +881,9 @@ class RecordingService: NSObject, ObservableObject {
 
         // Start LiDAR depth capture (no-op on non-LiDAR devices)
         await MainActor.run {
-            depthCaptureService.startCapture(incidentID: incidentID)
+            if UserDefaults.standard.object(forKey: "depth_capture_enabled") as? Bool ?? true {
+                depthCaptureService.startCapture(incidentID: incidentID)
+            }
         }
 
         // Start live transcription (best-effort, requires prior authorization)
@@ -754,14 +900,16 @@ class RecordingService: NSObject, ObservableObject {
             self.isRecording = true
             self.currentChunkNumber = 0
             self.startChunkTimer()
+            self.startBatteryMonitoring()
         }
     }
 
     func stopRecording() async {
-        // Stop chunk timer
+        // Stop chunk timer and battery monitoring
         await MainActor.run {
             chunkTimer?.invalidate()
             chunkTimer = nil
+            stopBatteryMonitoring()
         }
 
         // Finalize current chunk for NAS
@@ -862,13 +1010,24 @@ class RecordingService: NSObject, ObservableObject {
     private func rotateChunk() {
         guard let writer = chunkWriter else { return }
 
+        // Periodic disk space check during recording
+        let spaceMB = availableDiskSpaceMB()
+        if spaceMB < 50 {
+            debugLog("[RecordingService] CRITICAL: Disk space critically low (\(spaceMB)MB). Stopping recording.")
+            Task { await stopRecording() }
+            return
+        }
+        if spaceMB < 500 {
+            Task { @MainActor in self.lowDiskSpace = true }
+        }
+
         Task {
             if let chunkURL = await writer.finalizeCurrentChunk() {
                 await self.uploadChunk(chunkURL)
             }
-            
+
             writer.startNewChunk()
-            
+
             await MainActor.run {
                 self.currentChunkNumber += 1
             }
@@ -905,23 +1064,40 @@ class RecordingService: NSObject, ObservableObject {
             metadata.previousChunkHash = lastChunkHash
 
             // 3. Encrypt and Serialize
-            if let encryptedChunk = try? encryptionService.encryptChunk(chunkData, metadata: metadata) {
+            do {
+                let encryptedChunk = try encryptionService.encryptChunk(chunkData, metadata: metadata)
                 // Update chain hash for next chunk
                 lastChunkHash = encryptedChunk.computeHash()
                 let serializedData = encryptedChunk.serialize()
-                
+                guard !serializedData.isEmpty else {
+                    debugLog("[RecordingService] CRITICAL: Encrypted chunk serialization produced empty data for chunk \(metadata.chunkNumber)")
+                    return
+                }
+
+                // Anchor this chunk's timestamp into the hash chain (real-time during recording)
+                let anchorHashData = Data(SHA256.hash(data: serializedData))
+                await MainActor.run {
+                    let _ = TimestampAnchorService.shared.anchorTimestamp(
+                        chunkHash: anchorHashData,
+                        incidentID: self.currentIncidentID ?? "",
+                        chunkNumber: chunkNum
+                    )
+                }
+
                 // 4. Write .iwc file (ready for upload)
                 let iwcURL = chunkURL.deletingPathExtension().appendingPathExtension("iwc")
                 try serializedData.write(to: iwcURL)
-                
+
                 // 4. Calculate integrity hash
                 let hash = SHA256.hash(data: serializedData).compactMap { String(format: "%02x", $0) }.joined()
-                
+
                 // 5. Queue for persistent background upload
                 await uploadService?.queueChunk(fileURL: iwcURL, incidentID: currentIncidentID ?? "", chunkNumber: chunkNum, hash: hash)
-                
+
                 // 6. Delete intermediate MP4
                 try FileManager.default.removeItem(at: chunkURL)
+            } catch {
+                debugLog("[RecordingService] CRITICAL: Failed to encrypt chunk \(metadata.chunkNumber): \(error.localizedDescription)")
             }
             
         } catch {

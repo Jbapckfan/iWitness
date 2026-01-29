@@ -155,7 +155,11 @@ class WitnessBeaconService: NSObject, ObservableObject {
                 timestamp: metadata.timestamp
             )
             if let headerData = try? JSONEncoder().encode(headerMessage) {
-                try? session.send(headerData, toPeers: [peer], with: .reliable)
+                do {
+                    try session.send(headerData, toPeers: [peer], with: .reliable)
+                } catch {
+                    debugLog("[WitnessBeacon] Failed to send header to peer: \(error.localizedDescription)")
+                }
             }
 
             // Send the resource with incident ID and chunk number encoded in the name
@@ -203,10 +207,17 @@ class WitnessBeaconService: NSObject, ObservableObject {
     }
 
     private func broadcastMessage(_ message: SyncMessage) {
-        guard let data = try? JSONEncoder().encode(message) else { return }
+        guard let data = try? JSONEncoder().encode(message) else {
+            debugLog("[WitnessBeacon] Failed to encode sync message")
+            return
+        }
 
         if let session = session, !session.connectedPeers.isEmpty {
-            try? session.send(data, toPeers: session.connectedPeers, with: .reliable)
+            do {
+                try session.send(data, toPeers: session.connectedPeers, with: .reliable)
+            } catch {
+                debugLog("[WitnessBeacon] Failed to broadcast sync message: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -357,8 +368,12 @@ extension WitnessBeaconService: MCSessionDelegate {
             timestamp: Date()
         )
         if let data = try? JSONEncoder().encode(confirmation) {
-            try? session.send(data, toPeers: [peer], with: .reliable)
-            debugLog("[WitnessBeacon] Sent receipt confirmation to \(peer.displayName) for chunk \(chunkNumber)")
+            do {
+                try session.send(data, toPeers: [peer], with: .reliable)
+                debugLog("[WitnessBeacon] Sent receipt confirmation to \(peer.displayName) for chunk \(chunkNumber)")
+            } catch {
+                debugLog("[WitnessBeacon] Failed to send receipt confirmation to \(peer.displayName): \(error.localizedDescription)")
+            }
         }
     }
 

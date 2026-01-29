@@ -59,6 +59,10 @@
     <string>OnTheRecord saves recordings to your photo library as a local backup.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>OnTheRecord saves recordings to your photo library as a local backup.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>OnTheRecord accesses your contacts to let you choose emergency contacts who will be notified when you start recording.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>OnTheRecord uses on-device speech recognition to transcribe audio during recording for searchable evidence.</string>
 
     <!-- Background Modes -->
     <key>UIBackgroundModes</key>
@@ -73,6 +77,7 @@
     <key>NSUserActivityTypes</key>
     <array>
         <string>com.ontherecord.activate</string>
+        <string>com.ontherecord.pulledover</string>
         <string>com.ontherecord.safe</string>
     </array>
 

@@ -40,6 +40,11 @@ class ChunkWriter {
     private var isWriting = false
     private let lock = NSLock()
 
+    // MARK: - Retry
+
+    private var setupRetryCount = 0
+    private let maxSetupRetries = 3
+
     // MARK: - Storage
     
     private let outputDirectory: URL
@@ -85,15 +90,47 @@ class ChunkWriter {
         lock.lock()
         defer { lock.unlock() }
 
-        currentChunkNumber += 1
+        // Only increment chunk number on the first attempt, not on retries
+        if setupRetryCount == 0 {
+            currentChunkNumber += 1
+        }
         sessionStarted = false
 
         do {
             try setupWriter()
+            setupRetryCount = 0
             isWriting = true
         } catch {
+            // Clean up the failed writer before retrying
+            assetWriter = nil
+            videoInput = nil
+            audioInput = nil
+
+            if setupRetryCount < maxSetupRetries {
+                setupRetryCount += 1
+                debugLog("[ChunkWriter] Chunk setup failed, retrying (\(setupRetryCount)/\(maxSetupRetries)): \(error.localizedDescription)")
+                // Brief delay then retry (unlock first to avoid deadlock)
+                let retryChunk = currentChunkNumber
+                lock.unlock()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    guard let self = self else { return }
+                    // Re-acquire lock and verify we're still on the same chunk attempt
+                    self.lock.lock()
+                    guard self.currentChunkNumber == retryChunk, !self.isWriting else {
+                        self.lock.unlock()
+                        return
+                    }
+                    self.lock.unlock()
+                    self.startNewChunk()
+                }
+                // We already unlocked; re-lock so the defer unlock is balanced
+                lock.lock()
+                return
+            }
+            setupRetryCount = 0
             isWriting = false
-            postWriteError("Failed to setup chunk writer for chunk \(currentChunkNumber): \(error.localizedDescription)")
+            debugLog("[ChunkWriter] CRITICAL: Chunk setup failed after \(maxSetupRetries) retries: \(error.localizedDescription)")
+            postWriteError("Failed to setup chunk writer for chunk \(currentChunkNumber) after \(maxSetupRetries) retries: \(error.localizedDescription)")
         }
     }
 

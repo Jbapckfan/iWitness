@@ -98,7 +98,9 @@ struct PulsingIndicator: View {
             Circle()
                 .fill(color)
                 .frame(width: size, height: size)
-                .shadow(color: color.opacity(0.5), radius: 4)
+                .shadow(color: color.opacity(0.6), radius: 4)
+                .shadow(color: color.opacity(0.25), radius: 10)
+                .shadow(color: color.opacity(0.1), radius: 18)
         }
         .onAppear {
             guard !reduceMotion, isActive else { return }
@@ -185,6 +187,9 @@ struct LiveBadge: View {
                     Circle()
                         .fill(Colors.witnessRed)
                         .frame(width: 10, height: 10)
+                        .shadow(color: Colors.witnessRed.opacity(0.6), radius: 4)
+                        .shadow(color: Colors.witnessRed.opacity(0.25), radius: 10)
+                        .shadow(color: Colors.witnessRed.opacity(0.1), radius: 16)
                 }
 
                 Text("LIVE")

@@ -76,6 +76,46 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Command Confirmation
+
+    /// Send a command to the Watch with delivery confirmation.
+    /// Falls back to application context if the Watch is not reachable.
+    func sendCommandWithConfirmation(_ command: [String: Any], completion: @escaping (Bool) -> Void) {
+        guard let session = session, session.isReachable else {
+            debugLog("[PhoneConnectivity] Watch not reachable, attempting context transfer")
+            // Fallback to application context (queued, delivered later)
+            do {
+                try session?.updateApplicationContext(command)
+                debugLog("[PhoneConnectivity] Command queued via application context")
+                completion(false) // Queued but not confirmed
+            } catch {
+                debugLog("[PhoneConnectivity] Failed to queue command: \(error.localizedDescription)")
+                completion(false)
+            }
+            return
+        }
+
+        session.sendMessage(command, replyHandler: { reply in
+            if let ack = reply["acknowledged"] as? Bool, ack {
+                debugLog("[PhoneConnectivity] Command acknowledged by Watch")
+                completion(true)
+            } else {
+                debugLog("[PhoneConnectivity] Watch replied but did not acknowledge")
+                completion(false)
+            }
+        }, errorHandler: { error in
+            debugLog("[PhoneConnectivity] Command delivery failed: \(error.localizedDescription)")
+            // Fallback: try application context
+            do {
+                try self.session?.updateApplicationContext(command)
+                debugLog("[PhoneConnectivity] Command queued via application context after send failure")
+            } catch {
+                debugLog("[PhoneConnectivity] Failed to queue fallback command: \(error.localizedDescription)")
+            }
+            completion(false)
+        })
+    }
+
     // MARK: - Private
 
     private func sendMessage(_ message: [String: Any]) {
@@ -113,37 +153,71 @@ extension PhoneConnectivityManager: WCSessionDelegate {
         }
     }
 
-    // Receive messages from Watch
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
-        guard let command = message["command"] as? String else {
-            replyHandler(["error": "No command"])
-            return
+    // MARK: - Receive Messages from Watch
+
+    /// Receive message from Watch (no reply expected) — fallback path
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        debugLog("[PhoneConnectivity] Received message from Watch (no reply): \(message)")
+        DispatchQueue.main.async {
+            self.handleReceivedMessage(message)
         }
+    }
+
+    /// Receive message from Watch with reply handler — primary path with acknowledgment
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        debugLog("[PhoneConnectivity] Received message from Watch with reply handler: \(message)")
 
         DispatchQueue.main.async {
-            switch command {
-            case "activate":
-                self.onActivateCommand?()
-                replyHandler(["status": "activated"])
-
-            case "safe":
-                self.onSafeCommand?()
-                replyHandler(["status": "safe"])
-
-            case "escalate":
-                self.onEscalateCommand?()
-                replyHandler(["status": "escalated"])
-
-            case "status":
-                // Return current status
-                replyHandler([
-                    "status": "ok",
-                    "timestamp": Date().timeIntervalSince1970
-                ])
-
-            default:
-                replyHandler(["error": "Unknown command"])
+            let result = self.handleReceivedMessage(message)
+            var reply: [String: Any] = [
+                "acknowledged": true,
+                "timestamp": Date().timeIntervalSince1970
+            ]
+            // Merge command-specific result into reply
+            for (key, value) in result {
+                reply[key] = value
             }
+            replyHandler(reply)
+        }
+    }
+
+    // MARK: - Message Handling
+
+    /// Processes an incoming command message from the Watch.
+    /// Returns a dictionary of command-specific result fields.
+    @discardableResult
+    private func handleReceivedMessage(_ message: [String: Any]) -> [String: Any] {
+        guard let command = message["command"] as? String else {
+            debugLog("[PhoneConnectivity] Received message with no command key")
+            return ["error": "No command"]
+        }
+
+        switch command {
+        case "activate":
+            debugLog("[PhoneConnectivity] Processing activate command")
+            onActivateCommand?()
+            return ["status": "activated"]
+
+        case "safe":
+            debugLog("[PhoneConnectivity] Processing safe command")
+            onSafeCommand?()
+            return ["status": "safe"]
+
+        case "escalate":
+            debugLog("[PhoneConnectivity] Processing escalate command")
+            onEscalateCommand?()
+            return ["status": "escalated"]
+
+        case "status":
+            debugLog("[PhoneConnectivity] Processing status request")
+            return [
+                "status": "ok",
+                "timestamp": Date().timeIntervalSince1970
+            ]
+
+        default:
+            debugLog("[PhoneConnectivity] Unknown command: \(command)")
+            return ["error": "Unknown command"]
         }
     }
 }

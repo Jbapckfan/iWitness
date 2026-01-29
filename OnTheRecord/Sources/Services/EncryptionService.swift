@@ -493,7 +493,12 @@ struct EncryptedChunk: Codable {
 
     /// Serializes the chunk for transmission
     func serialize() -> Data {
-        (try? JSONEncoder().encode(self)) ?? Data()
+        do {
+            return try JSONEncoder().encode(self)
+        } catch {
+            debugLog("[EncryptionService] CRITICAL: Failed to serialize encrypted chunk: \(error.localizedDescription)")
+            return Data()
+        }
     }
 
     /// Computes SHA-256 hash of this chunk for chain

@@ -68,6 +68,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         let addedAt: Date
         let fileHash: String // SHA256 of the data for integrity/S3
         var uploadAttempts: Int = 0
+        var lastAttempt: Date? = nil
         var uploadedTo: Set<String> = []
         
         var fileURL: URL? {
@@ -105,6 +106,18 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         setupBackgroundSession()
         setupNetworkMonitor()
         loadPersistedQueue()
+
+        // Listen for network restoration from ConnectivityGuardian to retry deferred uploads
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleNetworkRestoredNotification),
+            name: .networkRestored,
+            object: nil
+        )
+    }
+
+    @objc private func handleNetworkRestoredNotification() {
+        retryDeferredUploads()
     }
 
     private func setupBackgroundSession() {
@@ -276,7 +289,13 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         let incidentID = "foreign_evidence"
         
         // Calculate hash
-        guard let data = try? Data(contentsOf: url) else { return }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            debugLog("[UploadService] Failed to read chunk data at \(url.lastPathComponent): \(error.localizedDescription)")
+            return
+        }
         let hash = SHA256.hash(data: data).compactMap { String(format: "%02x", $0) }.joined()
         
         // Use same relative path logic but in "WitnessedEvidence"
@@ -305,6 +324,20 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         processQueue()
     }
     
+    /// Retry uploads that exhausted their retry count and were deferred.
+    /// Called when network connectivity is restored (via ConnectivityGuardian notification
+    /// or the service's own NWPathMonitor).
+    func retryDeferredUploads() {
+        queueLock.lock()
+        let deferredCount = pendingQueue.filter { $0.uploadAttempts == 0 && $0.lastAttempt != nil }.count
+        queueLock.unlock()
+
+        if deferredCount > 0 {
+            debugLog("[UploadService] Network restored. Retrying \(deferredCount) deferred uploads.")
+            processQueue()
+        }
+    }
+
     private func processQueue() {
         guard isNetworkAvailable else { return }
         
@@ -558,9 +591,12 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                     }
                 }
             } else {
-                debugLog("[OnTheRecord] Max retries reached for \(chunkID). Will retry when network allows.")
+                debugLog("[UploadService] Max retries reached for \(chunkID). Resetting for deferred retry on next network change.")
+                // Reset retry count but mark as deferred - will retry on next network event
+                pendingQueue[index].uploadAttempts = 0
+                pendingQueue[index].lastAttempt = Date()
                 Task { @MainActor in
-                    self.lastError = .uploadFailed("Max retries reached for chunk. Check network and destination.")
+                    self.lastError = .uploadFailed("Max retries reached for chunk. Will retry on next network change.")
                 }
             }
         }
@@ -606,3 +642,8 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
 }
 
+// MARK: - Network Restoration Notification
+
+extension Notification.Name {
+    static let networkRestored = Notification.Name("com.ontherecord.networkRestored")
+}
