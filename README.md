@@ -42,7 +42,7 @@ OnTheRecord/
 
 - **One-Tap Activation**: Instantly start recording + upload + alert
 - **Dual Camera**: Simultaneous front + back recording
-- **Chunked Upload**: 2-second encrypted fragments survive seizure
+- **Chunked Upload**: 0.5-second encrypted fragments survive seizure
 - **Enveloped Encryption**: AES-256-GCM data, RSA-4096 key wrapping
 - **Multi-Destination**: NAS (WebDAV) + Cloud (Cloudflare R2)
 - **Emergency Alerts**: SMS with GPS to trusted contacts
@@ -58,7 +58,7 @@ OnTheRecord/
 ## Security Architecture
 
 ```
-Video Capture → 2-sec Chunk → AES-256-GCM Encrypt → SHA-256 Hash → Upload
+Video Capture → 0.5-sec Chunk → AES-256-GCM Encrypt → SHA-256 Hash → Upload
                                       ↑
                               HKDF-derived key per chunk
                               (from incident master key)

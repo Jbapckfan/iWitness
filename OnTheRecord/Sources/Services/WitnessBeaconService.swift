@@ -58,7 +58,7 @@ class WitnessBeaconService: NSObject, ObservableObject {
     private var uploadService: UploadService?
 
     /// Stores pending chunk metadata received via P2P data messages, keyed by peer display name
-    private var pendingChunkHeaders: [String: P2PMessage] = []
+    private var pendingChunkHeaders: [String: P2PMessage] = [:]
 
     // MARK: - Initialization
     override init() {

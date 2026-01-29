@@ -41,7 +41,7 @@ The critical path during recording is:
 
 ```
 RecordingService (AVCaptureMultiCamSession)
-  → ChunkWriter (2-second MP4 fragments, stored in ApplicationSupport/OnTheRecord/PendingUploads/{incidentID}/)
+  → ChunkWriter (0.5-second MP4 fragments, stored in ApplicationSupport/OnTheRecord/PendingUploads/{incidentID}/)
     → EncryptionService (HKDF per-chunk key derivation → AES-256-GCM seal → RSA-4096 key wrap → P256 ECDSA signature)
       → UploadService (background URLSession queue, persisted to UserDefaults, multi-destination: WebDAV/S3/R2/P2P)
 ```

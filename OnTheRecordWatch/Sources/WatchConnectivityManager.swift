@@ -2,6 +2,14 @@ import Foundation
 import WatchConnectivity
 import Combine
 
+/// Logs messages only in DEBUG builds to prevent sensitive data leakage in production
+/// - Parameter message: The message to log
+func debugLog(_ message: String) {
+    #if DEBUG
+    print(message)
+    #endif
+}
+
 /// Manages communication between Watch and iPhone
 class WatchConnectivityManager: NSObject, ObservableObject {
     // MARK: - Published State
@@ -115,25 +123,19 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     ///   - completion: Called with `true` if the phone acknowledged, `false` otherwise
     private func sendCommandWithConfirmation(_ command: [String: Any], completion: @escaping (Bool) -> Void) {
         guard let session = session, session.isReachable else {
-            #if DEBUG
-            print("[WatchConnectivity] Phone not reachable, attempting context transfer")
-            #endif
+            debugLog("[WatchConnectivity] Phone not reachable, attempting context transfer")
             lastError = "iPhone not reachable"
 
             // Fallback to application context (queued, delivered when phone is available)
             do {
                 try session?.updateApplicationContext(command)
-                #if DEBUG
-                print("[WatchConnectivity] Command queued via application context")
-                #endif
+                debugLog("[WatchConnectivity] Command queued via application context")
                 DispatchQueue.main.async {
                     self.onCommandResult?(false, true) // Not confirmed, but queued
                 }
                 completion(false)
             } catch {
-                #if DEBUG
-                print("[WatchConnectivity] Failed to queue command: \(error.localizedDescription)")
-                #endif
+                debugLog("[WatchConnectivity] Failed to queue command: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.lastError = error.localizedDescription
                     self.onCommandResult?(false, false) // Not confirmed, not queued
@@ -145,9 +147,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
         session.sendMessage(command, replyHandler: { reply in
             let acknowledged = reply["acknowledged"] as? Bool ?? false
-            #if DEBUG
-            print("[WatchConnectivity] Phone reply: acknowledged=\(acknowledged)")
-            #endif
+            debugLog("[WatchConnectivity] Phone reply: acknowledged=\(acknowledged)")
             DispatchQueue.main.async {
                 self.lastMessage = reply
                 if acknowledged {
@@ -158,22 +158,16 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             }
             completion(acknowledged)
         }, errorHandler: { error in
-            #if DEBUG
-            print("[WatchConnectivity] Command delivery failed: \(error.localizedDescription)")
-            #endif
+            debugLog("[WatchConnectivity] Command delivery failed: \(error.localizedDescription)")
 
             // Fallback: try application context
             var queued = false
             do {
                 try self.session?.updateApplicationContext(command)
                 queued = true
-                #if DEBUG
-                print("[WatchConnectivity] Command queued via application context after send failure")
-                #endif
+                debugLog("[WatchConnectivity] Command queued via application context after send failure")
             } catch {
-                #if DEBUG
-                print("[WatchConnectivity] Failed to queue fallback command: \(error.localizedDescription)")
-                #endif
+                debugLog("[WatchConnectivity] Failed to queue fallback command: \(error.localizedDescription)")
             }
 
             DispatchQueue.main.async {

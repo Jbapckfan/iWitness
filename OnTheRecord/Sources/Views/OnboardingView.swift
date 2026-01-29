@@ -57,14 +57,17 @@ struct OnboardingView: View {
                 SafePINOnboardingPage(currentPage: $currentPage, nextTag: 5)
                     .tag(4)
 
-                SecurityDrillPage()
+                RecoveryKitOnboardingPage(currentPage: $currentPage, nextTag: 6)
                     .tag(5)
 
-                InvitePage()
+                SecurityDrillPage()
                     .tag(6)
 
-                CompletePage(dismiss: dismiss)
+                InvitePage()
                     .tag(7)
+
+                CompletePage(dismiss: dismiss)
+                    .tag(8)
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -439,7 +442,9 @@ struct ContactsSetupPage: View {
 
 struct StorageSetupPage: View {
     @State private var showingNASSetup = false
+    @State private var showingCloudSetup = false
     @State private var hasNASConfigured = false
+    @State private var hasCloudConfigured = false
     @State private var isAppeared = false
 
     var body: some View {
@@ -463,12 +468,35 @@ struct StorageSetupPage: View {
                     .font(Typography.headline1)
                     .foregroundColor(.white)
 
-                Text("Where should your footage be stored?")
+                Text("Where should your footage be sent off-device?")
                     .font(Typography.bodyMedium)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
             }
             .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+
+            // Urgency callout
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(Colors.warningOrange)
+
+                Text("Without a backup destination, your recordings stay on this phone. If your phone is taken, your evidence is gone.")
+                    .font(Typography.bodySmall)
+                    .foregroundColor(Colors.warningOrange)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Spacing.Radius.sm)
+                    .fill(Colors.warningOrange.opacity(0.15))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Spacing.Radius.sm)
+                    .stroke(Colors.warningOrange.opacity(0.3), lineWidth: 1)
+            )
+            .padding(.horizontal, Spacing.md)
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.15)
 
             VStack(spacing: Spacing.md) {
                 StorageOption(
@@ -484,11 +512,10 @@ struct StorageSetupPage: View {
                 StorageOption(
                     icon: "cloud.fill",
                     title: "Cloud Backup",
-                    description: "Cloudflare R2 (coming soon)",
-                    isConfigured: false,
-                    isDisabled: true
+                    description: "Cloudflare R2 encrypted storage",
+                    isConfigured: hasCloudConfigured
                 ) {
-                    // Coming soon
+                    showingCloudSetup = true
                 }
                 .staggeredEntrance(isPresented: isAppeared, index: 3)
             }
@@ -499,7 +526,7 @@ struct StorageSetupPage: View {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 12))
-                Text("Footage is encrypted before upload")
+                Text("All footage is encrypted end-to-end before leaving your device")
                     .font(Typography.caption)
             }
             .foregroundColor(.secondary)
@@ -508,8 +535,12 @@ struct StorageSetupPage: View {
         .sheet(isPresented: $showingNASSetup) {
             NASSetupView()
         }
+        .sheet(isPresented: $showingCloudSetup) {
+            CloudSetupView()
+        }
         .onAppear {
             hasNASConfigured = UserDefaults.standard.string(forKey: "nas_url") != nil
+            hasCloudConfigured = UserDefaults.standard.string(forKey: "cloud_access_key") != nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 isAppeared = true
             }
@@ -871,7 +902,7 @@ struct SafePINOnboardingPage: View {
                     icon: "arrow.right",
                     color: isValid ? pinColor : Color.gray
                 ) {
-                    UserDefaults.standard.set(pin1, forKey: "safe_pin")
+                    _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "safe_pin", value: pin1)
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.success)
                     saved = true
@@ -906,12 +937,153 @@ struct SafePINOnboardingPage: View {
     }
 }
 
+// MARK: - Recovery Kit Onboarding Page
+
+struct RecoveryKitOnboardingPage: View {
+    @Binding var currentPage: Int
+    let nextTag: Int
+
+    @State private var isAppeared = false
+    @State private var recoveryCode: String?
+    @State private var recoveryKit: RecoveryKitService.RecoveryKit?
+    @State private var kitCreated = false
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Colors.witnessRed.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 25)
+
+                Image(systemName: "key.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(Colors.witnessRed)
+            }
+            .fadeScaleEntrance(isPresented: isAppeared)
+
+            VStack(spacing: Spacing.xs) {
+                Text("Recovery Kit")
+                    .font(Typography.headline1)
+                    .foregroundColor(.white)
+
+                Text("If your phone is lost, stolen, or damaged, you'll need your Recovery Kit to access your evidence from backup.")
+                    .font(Typography.bodyMedium)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .slideUpEntrance(isPresented: isAppeared, delay: 0.1)
+
+            if kitCreated, let code = recoveryCode {
+                // Show recovery code after creation
+                GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        Text("YOUR RECOVERY CODE")
+                            .font(Typography.caption)
+                            .foregroundColor(.secondary)
+                            .tracking(2)
+
+                        Text(code)
+                            .font(.system(.title3, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(Colors.safeGreen)
+                            .textSelection(.enabled)
+
+                        Divider()
+                            .background(Color.white.opacity(0.2))
+
+                        Text("Write this down now. It cannot be recovered later.")
+                            .font(Typography.caption)
+                            .foregroundColor(Colors.warningOrange)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+                .staggeredEntrance(isPresented: isAppeared, index: 2)
+
+                // Share button
+                if let kit = recoveryKit,
+                   let fileData = RecoveryKitService.shared.exportToFile(kit) {
+                    ShareLink(
+                        item: RecoveryFileTransferable(data: fileData),
+                        preview: SharePreview("OnTheRecord Recovery Kit", image: Image(systemName: "key.fill"))
+                    ) {
+                        Label("Share with Trusted Contact", systemImage: "person.badge.key.fill")
+                            .font(Typography.bodyLarge)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Colors.witnessRed.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal, Spacing.md)
+                }
+
+                PremiumPrimaryButton(
+                    title: "Continue",
+                    icon: "arrow.right",
+                    color: Colors.safeGreen
+                ) {
+                    currentPage = nextTag
+                }
+                .padding(.horizontal, Spacing.md)
+
+            } else {
+                // Create Recovery Kit button
+                PremiumPrimaryButton(
+                    title: "Create Recovery Kit",
+                    icon: "key.fill",
+                    color: Colors.witnessRed
+                ) {
+                    if let result = RecoveryKitService.shared.createRecoveryKit() {
+                        recoveryKit = result.kit
+                        recoveryCode = result.code
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            kitCreated = true
+                        }
+                        let generator = UINotificationFeedbackGenerator()
+                        generator.notificationOccurred(.success)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+                .staggeredEntrance(isPresented: isAppeared, index: 2)
+            }
+
+            Spacer()
+
+            if !kitCreated {
+                Button {
+                    currentPage = nextTag
+                } label: {
+                    Text("Skip for now")
+                        .font(Typography.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Text("You can create one later in Settings, but if you lose your phone before then, your evidence cannot be recovered.")
+                    .font(.system(size: 11))
+                    .foregroundColor(Colors.warningOrange.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.lg)
+            }
+        }
+        .padding()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAppeared = true
+            }
+        }
+    }
+}
+
 // MARK: - Invite Page
 
 struct InvitePage: View {
     @State private var isAppeared = false
     
-    private let appURL = URL(string: "https://ontherecord.app/download")!
+    private let appURL = URL(string: "https://jbapckfan.github.io/iWitness/")!
     private let shareMessage = "I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:"
 
     var body: some View {

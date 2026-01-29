@@ -91,15 +91,15 @@ class PreflightCheckService: ObservableObject {
                 : "Twilio not configured — SMS alerts disabled"
         ))
 
-        // 5. Upload destination configured (warning)
+        // 5. Upload destination configured (blocker — without offsite backup, evidence stays on-device)
         let hasDestinations = !uploadService.destinations.isEmpty
         results.append(CheckResult(
             name: "Upload",
             passed: hasDestinations,
-            severity: .warning,
+            severity: .blocker,
             message: hasDestinations
                 ? "\(uploadService.destinations.count) upload destination(s) configured"
-                : "No upload destinations — encrypted chunks will only be stored locally"
+                : "No upload destinations — if your phone is seized, your evidence is gone"
         ))
 
         // 6. Location permission (warning)

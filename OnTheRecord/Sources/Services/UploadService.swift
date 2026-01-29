@@ -147,8 +147,11 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
     /// File-based persistence to avoid UserDefaults 5-10MB limit.
     /// Queue is stored as JSON in Application Support.
-    private var queueFilePath: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    private var queueFilePath: URL? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            debugLog("[UploadService] ERROR: Could not locate Application Support directory.")
+            return nil
+        }
         let dir = appSupport.appendingPathComponent("OnTheRecord", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("upload_queue.json")
@@ -160,16 +163,17 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         if let legacyData = UserDefaults.standard.data(forKey: legacyKey) {
             if let legacyQueue = try? JSONDecoder().decode([QueuedChunk].self, from: legacyData), !legacyQueue.isEmpty {
                 debugLog("[UploadService] Migrating \(legacyQueue.count) queued items from UserDefaults to file")
-                if let encoded = try? JSONEncoder().encode(legacyQueue) {
-                    try? encoded.write(to: queueFilePath, options: .atomic)
+                if let encoded = try? JSONEncoder().encode(legacyQueue),
+                   let path = queueFilePath {
+                    try? encoded.write(to: path, options: .atomic)
                 }
             }
             UserDefaults.standard.removeObject(forKey: legacyKey)
         }
 
         // Load from file
-        let filePath = queueFilePath
-        guard FileManager.default.fileExists(atPath: filePath.path),
+        guard let filePath = queueFilePath,
+              FileManager.default.fileExists(atPath: filePath.path),
               let data = try? Data(contentsOf: filePath),
               let queue = try? JSONDecoder().decode([QueuedChunk].self, from: data) else {
             return
@@ -194,9 +198,14 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         let queue = pendingQueue
         queueLock.unlock()
 
+        guard let filePath = queueFilePath else {
+            debugLog("[UploadService] ERROR: Cannot persist queue — Application Support directory unavailable.")
+            return
+        }
+
         do {
             let data = try JSONEncoder().encode(queue)
-            try data.write(to: queueFilePath, options: .atomic)
+            try data.write(to: filePath, options: .atomic)
 
             // Queue size monitoring: warn if file exceeds 5MB
             let fileSize = data.count
@@ -227,7 +236,10 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
 
     func addR2Destination(accountID: String, bucketName: String, accessKeyID: String, secretAccessKey: String) {
-        let url = URL(string: "https://\(accountID).r2.cloudflarestorage.com/\(bucketName)")!
+        guard let url = URL(string: "https://\(accountID).r2.cloudflarestorage.com/\(bucketName)") else {
+            debugLog("[UploadService] ERROR: Invalid R2 URL from accountID=\(accountID), bucketName=\(bucketName). Skipping destination.")
+            return
+        }
         let destination = UploadDestination(
             name: "Cloudflare R2",
             type: .s3Compatible,

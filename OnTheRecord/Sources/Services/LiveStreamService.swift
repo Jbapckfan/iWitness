@@ -553,16 +553,23 @@ class LiveStreamService: ObservableObject {
         return String((0..<8).map { _ in chars.randomElement()! })
     }
 
+    // swiftlint:disable:next force_unwrapping -- hardcoded constant, always valid
+    private static let fallbackStreamURL = URL(string: "https://jbapckfan.github.io/iWitness/stream/error")!
+
     private func generateStreamURL() -> URL {
         guard let streamID = streamID else {
-            return URL(string: "https://ontherecord.app/stream/error")!
+            debugLog("[LiveStreamService] WARNING: No streamID available when generating stream URL.")
+            return Self.fallbackStreamURL
         }
 
         // For R2, generate public URL
         if let accountID = r2AccountID, let bucketName = r2BucketName {
-            // R2 public bucket URL or custom domain
+            // R2 public bucket URL or custom domain (user-configured values — may produce invalid URL)
             let publicURL = "https://\(bucketName).\(accountID).r2.dev/streams/\(streamID)/stream.m3u8"
-            return URL(string: publicURL) ?? URL(string: "https://ontherecord.app/stream/\(streamID)")!
+            if let r2URL = URL(string: publicURL) {
+                return r2URL
+            }
+            debugLog("[LiveStreamService] WARNING: Invalid R2 stream URL from bucketName=\(bucketName), accountID=\(accountID). Falling back.")
         }
 
         // For custom server
@@ -584,13 +591,14 @@ class LiveStreamService: ObservableObject {
         }
 
         // Fallback - generate a viewer page URL
-        return URL(string: "https://ontherecord.app/watch/\(streamID)")!
+        // streamID is generated from safe alphanumeric chars, so this URL is always valid
+        return URL(string: "https://jbapckfan.github.io/iWitness/watch/\(streamID)") ?? Self.fallbackStreamURL
     }
 
     /// Generate a short share link for the stream
     func generateShareLink() -> String {
         guard let streamID = streamID else { return "" }
-        return "https://ontherecord.app/watch/\(streamID)"
+        return "https://jbapckfan.github.io/iWitness/watch/\(streamID)"
     }
 
     /// Generate share message with stream link

@@ -1110,7 +1110,7 @@ struct SafeButton: View {
 
     // Get stored PIN if configured
     private var storedPIN: [Int]? {
-        guard let pinString = UserDefaults.standard.string(forKey: "safe_pin"), !pinString.isEmpty else { return nil }
+        guard let pinString = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
     }
 
@@ -1184,12 +1184,12 @@ struct PINDialOverlay: View {
     private let requiredDigits = 4
 
     private var storedPIN: [Int]? {
-        guard let pinString = UserDefaults.standard.string(forKey: "safe_pin"), !pinString.isEmpty else { return nil }
+        guard let pinString = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
     }
 
     private var duressPIN: [Int]? {
-        guard let pinString = UserDefaults.standard.string(forKey: "duress_pin"), !pinString.isEmpty else { return nil }
+        guard let pinString = KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin"), !pinString.isEmpty else { return nil }
         return pinString.compactMap { Int(String($0)) }
     }
 

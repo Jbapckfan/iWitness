@@ -488,6 +488,12 @@ struct HomeView: View {
                             .padding(.horizontal)
                             .slideUpEntrance(isPresented: isViewAppeared, delay: 0.1)
                             
+                            // 1.5 No-backup warning (persistent until configured)
+                            if uploadService.destinations.isEmpty {
+                                NoBackupBanner(showingSettings: $showingSettings)
+                                    .slideUpEntrance(isPresented: isViewAppeared, delay: 0.15)
+                            }
+
                             // 2. Critical Status check
                             VStack(spacing: Spacing.sm) {
                                 SystemCheckRow(label: "CONTACTS_LINK", status: !alertService.contacts.isEmpty)
@@ -797,6 +803,58 @@ struct ActivationButton: View {
 }
 
 // MARK: - Readiness Bar
+
+
+// MARK: - No Backup Warning Banner
+
+/// Persistent warning banner shown when no upload destinations are configured.
+/// Tapping it opens Settings so the user can configure offsite backup.
+struct NoBackupBanner: View {
+    @Binding var showingSettings: Bool
+
+    var body: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.black.opacity(0.85))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("NO BACKUP DESTINATION")
+                        .font(Typography.label)
+                        .fontWeight(.black)
+                        .tracking(1)
+                        .foregroundColor(.black.opacity(0.9))
+
+                    Text("Recordings won't leave this device")
+                        .font(Typography.caption)
+                        .foregroundColor(.black.opacity(0.7))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.5))
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Spacing.Radius.md)
+                    .fill(Colors.warningOrange)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Spacing.Radius.md)
+                    .stroke(Colors.warningOrange.opacity(0.6), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
+        .accessibilityLabel("No backup destination configured. Tap to open settings.")
+        .accessibilityHint("Opens storage settings to configure offsite backup")
+    }
+}
 
 struct ReadinessBar: View {
     @EnvironmentObject var alertService: AlertService

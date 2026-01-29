@@ -229,6 +229,46 @@ struct OnTheRecordApp: App {
             _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "cloud_secret_key", value: legacyCloud)
             UserDefaults.standard.removeObject(forKey: "cloud_secret_key")
         }
+
+        // Safe PIN
+        if let legacySafePin = UserDefaults.standard.string(forKey: "safe_pin"),
+           !legacySafePin.isEmpty,
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "safe_pin", value: legacySafePin)
+            UserDefaults.standard.removeObject(forKey: "safe_pin")
+        }
+
+        // Duress PIN
+        if let legacyDuressPin = UserDefaults.standard.string(forKey: "duress_pin"),
+           !legacyDuressPin.isEmpty,
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "duress_pin", value: legacyDuressPin)
+            UserDefaults.standard.removeObject(forKey: "duress_pin")
+        }
+
+        // Streaming R2 access key
+        if let legacyR2Access = UserDefaults.standard.string(forKey: "stream_r2_access_key"),
+           !legacyR2Access.isEmpty,
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "stream_r2_access_key") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_r2_access_key", value: legacyR2Access)
+            UserDefaults.standard.removeObject(forKey: "stream_r2_access_key")
+        }
+
+        // Streaming R2 secret key
+        if let legacyR2Secret = UserDefaults.standard.string(forKey: "stream_r2_secret_key"),
+           !legacyR2Secret.isEmpty,
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "stream_r2_secret_key") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_r2_secret_key", value: legacyR2Secret)
+            UserDefaults.standard.removeObject(forKey: "stream_r2_secret_key")
+        }
+
+        // Streaming custom server password
+        if let legacyCustomPass = UserDefaults.standard.string(forKey: "stream_custom_password"),
+           !legacyCustomPass.isEmpty,
+           KeychainHelper.shared.read(service: "OnTheRecord", account: "stream_custom_password") == nil {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_custom_password", value: legacyCustomPass)
+            UserDefaults.standard.removeObject(forKey: "stream_custom_password")
+        }
     }
 
     private static func loadSavedUploadDestinationsBackground(uploadService: UploadService) async {

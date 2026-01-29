@@ -13,8 +13,13 @@ struct SettingsView: View {
     @State private var showingTwilioSetup = false
     @State private var showingSafePINSetup = false
     @State private var showingDuressPINSetup = false
-    @State private var showingKeyRecoveryQR = false
-    @State private var recoveryQRImage: UIImage?
+    @State private var showingRecoveryKit = false
+    @State private var showingRecoveryImport = false
+    @State private var recoveryKit: RecoveryKitService.RecoveryKit?
+    @State private var recoveryCode: String?
+    @State private var importedFileData: Data?
+    @State private var importRecoveryCode = ""
+    @State private var importResult: Bool?
     @State private var showingStreamingSetup = false
 
     @EnvironmentObject var liveStreamService: LiveStreamService
@@ -273,9 +278,9 @@ struct SettingsView: View {
                         HStack {
                             Label("Duress PIN", systemImage: "exclamationmark.shield.fill")
                             Spacer()
-                            Text(UserDefaults.standard.string(forKey: "duress_pin") == nil ? "Not Set" : "Set")
+                            Text(KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin") == nil ? "Not Set" : "Set")
                                 .font(.caption)
-                                .foregroundColor(UserDefaults.standard.string(forKey: "duress_pin") == nil ? .secondary : .orange)
+                                .foregroundColor(KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin") == nil ? .secondary : .orange)
                         }
                     }
 
@@ -422,7 +427,8 @@ struct SettingsView: View {
 
                 // Community Section (Growth)
                 Section {
-                    ShareLink(item: URL(string: "https://apps.apple.com/app/id673949313")!, message: Text("I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:")) {
+                    // TODO: Replace with actual App Store ID after submission
+                    ShareLink(item: URL(string: "https://apps.apple.com/app/ontherecord")!, message: Text("I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:")) {
                         Label("Invite Friends & Family", systemImage: "square.and.arrow.up")
                     }
                     
@@ -456,22 +462,23 @@ struct SettingsView: View {
                     Text("Legal")
                 }
 
-                // Key Recovery Section
+                // Recovery Kit Section
                 Section {
                     Button {
-                        let encService = EncryptionService()
-                        if let bundle = KeyRecoveryService.createRecoveryBundle(from: encService),
-                           let image = KeyRecoveryService.generateQRCode(from: bundle) {
-                            recoveryQRImage = image
-                            showingKeyRecoveryQR = true
-                        }
+                        createAndShowRecoveryKit()
                     } label: {
-                        Label("Export Recovery QR Code", systemImage: "qrcode")
+                        Label("Create Recovery Kit", systemImage: "key.fill")
+                    }
+
+                    Button {
+                        showingRecoveryImport = true
+                    } label: {
+                        Label("Import Recovery Kit", systemImage: "square.and.arrow.down")
                     }
                 } header: {
-                    Text("Key Recovery")
+                    Text("Recovery Kit")
                 } footer: {
-                    Text("Export your public keys as a QR code. Share with a trusted attorney or backup device. Private keys never leave this device.")
+                    Text("Your Recovery Kit lets you or a trusted contact decrypt evidence on a new device. Save the recovery file and write down your recovery code. Both are needed.")
                 }
 
                 // About Section
@@ -483,11 +490,11 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Link(destination: URL(string: "https://ontherecord.app/privacy")!) {
+                    Link(destination: URL(string: "https://jbapckfan.github.io/iWitness/privacy.html")!) {
                         Label("Privacy Policy", systemImage: "hand.raised.fill")
                     }
 
-                    Link(destination: URL(string: "https://ontherecord.app/terms")!) {
+                    Link(destination: URL(string: "https://jbapckfan.github.io/iWitness/tos.html")!) {
                         Label("Terms of Service", systemImage: "doc.text.fill")
                     }
                 } header: {
@@ -528,14 +535,20 @@ struct SettingsView: View {
             .sheet(isPresented: $showingStreamingSetup) {
                 StreamingSetupView()
             }
-            .sheet(isPresented: $showingKeyRecoveryQR) {
-                KeyRecoveryQRView(image: recoveryQRImage)
+            .sheet(isPresented: $showingRecoveryKit) {
+                RecoveryKitCreatedView(
+                    recoveryCode: recoveryCode ?? "",
+                    recoveryKit: recoveryKit
+                )
+            }
+            .sheet(isPresented: $showingRecoveryImport) {
+                RecoveryKitImportView()
             }
         }
     }
 
     private var hasSafePIN: Bool {
-        UserDefaults.standard.string(forKey: "safe_pin") != nil
+        KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") != nil
     }
 
     private var hasNASConfigured: Bool {
@@ -590,6 +603,16 @@ struct SettingsView: View {
             alertService.removeContact(contact)
         }
     }
+
+    private func createAndShowRecoveryKit() {
+        guard let result = RecoveryKitService.shared.createRecoveryKit() else {
+            debugLog("[Settings] Failed to create Recovery Kit — keys may not be initialized")
+            return
+        }
+        recoveryKit = result.kit
+        recoveryCode = result.code
+        showingRecoveryKit = true
+    }
 }
 
 // MARK: - Contact Row
@@ -641,59 +664,74 @@ struct ContactRow: View {
     }
 }
 
-// MARK: - Key Recovery QR View
+// MARK: - Recovery Kit Created View
 
-struct KeyRecoveryQRView: View {
+struct RecoveryKitCreatedView: View {
     @Environment(\.dismiss) var dismiss
-    let image: UIImage?
+    let recoveryCode: String
+    let recoveryKit: RecoveryKitService.RecoveryKit?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Spacing.lg) {
-                Text("Recovery QR Code")
+                Image(systemName: "key.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(Colors.safeGreen)
+                    .padding(.top, Spacing.xl)
+
+                Text("Recovery Kit Created")
                     .font(Typography.headline2)
                     .foregroundColor(.white)
 
-                if let image = image {
-                    Image(uiImage: image)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 280, maxHeight: 280)
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(12)
+                GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        Text("YOUR RECOVERY CODE")
+                            .font(Typography.caption)
+                            .foregroundColor(.secondary)
+                            .tracking(2)
 
-                    Text("This QR contains your **public** encryption and signing keys. Share it with a trusted attorney or store in a secure location.")
-                        .font(Typography.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.lg)
+                        Text(recoveryCode)
+                            .font(.system(.title2, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(Colors.safeGreen)
+                            .textSelection(.enabled)
 
-                    if let imageData = image.pngData(),
-                       let pngImage = UIImage(data: imageData) {
-                        ShareLink(
-                            item: Image(uiImage: pngImage),
-                            preview: SharePreview("OnTheRecord Recovery Key", image: Image(uiImage: pngImage))
-                        ) {
-                            Label("Share QR Code", systemImage: "square.and.arrow.up")
-                                .font(Typography.bodyLarge)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Colors.witnessRed.opacity(0.8))
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                        }
-                        .padding(.horizontal, Spacing.lg)
+                        Divider()
+                            .background(Color.white.opacity(0.2))
+
+                        Text("Write down this code. It cannot be recovered. Anyone with this file AND code can access your evidence.")
+                            .font(Typography.caption)
+                            .foregroundColor(Colors.warningOrange)
+                            .multilineTextAlignment(.center)
                     }
-                } else {
-                    Text("Failed to generate QR code. Keys may not be initialized yet.")
-                        .foregroundColor(Colors.witnessRed)
                 }
+                .padding(.horizontal, Spacing.md)
+
+                if let kit = recoveryKit,
+                   let fileData = RecoveryKitService.shared.exportToFile(kit) {
+                    ShareLink(
+                        item: RecoveryFileTransferable(data: fileData),
+                        preview: SharePreview("OnTheRecord Recovery Kit", image: Image(systemName: "key.fill"))
+                    ) {
+                        Label("Share Recovery File", systemImage: "square.and.arrow.up")
+                            .font(Typography.bodyLarge)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Colors.witnessRed.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                }
+
+                Text("Your Recovery Kit contains your encrypted private keys. You need both the recovery file AND recovery code to restore access. Share both with a trusted contact so they can access your evidence if something happens to you.")
+                    .font(Typography.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.lg)
 
                 Spacer()
             }
-            .padding(.top, Spacing.xl)
             .background(Color.black)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -701,6 +739,220 @@ struct KeyRecoveryQRView: View {
                     Button("Done") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+/// Transferable wrapper for sharing the .otr-recovery file via the system share sheet.
+struct RecoveryFileTransferable: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .data) { item in
+            item.data
+        }
+        .suggestedFileName("OnTheRecord-Recovery.otr-recovery")
+    }
+}
+
+// MARK: - Recovery Kit Import View
+
+struct RecoveryKitImportView: View {
+    @Environment(\.dismiss) var dismiss
+    @State private var importedFileData: Data?
+    @State private var recoveryCode = ""
+    @State private var showingFilePicker = false
+    @State private var importResult: ImportResult?
+    @State private var fileName: String?
+
+    enum ImportResult {
+        case success
+        case wrongCode
+        case invalidFile
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Spacing.lg) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 50))
+                    .foregroundColor(Colors.witnessRed)
+                    .padding(.top, Spacing.xl)
+
+                Text("Import Recovery Kit")
+                    .font(Typography.headline2)
+                    .foregroundColor(.white)
+
+                // Step 1: Select File
+                GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        HStack {
+                            Text("1")
+                                .font(Typography.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.black)
+                                .frame(width: 22, height: 22)
+                                .background(Colors.witnessRed)
+                                .clipShape(Circle())
+
+                            Text("Select Recovery File")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(.white)
+
+                            Spacer()
+
+                            if importedFileData != nil {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Colors.safeGreen)
+                            }
+                        }
+
+                        Button {
+                            showingFilePicker = true
+                        } label: {
+                            HStack {
+                                Image(systemName: importedFileData != nil ? "doc.fill" : "doc.badge.plus")
+                                Text(fileName ?? "Choose .otr-recovery file")
+                                    .lineLimit(1)
+                            }
+                            .font(Typography.bodyMedium)
+                            .frame(maxWidth: .infinity)
+                            .padding(Spacing.sm)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(Spacing.Radius.xs)
+                            .foregroundColor(importedFileData != nil ? Colors.safeGreen : .white)
+                        }
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+
+                // Step 2: Enter Recovery Code
+                GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                    VStack(spacing: Spacing.sm) {
+                        HStack {
+                            Text("2")
+                                .font(Typography.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.black)
+                                .frame(width: 22, height: 22)
+                                .background(Colors.witnessRed)
+                                .clipShape(Circle())
+
+                            Text("Enter Recovery Code")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(.white)
+
+                            Spacer()
+                        }
+
+                        TextField("XXXXX-XXXXX-XXXXX-XXXXX", text: $recoveryCode)
+                            .font(.system(.body, design: .monospaced))
+                            .padding(Spacing.sm)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(Spacing.Radius.xs)
+                            .foregroundColor(.white)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.characters)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+
+                // Import Button
+                Button {
+                    performImport()
+                } label: {
+                    Label("Restore Keys", systemImage: "arrow.down.circle.fill")
+                        .font(Typography.bodyLarge)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(canImport ? Colors.witnessRed : Color.gray.opacity(0.4))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(!canImport)
+                .padding(.horizontal, Spacing.lg)
+
+                // Result
+                if let result = importResult {
+                    HStack(spacing: Spacing.xs) {
+                        switch result {
+                        case .success:
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Colors.safeGreen)
+                            Text("Keys restored successfully!")
+                                .foregroundColor(Colors.safeGreen)
+                        case .wrongCode:
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(Colors.errorRed)
+                            Text("Wrong recovery code. Try again.")
+                                .foregroundColor(Colors.errorRed)
+                        case .invalidFile:
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(Colors.errorRed)
+                            Text("Invalid recovery file.")
+                                .foregroundColor(Colors.errorRed)
+                        }
+                    }
+                    .font(Typography.bodyMedium)
+                    .padding(Spacing.md)
+                    .glassBackground(cornerRadius: Spacing.Radius.md)
+                }
+
+                Spacer()
+            }
+            .background(Color.black)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .fileImporter(
+                isPresented: $showingFilePicker,
+                allowedContentTypes: [.data],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    let didAccess = url.startAccessingSecurityScopedResource()
+                    defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+                    if let data = try? Data(contentsOf: url) {
+                        importedFileData = data
+                        fileName = url.lastPathComponent
+                    }
+                case .failure(let error):
+                    debugLog("[RecoveryKit] File import error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private var canImport: Bool {
+        importedFileData != nil && !recoveryCode.isEmpty
+    }
+
+    private func performImport() {
+        guard let data = importedFileData else {
+            importResult = .invalidFile
+            return
+        }
+
+        guard let kit = RecoveryKitService.shared.importFromFile(data) else {
+            importResult = .invalidFile
+            return
+        }
+
+        let success = RecoveryKitService.shared.importRecoveryKit(kit, recoveryCode: recoveryCode)
+        importResult = success ? .success : .wrongCode
+
+        if success {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+        } else {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
         }
     }
 }
@@ -1085,6 +1337,8 @@ struct CloudSetupView: View {
     @State private var bucketName = ""
     @State private var accessKeyID = ""
     @State private var secretAccessKey = ""
+    @State private var isTesting = false
+    @State private var testResult: String?
 
     var body: some View {
         NavigationStack {
@@ -1102,6 +1356,31 @@ struct CloudSetupView: View {
                 } footer: {
                     Text("Get these from your Cloudflare dashboard under R2 > Manage R2 API Tokens")
                 }
+
+                Section {
+                    Button {
+                        testConnection()
+                    } label: {
+                        HStack {
+                            if isTesting {
+                                ProgressView()
+                                    .padding(.trailing, 5)
+                            }
+                            Text(isTesting ? "Testing..." : "Test Connection")
+                        }
+                    }
+                    .disabled(accountID.isEmpty || bucketName.isEmpty || accessKeyID.isEmpty || secretAccessKey.isEmpty || isTesting)
+
+                    if let result = testResult {
+                        HStack {
+                            Image(systemName: result.contains("Success") ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(result.contains("Success") ? .green : .red)
+                            Text(result)
+                                .font(.caption)
+                                .foregroundColor(result.contains("Success") ? .green : .red)
+                        }
+                    }
+                }
             }
             .navigationTitle("Cloud Setup")
             .toolbar {
@@ -1118,6 +1397,43 @@ struct CloudSetupView: View {
                     .disabled(accountID.isEmpty || bucketName.isEmpty || accessKeyID.isEmpty || secretAccessKey.isEmpty)
                 }
             }
+        }
+    }
+
+    private func testConnection() {
+        isTesting = true
+        testResult = nil
+
+        Task {
+            let success = await testR2Connection(
+                accessKey: accessKeyID,
+                secretKey: secretAccessKey,
+                accountID: accountID,
+                bucketName: bucketName
+            )
+            if success {
+                testResult = "Success! R2 endpoint is reachable."
+            } else {
+                testResult = "Could not connect — check your settings"
+            }
+            isTesting = false
+        }
+    }
+
+    private func testR2Connection(accessKey: String, secretKey: String, accountID: String, bucketName: String) async -> Bool {
+        guard let url = URL(string: "https://\(accountID).r2.cloudflarestorage.com/\(bucketName)") else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 10
+        // A basic reachability check: any HTTP response (even 403) means the endpoint exists
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode != 0
+            }
+            return false
+        } catch {
+            return false
         }
     }
 
@@ -1851,7 +2167,7 @@ struct SafePINSetupView: View {
     @State private var currentPIN: String
 
     init() {
-        _currentPIN = State(initialValue: UserDefaults.standard.string(forKey: "safe_pin") ?? "")
+        _currentPIN = State(initialValue: KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") ?? "")
     }
 
     var body: some View {
@@ -1933,7 +2249,7 @@ struct SafePINSetupView: View {
             return
         }
 
-        UserDefaults.standard.set(pin1, forKey: "safe_pin")
+        _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "safe_pin", value: pin1)
 
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
@@ -1954,7 +2270,7 @@ struct DuressPINSetupView: View {
     @State private var currentPIN: String
 
     init() {
-        _currentPIN = State(initialValue: UserDefaults.standard.string(forKey: "duress_pin") ?? "")
+        _currentPIN = State(initialValue: KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin") ?? "")
     }
 
     var body: some View {
@@ -2019,10 +2335,10 @@ struct DuressPINSetupView: View {
         guard pin1 == pin2 else {
             errorMessage = "PINs Don't Match"; showingError = true; return
         }
-        let safe = UserDefaults.standard.string(forKey: "safe_pin") ?? "1234"
+        let safe = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") ?? "1234"
         if pin1 == safe { errorMessage = "Duress PIN must differ from Safe PIN"; showingError = true; return }
 
-        UserDefaults.standard.set(pin1, forKey: "duress_pin")
+        _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "duress_pin", value: pin1)
 
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
@@ -2192,8 +2508,8 @@ struct StreamingSetupView: View {
             )
             UserDefaults.standard.set(r2AccountID, forKey: "stream_r2_account")
             UserDefaults.standard.set(r2BucketName, forKey: "stream_r2_bucket")
-            UserDefaults.standard.set(r2AccessKey, forKey: "stream_r2_access_key")
-            UserDefaults.standard.set(r2SecretKey, forKey: "stream_r2_secret_key")
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_r2_access_key", value: r2AccessKey)
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_r2_secret_key", value: r2SecretKey)
             UserDefaults.standard.set("cloudflare", forKey: "stream_destination")
 
         case 2:
@@ -2207,7 +2523,7 @@ struct StreamingSetupView: View {
             }
             UserDefaults.standard.set(customServerURL, forKey: "stream_custom_url")
             UserDefaults.standard.set(customUsername, forKey: "stream_custom_username")
-            UserDefaults.standard.set(customPassword, forKey: "stream_custom_password")
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "stream_custom_password", value: customPassword)
             UserDefaults.standard.set("custom", forKey: "stream_destination")
 
         default:

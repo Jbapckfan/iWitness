@@ -24,6 +24,71 @@ class TimestampAnchorService: ObservableObject {
 
     private var lastAnchorHash: String?
     private var anchors: [TimestampAnchor] = []
+    private var currentIncidentID: String?
+
+    // MARK: - Disk Persistence
+
+    /// Directory for a given incident's pending uploads (matches ChunkWriter / EvidenceExportService layout)
+    private func anchorsDirectory(for incidentID: String) -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport
+            .appendingPathComponent("OnTheRecord", isDirectory: true)
+            .appendingPathComponent("PendingUploads", isDirectory: true)
+            .appendingPathComponent(incidentID, isDirectory: true)
+    }
+
+    /// Append a single anchor as one line of JSON to the JSONL file (crash-safe incremental writes)
+    private func persistAnchor(_ anchor: TimestampAnchor, incidentID: String) {
+        guard let data = try? JSONEncoder().encode(anchor),
+              let line = String(data: data, encoding: .utf8) else {
+            debugLog("[TimestampAnchor] Failed to encode anchor for disk persistence")
+            return
+        }
+
+        let dir = anchorsDirectory(for: incidentID)
+        let filePath = dir.appendingPathComponent("timestamp_anchors.jsonl")
+
+        // Ensure directory exists
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            debugLog("[TimestampAnchor] Failed to create anchors directory: \(error.localizedDescription)")
+            return
+        }
+
+        let lineData = (line + "\n").data(using: .utf8)!
+
+        // Append to existing file, or create if first write
+        if let handle = try? FileHandle(forWritingTo: filePath) {
+            handle.seekToEndOfFile()
+            handle.write(lineData)
+            handle.closeFile()
+        } else {
+            do {
+                try lineData.write(to: filePath)
+            } catch {
+                debugLog("[TimestampAnchor] Failed to create anchors file: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Load anchors from the JSONL file on disk (crash recovery)
+    func loadAnchors(incidentID: String) -> [TimestampAnchor] {
+        if !anchors.isEmpty {
+            return anchors.filter { $0.incidentID == incidentID }
+        }
+        // Fall back to disk
+        let filePath = anchorsDirectory(for: incidentID).appendingPathComponent("timestamp_anchors.jsonl")
+        guard let content = try? String(contentsOf: filePath, encoding: .utf8) else {
+            debugLog("[TimestampAnchor] No anchors file found on disk for \(incidentID)")
+            return []
+        }
+        let decoded = content.split(separator: "\n").compactMap { line in
+            try? JSONDecoder().decode(TimestampAnchor.self, from: Data(line.utf8))
+        }
+        debugLog("[TimestampAnchor] Recovered \(decoded.count) anchors from disk for \(incidentID)")
+        return decoded
+    }
 
     // MARK: - Public API
 
@@ -50,6 +115,7 @@ class TimestampAnchorService: ObservableObject {
 
         lastAnchorHash = anchorHash
         anchors.append(anchor)
+        persistAnchor(anchor, incidentID: incidentID)
 
         return anchor
     }
@@ -58,12 +124,19 @@ class TimestampAnchorService: ObservableObject {
     func startNewChain(incidentID: String) {
         lastAnchorHash = nil
         anchors = []
+        currentIncidentID = incidentID
+
+        // Remove any stale anchors file so the new chain starts fresh
+        let filePath = anchorsDirectory(for: incidentID).appendingPathComponent("timestamp_anchors.jsonl")
+        try? FileManager.default.removeItem(at: filePath)
+
         debugLog("[TimestampAnchor] New chain started for \(incidentID)")
     }
 
     /// Export anchor chain for an incident (included in evidence package)
+    /// Falls back to disk if in-memory anchors are empty (crash recovery case)
     func exportAnchors(incidentID: String) throws -> Data {
-        let incidentAnchors = anchors.filter { $0.incidentID == incidentID }
+        let incidentAnchors = loadAnchors(incidentID: incidentID)
         return try JSONEncoder().encode(incidentAnchors)
     }
 

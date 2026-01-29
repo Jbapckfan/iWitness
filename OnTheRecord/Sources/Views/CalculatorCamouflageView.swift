@@ -26,8 +26,8 @@ struct CalculatorCamouflageView: View {
     init(isUnlocked: Binding<Bool>, isDuressActive: Binding<Bool>) {
         self._isUnlocked = isUnlocked
         self._isDuressActive = isDuressActive
-        self.storedPIN = UserDefaults.standard.string(forKey: "safe_pin") ?? "1234"
-        self.duressPIN = UserDefaults.standard.string(forKey: "duress_pin")
+        self.storedPIN = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") ?? "1234"
+        self.duressPIN = KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin")
     }
     
     var body: some View {

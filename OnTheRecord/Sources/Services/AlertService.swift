@@ -376,12 +376,21 @@ extension AlertService {
 
     /// Real Twilio API call
     private func realTwilioSend(to phone: String, message: String, config: TwilioConfig) async throws -> TwilioSendResult {
-        let url = URL(string: "https://api.twilio.com/2010-04-01/Accounts/\(config.accountSID)/Messages.json")!
+        guard let url = URL(string: "https://api.twilio.com/2010-04-01/Accounts/\(config.accountSID)/Messages.json") else {
+            debugLog("[AlertService] ERROR: Invalid Twilio URL from accountSID=\(config.accountSID). Cannot send SMS.")
+            twilioStatus = .failed
+            throw AlertError.sendFailed("Invalid Twilio account SID produced malformed URL")
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let credentials = "\(config.accountSID):\(config.authToken)".data(using: .utf8)!.base64EncodedString()
+        guard let credentialData = "\(config.accountSID):\(config.authToken)".data(using: .utf8) else {
+            debugLog("[AlertService] ERROR: Failed to encode Twilio credentials as UTF-8.")
+            twilioStatus = .failed
+            throw AlertError.sendFailed("Failed to encode Twilio credentials")
+        }
+        let credentials = credentialData.base64EncodedString()
         request.setValue("Basic \(credentials)", forHTTPHeaderField: "Authorization")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 

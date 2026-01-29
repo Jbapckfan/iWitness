@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
@@ -7,301 +7,301 @@
     <title>Privacy Policy | OnTheRecord</title>
     <meta name="description"
         content="OnTheRecord Privacy Policy - How we protect your data with zero-knowledge architecture.">
-    <style>
-        :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #111111;
-            --text-primary: #ffffff;
-            --text-secondary: #a1a1aa;
-            --accent: #22c55e;
-            --warning: #eab308;
-            --error: #ef4444;
-        }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    <!-- Favicon: red recording dot -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23050505'/><circle cx='16' cy='16' r='8' fill='%23E63333'/></svg>"
+        type="image/svg+xml">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        surface: {
+                            '0': '#030303',
+                            '1': '#0a0a0b',
+                            '2': '#111113',
+                            '3': '#18181b',
+                        },
+                        accent: {
+                            warm: '#D4A853',
+                            gold: '#E8C468',
+                            muted: '#B8943F',
+                        }
+                    }
+                }
+            }
         }
+    </script>
+    <style>
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.7;
+            background-color: #030303;
+            color: #e4e4e7;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 60px 24px;
+        .glass-elevated {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(40px) saturate(120%);
+            -webkit-backdrop-filter: blur(40px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.03),
+                0 20px 50px -12px rgba(0, 0, 0, 0.6);
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 60px;
-            padding-bottom: 40px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.5);
         }
 
-        .logo {
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
+        .text-gradient-warm {
+            background: linear-gradient(135deg, #E8C468 0%, #D4A853 50%, #B8943F 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .logo a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        h1 {
-            font-size: 42px;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
-        .last-updated {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        h2 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-top: 48px;
-            margin-bottom: 20px;
-            color: var(--accent);
-        }
-
-        h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-top: 32px;
-            margin-bottom: 12px;
-        }
-
-        p {
-            color: var(--text-secondary);
-            margin-bottom: 16px;
-        }
-
-        ul,
-        ol {
-            color: var(--text-secondary);
-            margin-left: 24px;
-            margin-bottom: 16px;
-        }
-
-        li {
-            margin-bottom: 8px;
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
         }
 
         .highlight-box {
-            background: var(--bg-secondary);
-            border-left: 4px solid var(--accent);
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #22c55e;
             padding: 20px 24px;
             margin: 24px 0;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0 12px 12px 0;
+            backdrop-filter: blur(20px);
         }
 
         .highlight-box.warning {
-            border-left-color: var(--warning);
+            border-left-color: #eab308;
         }
 
         .highlight-box.important {
-            border-left-color: var(--error);
-        }
-
-        .highlight-box p {
-            margin-bottom: 0;
-        }
-
-        .highlight-box strong {
-            color: var(--text-primary);
-        }
-
-        strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
-        footer {
-            margin-top: 80px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        footer p {
-            font-size: 14px;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 40px;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .back-link:hover {
-            color: var(--text-primary);
+            border-left-color: #ef4444;
         }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <a href="/" class="back-link">&larr; Back to Home</a>
+<body class="antialiased selection:bg-amber-900/50 selection:text-white">
 
-        <header>
-            <div class="logo"><a href="/">OnTheRecord</a></div>
-            <h1>Privacy Policy</h1>
-            <p class="last-updated">Last Updated: January 28, 2026</p>
-        </header>
-
-        <main>
-            <h2>1. Introduction</h2>
-            <p>OnTheRecord is built on a zero-knowledge architecture. We believe your evidence belongs to you and only
-                you. This Privacy Policy explains what information we collect, what we don't collect, and why our
-                technical design makes your privacy a mathematical certainty rather than a policy promise.</p>
-
-            <div class="highlight-box">
-                <p><strong>Our core principle:</strong> We cannot access your recordings, your encryption keys, or your
-                    personal data. This is enforced by our architecture, not just our policy.</p>
-            </div>
-
-            <h2>2. Information We Collect</h2>
-            <p>We collect the absolute minimum required to operate the service:</p>
-            <ul>
-                <li><strong>Device information for crash reporting:</strong> Anonymous crash logs including device model,
-                    iOS version, and app version to diagnose and fix bugs.</li>
-                <li><strong>Email address (optional):</strong> Only if you create an account for cloud backup features.
-                    Used solely for account authentication and critical service communications.</li>
-            </ul>
-
-            <h3>What We Do NOT Collect</h3>
-            <p>OnTheRecord is specifically designed to avoid collecting sensitive information:</p>
-            <ul>
-                <li><strong>Video or audio content</strong> &mdash; All recordings remain on your device or are
-                    encrypted client-side before upload. We never have access to plaintext footage.</li>
-                <li><strong>Location data</strong> &mdash; GPS coordinates are embedded in your recordings locally but
-                    are never transmitted to our servers.</li>
-                <li><strong>Encryption keys</strong> &mdash; Keys are generated and stored exclusively in the iOS
-                    Keychain on your device. We never possess, transmit, or escrow your keys.</li>
-                <li><strong>Contacts or address book</strong> &mdash; Emergency contact information is stored locally on
-                    your device only.</li>
-                <li><strong>Analytics or behavioral data</strong> &mdash; We do not use any analytics SDKs, advertising
-                    frameworks, or tracking pixels.</li>
-                <li><strong>Biometric data</strong> &mdash; Face ID / Touch ID authentication is handled entirely by iOS
-                    and never leaves the Secure Enclave.</li>
-            </ul>
-
-            <h2>3. Data Storage &amp; Encryption</h2>
-            <p>OnTheRecord uses military-grade encryption to protect your recordings:</p>
-            <ul>
-                <li><strong>AES-256-GCM</strong> client-side encryption for all video chunks before they leave your
-                    device.</li>
-                <li><strong>RSA-4096 key wrapping</strong> to protect per-chunk encryption keys.</li>
-                <li><strong>P256 ECDSA digital signatures</strong> to verify evidence integrity and chain of custody.
-                </li>
-                <li><strong>iOS Keychain</strong> with Secure Enclave protection for all cryptographic keys.</li>
-                <li><strong>User-configured destinations</strong> &mdash; You choose where your encrypted data is
-                    stored: your own NAS, WebDAV server, S3-compatible storage, or Cloudflare R2. We do not operate
-                    storage servers.</li>
-            </ul>
-
-            <div class="highlight-box">
-                <p><strong>Even if our servers were seized,</strong> the data stored there is encrypted with keys we do
-                    not possess. Decryption is mathematically impossible without your device.</p>
-            </div>
-
-            <h2>4. Third-Party Services</h2>
-            <p>OnTheRecord integrates with the following third-party services, each with strict data minimization:</p>
-            <ul>
-                <li><strong>Twilio (SMS routing only):</strong> Used to send emergency SMS alerts to your designated
-                    contacts. Twilio processes only the phone numbers you configure and the alert message content. No
-                    video or audio data is transmitted through Twilio.</li>
-                <li><strong>Your own cloud storage:</strong> If you configure offsite backup, encrypted data is uploaded
-                    to your own storage provider (NAS, S3, R2, WebDAV). We have no access to these credentials or
-                    stored data.</li>
-            </ul>
-
-            <div class="highlight-box">
-                <p><strong>We do not use:</strong> Google Analytics, Facebook SDK, Firebase, Amplitude, Mixpanel,
-                    advertising networks, or any other analytics, tracking, or advertising services. Zero telemetry.
-                    Zero tracking. Zero compromise.</p>
-            </div>
-
-            <h2>5. Data Retention</h2>
-            <p>You have complete control over your data:</p>
-            <ul>
-                <li><strong>Local recordings:</strong> Stored on your device until you delete them. The app does not
-                    auto-delete recordings.</li>
-                <li><strong>Offsite backups:</strong> Stored in your configured storage destination until you delete
-                    them. We cannot delete data from your storage because we have no access to it.</li>
-                <li><strong>Account data:</strong> If you have an account, you can request deletion at any time.
-                    Deletion is immediate and permanent.</li>
-                <li><strong>Crash logs:</strong> Anonymized crash reports are retained for 90 days, then automatically
-                    purged.</li>
-            </ul>
-
-            <h2>6. Law Enforcement Requests</h2>
-            <p>OnTheRecord's zero-knowledge architecture means we are technically unable to comply with decryption
-                requests:</p>
-            <ul>
-                <li>We do not hold encryption keys for any user's data.</li>
-                <li>We cannot decrypt, access, or produce plaintext recordings.</li>
-                <li>We cannot identify which encrypted data blobs belong to which user.</li>
-                <li>If served with a valid legal order, we can only provide the minimal account information we hold
-                    (email address, if an account exists).</li>
-            </ul>
-
-            <div class="highlight-box important">
-                <p><strong>This is by design.</strong> We built OnTheRecord so that compliance with overreaching data
-                    requests is technically impossible. Your privacy is protected by mathematics, not policy.</p>
-            </div>
-
-            <h2>7. Children's Privacy</h2>
-            <p>OnTheRecord is not intended for use by children under the age of 13. We do not knowingly collect personal
-                information from children under 13. If you are a parent or guardian and believe your child has provided
-                us with personal information, please contact us and we will promptly delete it.</p>
-
-            <h2>8. Changes to This Policy</h2>
-            <p>We may update this Privacy Policy from time to time. We will notify you of any material changes through
-                the App or via email (if you have an account). The "Last Updated" date at the top of this page indicates
-                when the policy was most recently revised.</p>
-            <p>Continued use of OnTheRecord after changes are posted constitutes acceptance of the revised policy.</p>
-
-            <h2>9. Contact</h2>
-            <p>For questions about this Privacy Policy or our data practices, contact us at:</p>
-            <p><strong>Email:</strong> <a href="mailto:privacy@ontherecord.app">privacy@ontherecord.app</a></p>
-
-            <div class="highlight-box">
-                <p><strong>Remember:</strong> Your recordings, your keys, your data. OnTheRecord is designed so that
-                    only you control access to your evidence. We built it this way because we believe evidence
-                    survivability is a civil right.</p>
-            </div>
-        </main>
-
-        <footer>
-            <p>&copy; 2026 OnTheRecord. All rights reserved.</p>
-            <p style="margin-top: 12px;"><a href="/">Home</a> &middot; <a href="/privacy.html">Privacy Policy</a>
-                &middot; <a href="/tos.html">Terms of Service</a></p>
-        </footer>
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+        <div class="glow-orb w-[900px] h-[600px] bg-amber-500/[0.03] top-[-200px] left-1/2 -translate-x-1/2"></div>
+        <div class="glow-orb w-[400px] h-[400px] bg-emerald-500/[0.02] bottom-[30%] right-[-5%]"></div>
     </div>
+
+    <!-- Nav -->
+    <nav class="fixed w-full z-50 top-0 left-0 transition-all duration-500 pt-5 px-4" id="navbar">
+        <div class="max-w-5xl mx-auto flex justify-between items-center glass-elevated rounded-2xl px-6 py-3.5">
+            <a href="index.html" class="flex items-center gap-3 no-underline">
+                <div class="w-9 h-9 bg-surface-0 border border-white/10 rounded-lg relative overflow-hidden flex items-center justify-center">
+                    <div class="w-2 h-2 bg-red-500 rounded-full" style="box-shadow: 0 0 4px 1px rgba(230,51,51,0.7), 0 0 10px 3px rgba(230,51,51,0.3), 0 0 20px 6px rgba(230,51,51,0.1);"></div>
+                </div>
+                <span class="font-semibold text-[15px] tracking-tight text-white">OnTheRecord</span>
+            </a>
+            <div class="hidden md:flex gap-7 text-[13px] font-medium text-zinc-500">
+                <a href="index.html" class="hover:text-white transition-colors duration-200">Home</a>
+                <a href="privacy.html" class="text-white transition-colors duration-200">Privacy</a>
+                <a href="tos.html" class="hover:text-white transition-colors duration-200">Terms</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="relative z-10 pt-32 pb-20 px-4">
+        <div class="max-w-3xl mx-auto">
+
+            <!-- Back Link -->
+            <a href="index.html" class="inline-flex items-center gap-2 text-zinc-500 text-sm hover:text-white transition-colors mb-10 no-underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19l-7-7 7-7"></path></svg>
+                Back to Home
+            </a>
+
+            <!-- Header -->
+            <div class="text-center mb-16 pb-10 border-b border-white/[0.06]">
+                <p class="text-accent-warm text-[13px] font-semibold tracking-widest uppercase mb-4">Legal</p>
+                <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">Privacy Policy</h1>
+                <p class="text-zinc-500 text-sm">Last Updated: January 28, 2026</p>
+            </div>
+
+            <!-- Body -->
+            <div class="space-y-10 text-[15px] leading-relaxed">
+
+                <!-- Section 1 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">1. Introduction</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord is built on a zero-knowledge architecture. We believe your evidence belongs to you and only you. This Privacy Policy explains what information we collect, what we don't collect, and why our technical design makes your privacy a mathematical certainty rather than a policy promise.</p>
+                    <div class="highlight-box">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Our core principle:</strong> We cannot access your recordings, your encryption keys, or your personal data. This is enforced by our architecture, not just our policy.</p>
+                    </div>
+                </section>
+
+                <!-- Section 2 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">2. Information We Collect</h2>
+                    <p class="text-zinc-400 mb-4">We collect the absolute minimum required to operate the service:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Device information for crash reporting:</strong> Anonymous crash logs including device model, iOS version, and app version to diagnose and fix bugs.</li>
+                        <li><strong class="text-zinc-200">Email address (optional):</strong> Only if you create an account for cloud backup features. Used solely for account authentication and critical service communications.</li>
+                    </ul>
+
+                    <h3 class="text-lg font-semibold text-white mt-8 mb-3">What We Do NOT Collect</h3>
+                    <p class="text-zinc-400 mb-4">OnTheRecord is specifically designed to avoid collecting sensitive information:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Video or audio content</strong> &mdash; All recordings remain on your device or are encrypted client-side before upload. We never have access to plaintext footage.</li>
+                        <li><strong class="text-zinc-200">Location data</strong> &mdash; GPS coordinates are embedded in your recordings locally but are never transmitted to our servers.</li>
+                        <li><strong class="text-zinc-200">Encryption keys</strong> &mdash; Keys are generated and stored exclusively in the iOS Keychain on your device. We never possess, transmit, or escrow your keys.</li>
+                        <li><strong class="text-zinc-200">Contacts or address book</strong> &mdash; Emergency contact information is stored locally on your device only.</li>
+                        <li><strong class="text-zinc-200">Analytics or behavioral data</strong> &mdash; We do not use any analytics SDKs, advertising frameworks, or tracking pixels.</li>
+                        <li><strong class="text-zinc-200">Biometric data</strong> &mdash; Face ID / Touch ID authentication is handled entirely by iOS and never leaves the Secure Enclave.</li>
+                    </ul>
+                </section>
+
+                <!-- Section 3 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">3. Data Storage &amp; Encryption</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord uses military-grade encryption to protect your recordings:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">AES-256-GCM</strong> client-side encryption for all video chunks before they leave your device.</li>
+                        <li><strong class="text-zinc-200">RSA-4096 key wrapping</strong> to protect per-chunk encryption keys.</li>
+                        <li><strong class="text-zinc-200">P256 ECDSA digital signatures</strong> to verify evidence integrity and chain of custody.</li>
+                        <li><strong class="text-zinc-200">iOS Keychain</strong> with Secure Enclave protection for all cryptographic keys.</li>
+                        <li><strong class="text-zinc-200">User-configured destinations</strong> &mdash; You choose where your encrypted data is stored: your own NAS, WebDAV server, S3-compatible storage, or Cloudflare R2. We do not operate storage servers.</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Even if our servers were seized,</strong> the data stored there is encrypted with keys we do not possess. Decryption is mathematically impossible without your device.</p>
+                    </div>
+                </section>
+
+                <!-- Section 4 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">4. Third-Party Services</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord integrates with the following third-party services, each with strict data minimization:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Twilio (SMS routing only):</strong> Used to send emergency SMS alerts to your designated contacts. Twilio processes only the phone numbers you configure and the alert message content. No video or audio data is transmitted through Twilio.</li>
+                        <li><strong class="text-zinc-200">Your own cloud storage:</strong> If you configure offsite backup, encrypted data is uploaded to your own storage provider (NAS, S3, R2, WebDAV). We have no access to these credentials or stored data.</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">We do not use:</strong> Google Analytics, Facebook SDK, Firebase, Amplitude, Mixpanel, advertising networks, or any other analytics, tracking, or advertising services. Zero telemetry. Zero tracking. Zero compromise.</p>
+                    </div>
+                </section>
+
+                <!-- Section 5 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">5. Data Retention</h2>
+                    <p class="text-zinc-400 mb-4">You have complete control over your data:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Local recordings:</strong> Stored on your device until you delete them. The app does not auto-delete recordings.</li>
+                        <li><strong class="text-zinc-200">Offsite backups:</strong> Stored in your configured storage destination until you delete them. We cannot delete data from your storage because we have no access to it.</li>
+                        <li><strong class="text-zinc-200">Account data:</strong> If you have an account, you can request deletion at any time. Deletion is immediate and permanent.</li>
+                        <li><strong class="text-zinc-200">Crash logs:</strong> Anonymized crash reports are retained for 90 days, then automatically purged.</li>
+                    </ul>
+                </section>
+
+                <!-- Section 6 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">6. Law Enforcement Requests</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord's zero-knowledge architecture means we are technically unable to comply with decryption requests:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li>We do not hold encryption keys for any user's data.</li>
+                        <li>We cannot decrypt, access, or produce plaintext recordings.</li>
+                        <li>We cannot identify which encrypted data blobs belong to which user.</li>
+                        <li>If served with a valid legal order, we can only provide the minimal account information we hold (email address, if an account exists).</li>
+                    </ul>
+                    <div class="highlight-box important">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">This is by design.</strong> We built OnTheRecord so that compliance with overreaching data requests is technically impossible. Your privacy is protected by mathematics, not policy.</p>
+                    </div>
+                </section>
+
+                <!-- Section 7 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">7. Children's Privacy</h2>
+                    <p class="text-zinc-400">OnTheRecord is not intended for use by children under the age of 13. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us and we will promptly delete it.</p>
+                </section>
+
+                <!-- Section 8 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">8. Changes to This Policy</h2>
+                    <p class="text-zinc-400 mb-4">We may update this Privacy Policy from time to time. We will notify you of any material changes through the App or via email (if you have an account). The "Last Updated" date at the top of this page indicates when the policy was most recently revised.</p>
+                    <p class="text-zinc-400">Continued use of OnTheRecord after changes are posted constitutes acceptance of the revised policy.</p>
+                </section>
+
+                <!-- Section 9 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">9. Contact</h2>
+                    <p class="text-zinc-400 mb-4">For questions about this Privacy Policy or our data practices, contact us at:</p>
+                    <p class="text-zinc-400"><strong class="text-zinc-200">Email:</strong> <a href="mailto:privacy@ontherecord.app" class="text-emerald-400 hover:underline">privacy@ontherecord.app</a></p>
+                    <div class="highlight-box mt-6">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Remember:</strong> Your recordings, your keys, your data. OnTheRecord is designed so that only you control access to your evidence. We built it this way because we believe evidence survivability is a civil right.</p>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 py-12 px-6 bg-surface-0 border-t border-white/[0.04]">
+        <div class="max-w-5xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 bg-surface-0 border border-white/10 rounded-md flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 bg-red-500 rounded-full" style="box-shadow: 0 0 3px 1px rgba(230,51,51,0.6), 0 0 8px 2px rgba(230,51,51,0.25), 0 0 16px 4px rgba(230,51,51,0.1);"></div>
+                    </div>
+                    <span class="font-medium text-sm text-zinc-500">OnTheRecord</span>
+                </div>
+                <div class="flex flex-wrap justify-center gap-6 text-zinc-600 text-xs font-medium">
+                    <a href="privacy.html" class="text-zinc-300 transition-colors">Privacy</a>
+                    <a href="tos.html" class="hover:text-zinc-300 transition-colors">Terms</a>
+                    <a href="about.html" class="hover:text-zinc-300 transition-colors">About</a>
+                    <a href="https://github.com/jamesalford/OnTheRecord" class="hover:text-zinc-300 transition-colors">GitHub</a>
+                </div>
+            </div>
+            <div class="text-center">
+                <p class="text-zinc-700 text-xs leading-relaxed">
+                    &copy; 2026 OnTheRecord. All Rights Reserved.<br>
+                    Built with care. Open source. Private by design.<br>
+                    <span class="text-zinc-600">Your evidence. Your privacy. Your rights.</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Sticky nav scroll -->
+    <script>
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('pt-3');
+                nav.classList.remove('pt-5');
+            } else {
+                nav.classList.remove('pt-3');
+                nav.classList.add('pt-5');
+            }
+        });
+    </script>
 </body>
 
 </html>

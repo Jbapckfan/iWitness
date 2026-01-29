@@ -46,6 +46,7 @@
 		SVC015 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC032 /* KeychainService.swift */; };
 		SVC016 /* KeyRecoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC033 /* KeyRecoveryService.swift */; };
 		SVC017 /* IncidentSummaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC034 /* IncidentSummaryService.swift */; };
+		SVC018 /* RecoveryKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC038 /* RecoveryKitService.swift */; };
 		UTIL002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC035 /* Logger.swift */; };
 		UTIL003 /* AWSV4Signer.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC036 /* AWSV4Signer.swift */; };
 		VW008 /* FakeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC037 /* FakeGalleryView.swift */; };
@@ -97,6 +98,7 @@
 		SRC035 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		SRC036 /* AWSV4Signer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AWSV4Signer.swift; sourceTree = "<group>"; };
 		SRC037 /* FakeGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeGalleryView.swift; sourceTree = "<group>"; };
+		SRC038 /* RecoveryKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryKitService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -180,6 +182,7 @@
 				SRC032 /* KeychainService.swift */,
 				SRC033 /* KeyRecoveryService.swift */,
 				SRC034 /* IncidentSummaryService.swift */,
+				SRC038 /* RecoveryKitService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -357,6 +360,7 @@
 				SVC015 /* KeychainService.swift in Sources */,
 				SVC016 /* KeyRecoveryService.swift in Sources */,
 				SVC017 /* IncidentSummaryService.swift in Sources */,
+				SVC018 /* RecoveryKitService.swift in Sources */,
 				UTIL002 /* Logger.swift in Sources */,
 				UTIL003 /* AWSV4Signer.swift in Sources */,
 				VW008 /* FakeGalleryView.swift in Sources */,
