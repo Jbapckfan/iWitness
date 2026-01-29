@@ -26,5 +26,7 @@
     <string>com.ontherecord.app</string>
     <key>WKRunsIndependentlyOfCompanionApp</key>
     <false/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>OnTheRecord uses the local network to communicate with the companion iPhone app.</string>
 </dict>
 </plist>

@@ -62,7 +62,7 @@ struct IdleView: View {
             // Connection status
             HStack {
                 Circle()
-                    .fill(connectivity.isReachable ? Color.green : Color.red)
+                    .fill(connectivity.isReachable ? WatchColors.safeGreen : WatchColors.witnessRed)
                     .frame(width: 8, height: 8)
 
                 Text(connectivity.isReachable ? "Connected" : "Disconnected")
@@ -80,7 +80,7 @@ struct IdleView: View {
                     Circle()
                         .fill(
                             RadialGradient(
-                                gradient: Gradient(colors: [.red, .red.opacity(0.7)]),
+                                gradient: Gradient(colors: [WatchColors.witnessRed, WatchColors.witnessRed.opacity(0.7)]),
                                 center: .center,
                                 startRadius: 0,
                                 endRadius: 60
@@ -132,7 +132,7 @@ struct RecordingView: View {
             // Recording indicator
             HStack {
                 Circle()
-                    .fill(Color.red)
+                    .fill(WatchColors.witnessRed)
                     .frame(width: 10, height: 10)
                     .scaleEffect(isPulsing ? 1.3 : 1.0)
                     .animation(
@@ -142,7 +142,7 @@ struct RecordingView: View {
 
                 Text("REC")
                     .font(.caption.bold())
-                    .foregroundColor(.red)
+                    .foregroundColor(WatchColors.witnessRed)
 
                 Spacer()
 
@@ -159,7 +159,7 @@ struct RecordingView: View {
             VStack(spacing: 4) {
                 HStack {
                     Image(systemName: "arrow.up.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(WatchColors.safeGreen)
                     Text("\(watchState.chunksUploaded)")
                         .font(.caption)
                 }
@@ -190,7 +190,7 @@ struct RecordingView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.green)
+                    .background(WatchColors.safeGreen)
                     .cornerRadius(8)
                 }
 
@@ -207,7 +207,7 @@ struct RecordingView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.orange)
+                    .background(WatchColors.warningOrange)
                     .cornerRadius(8)
                 }
             }

@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "OnTheRecord",
     platforms: [
-        .iOS(.v17)
+        .iOS(.v17),
+        .watchOS(.v10)
     ],
     products: [
         .library(
@@ -17,6 +18,11 @@ let package = Package(
             name: "OnTheRecordCore",
             dependencies: [],
             path: "OnTheRecord/Sources"
+        ),
+        .target(
+            name: "OnTheRecordWatch",
+            dependencies: [],
+            path: "OnTheRecordWatch/Sources"
         )
     ]
 )
