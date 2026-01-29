@@ -1,10 +1,7 @@
 import Foundation
 import UserNotifications
-#if canImport(MessageUI)
-import MessageUI
-#endif
 
-/// Manages emergency alerts to contacts via SMS, email, and push
+/// Manages emergency alerts to contacts via SMS and push
 @MainActor
 class AlertService: ObservableObject {
     // MARK: - Published State
@@ -54,6 +51,7 @@ class AlertService: ObservableObject {
 
     private var streamURL: String?
     private var currentIncidentID: String?
+    private let locationService = LocationService()
 
     // MARK: - Errors
 
@@ -80,10 +78,9 @@ class AlertService: ObservableObject {
         let id: UUID
         var name: String
         var phone: String
-        var email: String?
+        var email: String? // Kept for display/contact info purposes
         var isLawyer: Bool
         var notifyViaSMS: Bool
-        var notifyViaEmail: Bool
         var priority: Int // 1 = primary, 2 = secondary, etc.
 
         // For display privacy during recording
@@ -98,7 +95,6 @@ class AlertService: ObservableObject {
             self.email = email
             self.isLawyer = isLawyer
             self.notifyViaSMS = true
-            self.notifyViaEmail = email != nil
             self.priority = priority
         }
     }
@@ -117,7 +113,7 @@ class AlertService: ObservableObject {
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
         } catch {
-            print("[OnTheRecord] Notification permission error: \(error)")
+            debugLog("[OnTheRecord] Notification permission error: \(error)")
             return false
         }
     }
@@ -172,21 +168,14 @@ class AlertService: ObservableObject {
         // Get address if location available
         var address: String?
         if let location = location {
-            address = await LocationService().getAddress(for: location)
+            address = await self.locationService.getAddress(for: location)
         }
 
-        // Send to all contacts
+        // Send to all contacts via SMS
         for contact in contacts.sorted(by: { $0.priority < $1.priority }) {
-            // SMS
             if contact.notifyViaSMS {
                 let success = await sendSMS(to: contact, location: location, address: address)
                 if success { alertsSent += 1 }
-            }
-
-            // Email
-            if contact.notifyViaEmail, let email = contact.email {
-                await sendEmail(to: email, contact: contact, location: location, address: address)
-                alertsSent += 1
             }
         }
     }
@@ -196,20 +185,18 @@ class AlertService: ObservableObject {
     private func sendSMS(to contact: EmergencyContact, location: Location?, address: String?) async -> Bool {
         let message = formatAlertMessage(location: location, address: address)
 
-        // Use URL scheme for SMS (this will prompt user)
-        // For background sending, would need to integrate with Twilio or similar
-        let smsURL = "sms:\(contact.phone)&body=\(message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-
-        guard let url = URL(string: smsURL) else { return false }
-
-        #if os(iOS)
-        await MainActor.run {
-            UIApplication.shared.open(url)
+        guard useTwilio, twilioConfig != nil else {
+            debugLog("[AlertService] Twilio not configured. SMS cannot be sent in background.")
+            return false
         }
-        return true
-        #else
-        return false
-        #endif
+
+        do {
+            let result = try await sendSMSViaTwilio(to: contact.phone, message: message)
+            return result.success
+        } catch {
+            debugLog("[AlertService] SMS via Twilio failed for \(contact.displayName): \(error)")
+            return false
+        }
     }
 
     private func formatAlertMessage(location: Location?, address: String?) -> String {
@@ -237,79 +224,19 @@ class AlertService: ObservableObject {
         return message
     }
 
-    // MARK: - Email
-
-    private func sendEmail(to email: String, contact: EmergencyContact, location: Location?, address: String?) async {
-        // Email would typically go through a backend service
-        // For MVP, we'll compose an email URL
-
-        let subject = "🚨 OnTheRecord Emergency Alert"
-        let body = formatEmailBody(location: location, address: address)
-
-        let emailURL = "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-
-        guard let url = URL(string: emailURL) else { return }
-
-        #if os(iOS)
-        await MainActor.run {
-            UIApplication.shared.open(url)
-        }
-        #endif
-    }
-
-    private func formatEmailBody(location: Location?, address: String?) -> String {
-        var body = """
-        WITNESS ALERT
-
-        OnTheRecord emergency recording has been activated.
-
-        INCIDENT ID: \(currentIncidentID ?? "Unknown")
-        TIME: \(ISO8601DateFormatter().string(from: Date()))
-
-        """
-
-        if let address = address {
-            body += """
-            ADDRESS: \(address)
-
-            """
-        }
-
-        if let location = location {
-            body += """
-            GPS COORDINATES: \(location.coordinate)
-            MAP LINK: https://maps.google.com/?q=\(location.latitude),\(location.longitude)
-
-            """
-        }
-
-        if let streamURL = streamURL {
-            body += """
-            LIVE STREAM: \(streamURL)
-
-            """
-        }
-
-        body += """
-
-        ---
-        This is an automated alert from OnTheRecord.
-        Please check on the sender immediately.
-        """
-
-        return body
-    }
-
     // MARK: - Escalation
 
     /// Sends follow-up alerts if no confirmation received
     func escalateAlert(incidentID: String) async {
         guard incidentID == currentIncidentID else { return }
+        guard useTwilio, twilioConfig != nil else {
+            debugLog("[AlertService] Twilio not configured. Escalation cannot be sent.")
+            return
+        }
 
-        // Re-send with escalation flag
         for contact in contacts where contact.isLawyer {
             let message = """
-            ⚠️ ESCALATION - NO RESPONSE
+            \u{26A0}\u{FE0F} ESCALATION - NO RESPONSE
 
             Previous OnTheRecord alert was not confirmed.
             Incident ID: \(incidentID)
@@ -317,14 +244,10 @@ class AlertService: ObservableObject {
             IMMEDIATE ATTENTION REQUIRED
             """
 
-            // Send escalated SMS
-            let smsURL = "sms:\(contact.phone)&body=\(message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-            if let url = URL(string: smsURL) {
-                #if os(iOS)
-                await MainActor.run {
-                    UIApplication.shared.open(url)
-                }
-                #endif
+            do {
+                _ = try await sendSMSViaTwilio(to: contact.phone, message: message)
+            } catch {
+                debugLog("[AlertService] Escalation failed for \(contact.displayName): \(error)")
             }
         }
     }
@@ -339,7 +262,7 @@ class AlertService: ObservableObject {
 
     func sendSafeSignal() async {
         let message = """
-        ✅ SAFE
+        \u{2705} SAFE
 
         OnTheRecord recording has ended.
         User has indicated they are safe.
@@ -348,15 +271,17 @@ class AlertService: ObservableObject {
         End time: \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium))
         """
 
+        guard useTwilio, twilioConfig != nil else {
+            debugLog("[AlertService] Twilio not configured. Safe signal cannot be sent.")
+            return
+        }
+
         for contact in contacts {
             if contact.notifyViaSMS {
-                let smsURL = "sms:\(contact.phone)&body=\(message.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-                if let url = URL(string: smsURL) {
-                    #if os(iOS)
-                    await MainActor.run {
-                        UIApplication.shared.open(url)
-                    }
-                    #endif
+                do {
+                    _ = try await sendSMSViaTwilio(to: contact.phone, message: message)
+                } catch {
+                    debugLog("[AlertService] Safe signal failed for \(contact.displayName): \(error)")
                 }
             }
         }
@@ -389,7 +314,7 @@ extension AlertService {
             UserDefaults.standard.set(true, forKey: "use_twilio")
             UserDefaults.standard.set(testMode, forKey: "twilio_test_mode")
         } catch {
-            print("[AlertService] Failed to save Twilio config to Keychain: \(error)")
+            debugLog("[AlertService] Failed to save Twilio config to Keychain: \(error)")
         }
     }
 
@@ -442,8 +367,8 @@ extension AlertService {
             isMock: true
         )
 
-        print("[OnTheRecord] MOCK Twilio SMS sent to \(phone)")
-        print("[OnTheRecord] Message: \(message.prefix(50))...")
+        debugLog("[OnTheRecord] MOCK Twilio SMS sent to \(phone)")
+        debugLog("[OnTheRecord] Message: \(message.prefix(50))...")
 
         twilioStatus = .mockMode
         return result
@@ -514,7 +439,7 @@ extension AlertService {
         // Get address if location available
         var address: String?
         if let location = location {
-            address = await LocationService().getAddress(for: location)
+            address = await self.locationService.getAddress(for: location)
         }
 
         let message = formatAlertMessage(location: location, address: address)
@@ -526,10 +451,10 @@ extension AlertService {
                     let result = try await sendSMSViaTwilio(to: contact.phone, message: message)
                     if result.success {
                         alertsSent += 1
-                        print("[OnTheRecord] Alert sent to \(contact.displayName): \(result.messageID)")
+                        debugLog("[OnTheRecord] Alert sent to \(contact.displayName): \(result.messageID)")
                     }
                 } catch {
-                    print("[OnTheRecord] Failed to send alert to \(contact.displayName): \(error)")
+                    debugLog("[OnTheRecord] Failed to send alert to \(contact.displayName): \(error)")
                 }
             }
         }
@@ -673,7 +598,7 @@ extension AlertService {
         var fullMessage = alert.message
         
         if alert.includeLocation, let location = location {
-            let address = await LocationService().getAddress(for: location)
+            let address = await self.locationService.getAddress(for: location)
             if let address = address {
                 fullMessage += "\n\n📍 \(address)"
             }
@@ -682,21 +607,13 @@ extension AlertService {
         
         fullMessage += "\n\n⏰ \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium))"
         
-        // Send via Twilio if configured
+        // Send via Twilio (required for background delivery)
         if useTwilio {
             for contact in contacts {
                 _ = try? await sendSMSViaTwilio(to: contact.phone, message: fullMessage)
             }
         } else {
-            // Fallback to SMS URL (will prompt user)
-            for contact in contacts {
-                let smsURL = "sms:\(contact.phone)&body=\(fullMessage.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
-                if let url = URL(string: smsURL) {
-                    await MainActor.run {
-                        UIApplication.shared.open(url)
-                    }
-                }
-            }
+            debugLog("[AlertService] Twilio not configured. Quick alert cannot be sent in background.")
         }
         
         alertsSent += contacts.count
@@ -835,7 +752,7 @@ extension AlertService {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("[AlertService] Notification failed: \(error)")
+                debugLog("[AlertService] Notification failed: \(error)")
             }
         }
     }

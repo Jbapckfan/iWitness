@@ -34,7 +34,7 @@ class ConnectivityGuardian: ObservableObject {
         var escalationDelaySeconds: TimeInterval = 60.0 // Escalate after 60 seconds
         var enableShakeToEscalate: Bool = true
         var shakeThreshold: Double = 2.5 // G-force threshold for shake detection
-        var enableAutoDisableFaceID: Bool = true
+        var enableAutoLockApp: Bool = true
     }
 
     var config = GuardianConfig()
@@ -72,8 +72,8 @@ class ConnectivityGuardian: ObservableObject {
             startShakeDetection()
         }
 
-        if config.enableAutoDisableFaceID {
-            promptDisableFaceID()
+        if config.enableAutoLockApp {
+            lockAppAndRequirePIN()
         }
     }
 
@@ -326,26 +326,18 @@ class ConnectivityGuardian: ObservableObject {
         }
     }
 
-    // MARK: - Face ID Protection
+    // MARK: - App Lock Protection
 
-    func promptDisableFaceID() {
-        // We can't programmatically disable Face ID, but we can:
-        // 1. Show instructions to user
-        // 2. Detect if Face ID is being used and warn
-        // The system way is: Hold Side + Volume briefly → shows power off screen → Face ID disabled
-
-        // For now, we'll just track if this was shown
-        UserDefaults.standard.set(true, forKey: "faceIdWarningShown")
-    }
-
-    /// Attempts to require passcode by invalidating biometric state
-    /// Call this when recording starts
-    func requirePasscodeOnly() {
+    /// Invalidates local biometric cache, requiring PIN to resume.
+    /// Note: This only invalidates the app's local LAContext biometric cache.
+    /// It does NOT disable system-wide Face ID / Touch ID.
+    /// For true biometric disable, the user must press Side + Volume buttons.
+    func lockAppAndRequirePIN() {
         let context = LAContext()
-        context.invalidate() // Invalidates any cached biometric authentication
+        context.invalidate() // Invalidates any cached biometric authentication in this app
 
-        // Note: This only affects our app's LAContext, not system-wide Face ID
-        // For true Face ID disable, user must press Side+Volume buttons
+        // Track that the lock was engaged
+        UserDefaults.standard.set(true, forKey: "appLockEngaged")
     }
 
     /// Checks if device uses biometric authentication
