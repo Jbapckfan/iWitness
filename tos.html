@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
@@ -7,323 +7,347 @@
     <title>Terms of Service | OnTheRecord</title>
     <meta name="description"
         content="OnTheRecord Terms of Service - Understanding your rights and responsibilities when using our secure evidence recording platform.">
-    <style>
-        :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #111111;
-            --text-primary: #ffffff;
-            --text-secondary: #a1a1aa;
-            --accent: #22c55e;
-            --warning: #eab308;
-            --error: #ef4444;
-        }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    <!-- Favicon: red recording dot -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23050505'/><circle cx='16' cy='16' r='8' fill='%23E63333'/></svg>"
+        type="image/svg+xml">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        surface: {
+                            '0': '#030303',
+                            '1': '#0a0a0b',
+                            '2': '#111113',
+                            '3': '#18181b',
+                        },
+                        accent: {
+                            warm: '#D4A853',
+                            gold: '#E8C468',
+                            muted: '#B8943F',
+                        }
+                    }
+                }
+            }
         }
+    </script>
+    <style>
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.7;
+            background-color: #030303;
+            color: #e4e4e7;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 60px 24px;
+        .glass-elevated {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(40px) saturate(120%);
+            -webkit-backdrop-filter: blur(40px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.03),
+                0 20px 50px -12px rgba(0, 0, 0, 0.6);
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 60px;
-            padding-bottom: 40px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.5);
         }
 
-        .logo {
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
+        .text-gradient-warm {
+            background: linear-gradient(135deg, #E8C468 0%, #D4A853 50%, #B8943F 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .logo a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        h1 {
-            font-size: 42px;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
-        .last-updated {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        h2 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-top: 48px;
-            margin-bottom: 20px;
-            color: var(--accent);
-        }
-
-        h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-top: 32px;
-            margin-bottom: 12px;
-        }
-
-        p {
-            color: var(--text-secondary);
-            margin-bottom: 16px;
-        }
-
-        ul,
-        ol {
-            color: var(--text-secondary);
-            margin-left: 24px;
-            margin-bottom: 16px;
-        }
-
-        li {
-            margin-bottom: 8px;
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
         }
 
         .highlight-box {
-            background: var(--bg-secondary);
-            border-left: 4px solid var(--accent);
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #22c55e;
             padding: 20px 24px;
             margin: 24px 0;
-            border-radius: 0 8px 8px 0;
+            border-radius: 0 12px 12px 0;
+            backdrop-filter: blur(20px);
         }
 
         .highlight-box.warning {
-            border-left-color: var(--warning);
+            border-left-color: #eab308;
         }
 
         .highlight-box.important {
-            border-left-color: var(--error);
-        }
-
-        .highlight-box p {
-            margin-bottom: 0;
-        }
-
-        .highlight-box strong {
-            color: var(--text-primary);
-        }
-
-        strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
-        footer {
-            margin-top: 80px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-
-        footer p {
-            font-size: 14px;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 40px;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .back-link:hover {
-            color: var(--text-primary);
+            border-left-color: #ef4444;
         }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
+<body class="antialiased selection:bg-amber-900/50 selection:text-white">
 
-        <header>
-            <div class="logo"><a href="/">OnTheRecord</a></div>
-            <h1>Terms of Service</h1>
-            <p class="last-updated">Last Updated: January 27, 2026</p>
-        </header>
-
-        <main>
-            <h2>1. Acceptance of Terms</h2>
-            <p>By downloading, installing, or using the OnTheRecord application ("App"), you agree to be bound by these
-                Terms of Service. If you do not agree to these terms, do not use the App.</p>
-
-            <h2>2. Purpose of the Service</h2>
-            <p>OnTheRecord is designed to help individuals document situations where they feel unsafe, threatened, or at
-                risk. The App is intended for:</p>
-            <ul>
-                <li>Recording interactions with law enforcement</li>
-                <li>Documenting potential workplace harassment or discrimination</li>
-                <li>Personal safety while traveling alone (walking to your car, public transit, etc.)</li>
-                <li>Domestic violence documentation (from the victim's perspective)</li>
-                <li>Any situation where you feel your safety may be at risk</li>
-            </ul>
-
-            <div class="highlight-box">
-                <p><strong>OnTheRecord is designed to protect the recorder, not enable perpetrators.</strong> The App is a
-                    tool for documenting evidence of potential wrongdoing against you, not for recording illegal
-                    activities you are committing.</p>
-            </div>
-
-            <h2>3. Prohibited Uses</h2>
-            <p>You agree NOT to use OnTheRecord for:</p>
-            <ul>
-                <li><strong>Recording yourself committing crimes</strong> – The App is for victims and witnesses, not
-                    perpetrators</li>
-                <li><strong>Child Sexual Abuse Material (CSAM)</strong> – Any content involving the sexual exploitation
-                    of minors is strictly prohibited and will be reported to authorities</li>
-                <li><strong>Stalking or harassment</strong> – Using the App to track, monitor, or harass another person
-                </li>
-                <li><strong>Blackmail or extortion</strong> – Recording for the purpose of coercing or threatening
-                    others</li>
-                <li><strong>Voyeurism</strong> – Recording individuals in private settings without consent where there
-                    is a reasonable expectation of privacy</li>
-                <li><strong>Physical or sexual abuse</strong> – Recording yourself committing acts of violence or abuse
-                </li>
-            </ul>
-
-            <div class="highlight-box important">
-                <p><strong>Violation of these terms may result in immediate termination of your account.</strong> In
-                    cases involving illegal activity, we may be required to cooperate with law enforcement authorities
-                    to the extent legally permitted.</p>
-            </div>
-
-            <h2>4. Zero-Knowledge Architecture</h2>
-            <p>OnTheRecord is built with a zero-knowledge encryption architecture. This means:</p>
-            <ul>
-                <li><strong>We cannot access your videos.</strong> All encryption keys are generated and stored
-                    exclusively on your device.</li>
-                <li><strong>We cannot decrypt your content.</strong> Even if subpoenaed, we are technically unable to
-                    provide decrypted video content because we do not possess the keys.</li>
-                <li><strong>We cannot recover your data.</strong> If you lose your device and have not set up Trusted
-                    Contacts, your encrypted data cannot be recovered by anyone, including us.</li>
-            </ul>
-
-            <div class="highlight-box">
-                <p><strong>Your privacy is protected by mathematics, not policy.</strong> Our zero-knowledge
-                    architecture ensures that only you (and your designated Trusted Contacts) can ever access your
-                    recordings.</p>
-            </div>
-
-            <h2>5. Data Ownership</h2>
-            <ul>
-                <li><strong>You own your data.</strong> All videos, metadata, and associated content belong exclusively
-                    to you.</li>
-                <li><strong>Only you can edit or delete your files.</strong> Trusted Contacts have view-only access and
-                    cannot modify or remove your content.</li>
-                <li><strong>We store only encrypted blobs.</strong> On our servers (if you use cloud backup), we store
-                    only encrypted data that we cannot read.</li>
-            </ul>
-
-            <h2>6. Trusted Contacts</h2>
-            <p>The Trusted Contact feature allows you to designate individuals who can access your recordings under
-                specific conditions:</p>
-            <ul>
-                <li><strong>View-Only Access:</strong> Trusted Contacts can view and download but cannot edit or delete
-                    your videos</li>
-                <li><strong>You control access:</strong> You choose which videos each contact can see</li>
-                <li><strong>Revocable at any time:</strong> You can remove a Trusted Contact's access instantly</li>
-                <li><strong>Emergency access:</strong> If you become incapacitated, Trusted Contacts may access videos
-                    based on the conditions you set (e.g., no check-in for 48 hours)</li>
-            </ul>
-
-            <h2>7. Emergency and Incapacitation</h2>
-            <p>If you are detained, injured, or killed, the videos you have shared with Trusted Contacts remain
-                accessible to them. This ensures that evidence survives even if you cannot personally retrieve or share
-                it.</p>
-            <p>We recommend setting up at least one Trusted Contact (such as a lawyer, family member, or close friend)
-                to ensure your evidence can be accessed if something happens to you.</p>
-
-            <h2>8. Legal Considerations</h2>
-            <ul>
-                <li><strong>Recording laws vary by jurisdiction.</strong> You are responsible for understanding and
-                    complying with local laws regarding recording consent (one-party vs. two-party consent
-                    states/countries).</li>
-                <li><strong>OnTheRecord is a tool, not legal protection.</strong> Using the App does not guarantee legal
-                    admissibility of evidence or protection from prosecution.</li>
-                <li><strong>Consult an attorney.</strong> If you plan to use recordings for legal proceedings, consult
-                    with a qualified attorney about proper evidence handling.</li>
-            </ul>
-
-            <h2>9. Liability Limitation</h2>
-            <p>OnTheRecord is provided "as is" without warranties of any kind. We are not liable for:</p>
-            <ul>
-                <li>Technical failures that prevent recording or upload</li>
-                <li>Data loss due to device damage or user error</li>
-                <li>Legal consequences arising from your use of recordings</li>
-                <li>Actions taken by third parties with access to your content</li>
-            </ul>
-
-            <h2>10. Subscription and Payments</h2>
-            <p>The OnTheRecord app is free to download with core functionality included. Premium features (cloud backup,
-                extended storage, priority upload) require a paid subscription:</p>
-            <ul>
-                <li>Subscriptions are billed through our website, not the App Store</li>
-                <li>You may cancel at any time; access continues until the end of your billing period</li>
-                <li>No refunds for partial billing periods</li>
-            </ul>
-
-            <h2>11. Account Termination</h2>
-            <p>We may terminate or suspend your account if:</p>
-            <ul>
-                <li>You violate these Terms of Service</li>
-                <li>We are required to do so by law</li>
-                <li>We reasonably believe you are using the App for prohibited purposes</li>
-            </ul>
-            <p><strong>Note:</strong> Even if your account is terminated, we cannot delete your encrypted data from our
-                servers because we cannot identify which encrypted blobs belong to which user. Your local device data
-                remains yours.</p>
-
-            <h2>12. Changes to Terms</h2>
-            <p>We may update these Terms of Service from time to time. We will notify you of significant changes through
-                the App or via email. Continued use of the App after changes constitutes acceptance of the new terms.
-            </p>
-
-            <h2>13. Contact</h2>
-            <p>For questions about these Terms of Service, contact us at:</p>
-            <p><strong>Email:</strong> <a href="mailto:legal@ontherecord.app">legal@ontherecord.app</a></p>
-
-            <div class="highlight-box">
-                <p><strong>Remember:</strong> OnTheRecord exists to help you document the truth and protect yourself. Use
-                    it responsibly, stay safe, and know that your evidence is secure.</p>
-            </div>
-        </main>
-
-        <footer>
-            <p>© 2026 OnTheRecord. All rights reserved.</p>
-            <p style="margin-top: 12px;"><a href="/">Home</a> · <a href="/privacy.html">Privacy Policy</a> · <a
-                    href="/tos.html">Terms of Service</a></p>
-        </footer>
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+        <div class="glow-orb w-[900px] h-[600px] bg-amber-500/[0.03] top-[-200px] left-1/2 -translate-x-1/2"></div>
+        <div class="glow-orb w-[400px] h-[400px] bg-blue-500/[0.02] bottom-[30%] left-[-5%]"></div>
     </div>
+
+    <!-- Nav -->
+    <nav class="fixed w-full z-50 top-0 left-0 transition-all duration-500 pt-5 px-4" id="navbar">
+        <div class="max-w-5xl mx-auto flex justify-between items-center glass-elevated rounded-2xl px-6 py-3.5">
+            <a href="index.html" class="flex items-center gap-3 no-underline">
+                <div class="w-9 h-9 bg-surface-0 border border-white/10 rounded-lg relative overflow-hidden flex items-center justify-center">
+                    <div class="w-2 h-2 bg-red-500 rounded-full" style="box-shadow: 0 0 4px 1px rgba(230,51,51,0.7), 0 0 10px 3px rgba(230,51,51,0.3), 0 0 20px 6px rgba(230,51,51,0.1);"></div>
+                </div>
+                <span class="font-semibold text-[15px] tracking-tight text-white">OnTheRecord</span>
+            </a>
+            <div class="hidden md:flex gap-7 text-[13px] font-medium text-zinc-500">
+                <a href="index.html" class="hover:text-white transition-colors duration-200">Home</a>
+                <a href="privacy.html" class="hover:text-white transition-colors duration-200">Privacy</a>
+                <a href="tos.html" class="text-white transition-colors duration-200">Terms</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="relative z-10 pt-32 pb-20 px-4">
+        <div class="max-w-3xl mx-auto">
+
+            <!-- Back Link -->
+            <a href="index.html" class="inline-flex items-center gap-2 text-zinc-500 text-sm hover:text-white transition-colors mb-10 no-underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19l-7-7 7-7"></path></svg>
+                Back to Home
+            </a>
+
+            <!-- Header -->
+            <div class="text-center mb-16 pb-10 border-b border-white/[0.06]">
+                <p class="text-accent-warm text-[13px] font-semibold tracking-widest uppercase mb-4">Legal</p>
+                <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">Terms of Service</h1>
+                <p class="text-zinc-500 text-sm">Last Updated: January 27, 2026</p>
+            </div>
+
+            <!-- Body -->
+            <div class="space-y-10 text-[15px] leading-relaxed">
+
+                <!-- Section 1 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">1. Acceptance of Terms</h2>
+                    <p class="text-zinc-400">By downloading, installing, or using the OnTheRecord application ("App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, do not use the App.</p>
+                </section>
+
+                <!-- Section 2 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">2. Purpose of the Service</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord is designed to help individuals document situations where they feel unsafe, threatened, or at risk. The App is intended for:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li>Recording interactions with law enforcement</li>
+                        <li>Documenting potential workplace harassment or discrimination</li>
+                        <li>Personal safety while traveling alone (walking to your car, public transit, etc.)</li>
+                        <li>Domestic violence documentation (from the victim's perspective)</li>
+                        <li>Any situation where you feel your safety may be at risk</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">OnTheRecord is designed to protect the recorder, not enable perpetrators.</strong> The App is a tool for documenting evidence of potential wrongdoing against you, not for recording illegal activities you are committing.</p>
+                    </div>
+                </section>
+
+                <!-- Section 3 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">3. Prohibited Uses</h2>
+                    <p class="text-zinc-400 mb-4">You agree NOT to use OnTheRecord for:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Recording yourself committing crimes</strong> &mdash; The App is for victims and witnesses, not perpetrators</li>
+                        <li><strong class="text-zinc-200">Child Sexual Abuse Material (CSAM)</strong> &mdash; Any content involving the sexual exploitation of minors is strictly prohibited and will be reported to authorities</li>
+                        <li><strong class="text-zinc-200">Stalking or harassment</strong> &mdash; Using the App to track, monitor, or harass another person</li>
+                        <li><strong class="text-zinc-200">Blackmail or extortion</strong> &mdash; Recording for the purpose of coercing or threatening others</li>
+                        <li><strong class="text-zinc-200">Voyeurism</strong> &mdash; Recording individuals in private settings without consent where there is a reasonable expectation of privacy</li>
+                        <li><strong class="text-zinc-200">Physical or sexual abuse</strong> &mdash; Recording yourself committing acts of violence or abuse</li>
+                    </ul>
+                    <div class="highlight-box important">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Violation of these terms may result in immediate termination of your account.</strong> In cases involving illegal activity, we may be required to cooperate with law enforcement authorities to the extent legally permitted.</p>
+                    </div>
+                </section>
+
+                <!-- Section 4 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">4. Zero-Knowledge Architecture</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord is built with a zero-knowledge encryption architecture. This means:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">We cannot access your videos.</strong> All encryption keys are generated and stored exclusively on your device.</li>
+                        <li><strong class="text-zinc-200">We cannot decrypt your content.</strong> Even if subpoenaed, we are technically unable to provide decrypted video content because we do not possess the keys.</li>
+                        <li><strong class="text-zinc-200">We cannot recover your data.</strong> If you lose your device and have not set up Trusted Contacts, your encrypted data cannot be recovered by anyone, including us.</li>
+                    </ul>
+                    <div class="highlight-box">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Your privacy is protected by mathematics, not policy.</strong> Our zero-knowledge architecture ensures that only you (and your designated Trusted Contacts) can ever access your recordings.</p>
+                    </div>
+                </section>
+
+                <!-- Section 5 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">5. Data Ownership</h2>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">You own your data.</strong> All videos, metadata, and associated content belong exclusively to you.</li>
+                        <li><strong class="text-zinc-200">Only you can edit or delete your files.</strong> Trusted Contacts have view-only access and cannot modify or remove your content.</li>
+                        <li><strong class="text-zinc-200">We store only encrypted blobs.</strong> On our servers (if you use cloud backup), we store only encrypted data that we cannot read.</li>
+                    </ul>
+                </section>
+
+                <!-- Section 6 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">6. Trusted Contacts</h2>
+                    <p class="text-zinc-400 mb-4">The Trusted Contact feature allows you to designate individuals who can access your recordings under specific conditions:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">View-Only Access:</strong> Trusted Contacts can view and download but cannot edit or delete your videos</li>
+                        <li><strong class="text-zinc-200">You control access:</strong> You choose which videos each contact can see</li>
+                        <li><strong class="text-zinc-200">Revocable at any time:</strong> You can remove a Trusted Contact's access instantly</li>
+                        <li><strong class="text-zinc-200">Emergency access:</strong> If you become incapacitated, Trusted Contacts may access videos based on the conditions you set (e.g., no check-in for 48 hours)</li>
+                    </ul>
+                </section>
+
+                <!-- Section 7 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">7. Emergency and Incapacitation</h2>
+                    <p class="text-zinc-400 mb-4">If you are detained, injured, or killed, the videos you have shared with Trusted Contacts remain accessible to them. This ensures that evidence survives even if you cannot personally retrieve or share it.</p>
+                    <p class="text-zinc-400">We recommend setting up at least one Trusted Contact (such as a lawyer, family member, or close friend) to ensure your evidence can be accessed if something happens to you.</p>
+                </section>
+
+                <!-- Section 8 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">8. Legal Considerations</h2>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li><strong class="text-zinc-200">Recording laws vary by jurisdiction.</strong> You are responsible for understanding and complying with local laws regarding recording consent (one-party vs. two-party consent states/countries).</li>
+                        <li><strong class="text-zinc-200">OnTheRecord is a tool, not legal protection.</strong> Using the App does not guarantee legal admissibility of evidence or protection from prosecution.</li>
+                        <li><strong class="text-zinc-200">Consult an attorney.</strong> If you plan to use recordings for legal proceedings, consult with a qualified attorney about proper evidence handling.</li>
+                    </ul>
+                    <div class="highlight-box warning">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Important:</strong> OnTheRecord does not guarantee evidence preservation in all circumstances. Technical failures, device damage, network outages, or storage provider issues may prevent recording or upload. The App is provided as an aid, not a guarantee.</p>
+                    </div>
+                </section>
+
+                <!-- Section 9 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">9. Liability Limitation</h2>
+                    <p class="text-zinc-400 mb-4">OnTheRecord is provided "as is" without warranties of any kind, either express or implied. To the maximum extent permitted by applicable law, we are not liable for:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li>Technical failures that prevent recording or upload</li>
+                        <li>Data loss due to device damage or user error</li>
+                        <li>Legal consequences arising from your use of recordings</li>
+                        <li>Actions taken by third parties with access to your content</li>
+                        <li>Interruption or unavailability of any third-party services</li>
+                        <li>Any indirect, incidental, special, consequential, or punitive damages</li>
+                    </ul>
+                </section>
+
+                <!-- Section 10 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">10. Age Requirement</h2>
+                    <p class="text-zinc-400">You must be at least 13 years of age to use OnTheRecord. If you are between 13 and 18, you must have permission from a parent or legal guardian. We do not knowingly collect personal information from children under the age of 13.</p>
+                </section>
+
+                <!-- Section 11 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">11. Subscription and Payments</h2>
+                    <p class="text-zinc-400 mb-4">The OnTheRecord app is free to download with core functionality included. Premium features (cloud backup, dual-camera recording, live streaming, emergency alerts) require a paid subscription:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li>Subscriptions are managed through the Apple App Store</li>
+                        <li>You may cancel at any time; access continues until the end of your billing period</li>
+                        <li>No refunds for partial billing periods</li>
+                        <li>Lifetime purchases grant permanent access to all Pro features at time of purchase</li>
+                    </ul>
+                </section>
+
+                <!-- Section 12 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">12. Account Termination</h2>
+                    <p class="text-zinc-400 mb-4">We may terminate or suspend your account if:</p>
+                    <ul class="text-zinc-400 ml-6 space-y-2 list-disc">
+                        <li>You violate these Terms of Service</li>
+                        <li>We are required to do so by law</li>
+                        <li>We reasonably believe you are using the App for prohibited purposes</li>
+                    </ul>
+                    <p class="text-zinc-400 mt-4"><strong class="text-zinc-200">Note:</strong> Even if your account is terminated, we cannot delete your encrypted data from our servers because we cannot identify which encrypted blobs belong to which user. Your local device data remains yours.</p>
+                </section>
+
+                <!-- Section 13 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">13. Changes to Terms</h2>
+                    <p class="text-zinc-400">We may update these Terms of Service from time to time. We will notify you of significant changes through the App or via email. Continued use of the App after changes constitutes acceptance of the new terms.</p>
+                </section>
+
+                <!-- Section 14 -->
+                <section>
+                    <h2 class="text-xl font-semibold text-emerald-400 mb-4">14. Contact</h2>
+                    <p class="text-zinc-400 mb-4">For questions about these Terms of Service, contact us at:</p>
+                    <p class="text-zinc-400"><strong class="text-zinc-200">Email:</strong> <a href="mailto:legal@ontherecord.app" class="text-emerald-400 hover:underline">legal@ontherecord.app</a></p>
+                    <div class="highlight-box mt-6">
+                        <p class="text-zinc-300 mb-0"><strong class="text-white">Remember:</strong> OnTheRecord exists to help you document the truth and protect yourself. Use it responsibly, stay safe, and know that your evidence is secure.</p>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 py-12 px-6 bg-surface-0 border-t border-white/[0.04]">
+        <div class="max-w-5xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 bg-surface-0 border border-white/10 rounded-md flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 bg-red-500 rounded-full" style="box-shadow: 0 0 3px 1px rgba(230,51,51,0.6), 0 0 8px 2px rgba(230,51,51,0.25), 0 0 16px 4px rgba(230,51,51,0.1);"></div>
+                    </div>
+                    <span class="font-medium text-sm text-zinc-500">OnTheRecord</span>
+                </div>
+                <div class="flex flex-wrap justify-center gap-6 text-zinc-600 text-xs font-medium">
+                    <a href="privacy.html" class="hover:text-zinc-300 transition-colors">Privacy</a>
+                    <a href="tos.html" class="text-zinc-300 transition-colors">Terms</a>
+                    <a href="about.html" class="hover:text-zinc-300 transition-colors">About</a>
+                    <a href="https://github.com/jamesalford/OnTheRecord" class="hover:text-zinc-300 transition-colors">GitHub</a>
+                </div>
+            </div>
+            <div class="text-center">
+                <p class="text-zinc-700 text-xs leading-relaxed">
+                    &copy; 2026 OnTheRecord. All Rights Reserved.<br>
+                    Built with care. Open source. Private by design.<br>
+                    <span class="text-zinc-600">Your evidence. Your privacy. Your rights.</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Sticky nav scroll -->
+    <script>
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('pt-3');
+                nav.classList.remove('pt-5');
+            } else {
+                nav.classList.remove('pt-3');
+                nav.classList.add('pt-5');
+            }
+        });
+    </script>
 </body>
 
 </html>
