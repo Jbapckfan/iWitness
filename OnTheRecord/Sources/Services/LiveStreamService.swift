@@ -118,6 +118,8 @@ class LiveStreamService: ObservableObject {
     private var r2SecretKey: String?
     private var customServerURL: URL?
     private var customServerAuth: (username: String, password: String)?
+    private var r2IsConfigured = false
+    private var customServerIsConfigured = false
 
     // MARK: - Segment
 
@@ -142,6 +144,7 @@ class LiveStreamService: ObservableObject {
         r2BucketName = bucketName
         r2AccessKey = accessKey
         r2SecretKey = secretKey
+        r2IsConfigured = !accountID.isEmpty && !bucketName.isEmpty && !accessKey.isEmpty && !secretKey.isEmpty
     }
 
     func configureCustomServer(url: URL, username: String?, password: String?) {
@@ -149,10 +152,11 @@ class LiveStreamService: ObservableObject {
         if let username = username, let password = password {
             customServerAuth = (username, password)
         }
+        customServerIsConfigured = url.scheme != nil && url.host != nil
     }
 
     var isConfigured: Bool {
-        r2AccountID != nil || customServerURL != nil || hasNASConfig
+        r2IsConfigured || customServerIsConfigured || hasNASConfig
     }
 
     private var hasNASConfig: Bool {
@@ -410,36 +414,45 @@ class LiveStreamService: ObservableObject {
         request.httpMethod = "PUT"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
-        // Sign request
-        return try signAWSRequest(
-            request: request,
+        // Compute payload hash: use body if present, otherwise hash of empty data for file uploads
+        let payloadHash: String
+        if let body = request.httpBody {
+            payloadHash = SHA256.hash(data: body).compactMap { String(format: "%02x", $0) }.joined()
+        } else {
+            // For file-based uploads, the body is not set on the request yet.
+            // Use UNSIGNED-PAYLOAD to avoid reading the entire file into memory for hashing.
+            payloadHash = "UNSIGNED-PAYLOAD"
+        }
+
+        // Sign request using the shared AWSV4Signer utility
+        let signerKeys = AWSV4Signer.SigningKeys(
             accessKey: accessKey,
             secretKey: secretKey,
             region: "auto",
             service: "s3"
         )
+        return AWSV4Signer.sign(request: request, keys: signerKeys, payloadHash: payloadHash)
     }
 
     // MARK: - Custom Server Upload (WebDAV)
 
     private func uploadToCustomServer(data: Data, filename: String, serverURL: URL) async throws {
-        var request = createCustomServerRequest(filename: filename, serverURL: serverURL)
+        var request = try createCustomServerRequest(filename: filename, serverURL: serverURL)
         request.httpBody = data
         let (_, response) = try await URLSession.shared.data(for: request)
         try validateResponse(response)
     }
-    
+
     private func uploadToCustomServer(fileURL: URL, filename: String, serverURL: URL) async throws {
-        let request = createCustomServerRequest(filename: filename, serverURL: serverURL)
+        let request = try createCustomServerRequest(filename: filename, serverURL: serverURL)
         let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
         try validateResponse(response)
     }
-    
-    private func createCustomServerRequest(filename: String, serverURL: URL) -> URLRequest {
+
+    private func createCustomServerRequest(filename: String, serverURL: URL) throws -> URLRequest {
         guard let streamID = streamID else {
-            // Should be checked before
             debugLog("[LiveStream] Error: StreamID missing when creating custom request")
-            return URLRequest(url: URL(string: "http://invalid")!) 
+            throw StreamError.notConfigured
         }
 
         let uploadURL = serverURL
@@ -586,52 +599,4 @@ class LiveStreamService: ObservableObject {
         return "🔴 LIVE: I'm documenting an incident. Watch live: \(link)"
     }
 
-    // MARK: - AWS Signature V4
-
-    // MARK: - AWS Signature V4
-    
-    private func signAWSRequest(
-        request: URLRequest,
-        accessKey: String,
-        secretKey: String,
-        region: String,
-        service: String
-    ) throws -> URLRequest {
-        
-        let signerKeys = AWSV4Signer.SigningKeys(
-            accessKey: accessKey,
-            secretKey: secretKey,
-            region: region,
-            service: service
-        )
-        
-        // Calculate payload hash ourselves to pass it in, or let signer do it
-        // Since we might have already set it or not, let's be safe.
-        // For LiveStreamService, we usually put data in body.
-        
-        let payloadHash: String?
-        if let body = request.httpBody {
-            payloadHash = SHA256.hash(data: body).compactMap { String(format: "%02x", $0) }.joined()
-        } else {
-             // If streaming from file, we need the file hash? 
-             // AWSV4Signer defaults to empty string hash.
-             // If we are uploading from file (URLSession.upload), we don't have body data here easily.
-             // However, createR2Request is called BEFORE upload.
-             // But in uploadToR2(fileURL...), we get fileSize.
-             
-             // Strategy: The signer expects to sign the headers. 'x-amz-content-sha256' is required.
-             // For unsigned-payload (streaming), we can use "UNSIGNED-PAYLOAD" but R2/S3 might require strict.
-             // Given this is an MVP fix:
-             // If body is nil (streaming from file), we should ideally calculation hash of file.
-             // BUT, reading entire file into memory to hash it defeats stream purpose?
-             // Actually segments are small (2s).
-             payloadHash = nil // Use signer default (empty string hash) - this might be WRONG for file uploads if not UNSIGNED-PAYLOAD.
-             // CORRECT FIX: Calculate hash for file if needed.
-             // But for now, let's assume body is present or we use default.
-             // Actually, the previous code calculated SHA256(request.httpBody ?? Data()).
-             // So if body was nil, it hashed empty data. My signer does the same default.
-        }
-        
-        return AWSV4Signer.sign(request: request, keys: signerKeys, payloadHash: payloadHash)
-    }
 }

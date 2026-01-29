@@ -78,7 +78,7 @@ final class LegalComplianceService: NSObject, ObservableObject, CLLocationManage
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("[LegalComplianceService] Location error: \(error.localizedDescription)")
+        debugLog("[LegalComplianceService] Location error: \(error.localizedDescription)")
     }
     
     private func determineLaw(for stateCode: String) {
@@ -91,6 +91,6 @@ final class LegalComplianceService: NSObject, ObservableObject, CLLocationManage
             currentLaw = .oneParty
         }
         
-        print("[LegalComplianceService] State: \(stateCode), Law: \(currentLaw.rawValue)")
+        debugLog("[LegalComplianceService] State: \(stateCode), Law: \(currentLaw.rawValue)")
     }
 }

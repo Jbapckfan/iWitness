@@ -67,10 +67,10 @@ final class WebDAVService: ObservableObject {
                 throw WebDAVError.uploadFailed(statusCode: httpResponse.statusCode)
             }
             
-            print("[WebDAVService] Upload successful: \(url.lastPathComponent)")
-            
+            debugLog("[WebDAVService] Upload successful: \(url.lastPathComponent)")
+
         } catch {
-            print("[WebDAVService] Upload failed: \(error)")
+            debugLog("[WebDAVService] Upload failed: \(error)")
             throw WebDAVError.networkError(error)
         }
     }

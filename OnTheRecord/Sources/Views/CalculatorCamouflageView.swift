@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 /// Calculator Camouflage View
 /// Looks like a normal calculator but reveals OnTheRecord when PIN is entered
@@ -34,7 +35,7 @@ struct CalculatorCamouflageView: View {
             VStack(spacing: 12) {
                 Spacer()
                 
-                // Display
+                // Display — long-press triggers Face ID/Touch ID fallback
                 HStack {
                     Spacer()
                     Text(displayText)
@@ -46,6 +47,9 @@ struct CalculatorCamouflageView: View {
                 }
                 .frame(height: 100)
                 .offset(x: shakeOffset)
+                .onLongPressGesture(minimumDuration: 1.0) {
+                    authenticateWithBiometrics()
+                }
                 
                 // Button grid
                 VStack(spacing: 12) {
@@ -234,6 +238,35 @@ struct CalculatorCamouflageView: View {
             return String(format: "%.0f", number)
         } else {
             return String(format: "%.8g", number)
+        }
+    }
+
+    // MARK: - Face ID / Touch ID Fallback
+
+    private func authenticateWithBiometrics() {
+        let context = LAContext()
+        var error: NSError?
+
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            // Biometrics not available — no-op to maintain camouflage
+            return
+        }
+
+        context.evaluatePolicy(
+            .deviceOwnerAuthenticationWithBiometrics,
+            localizedReason: "Authenticate to unlock"
+        ) { success, _ in
+            if success {
+                DispatchQueue.main.async {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isDuressActive = false
+                        isUnlocked = true
+                    }
+                }
+            }
         }
     }
 }

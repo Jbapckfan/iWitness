@@ -146,8 +146,8 @@ class NASBrowserService: ObservableObject {
             .appendingPathComponent(incident.id)
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-        // Download and decrypt each chunk
-        var decryptedChunks: [Data] = []
+        // Download, decrypt, and write each chunk to a temp file
+        var chunkURLs: [URL] = []
 
         for (index, chunkFile) in chunkFiles.enumerated() {
             let chunkURL = incidentURL.appendingPathComponent(chunkFile)
@@ -161,15 +161,18 @@ class NASBrowserService: ObservableObject {
 
             // Decrypt
             let decryptedData = try encryptionService.decryptChunk(encryptedChunk)
-            decryptedChunks.append(decryptedData)
+
+            // Write decrypted chunk to a temp file for AVMutableComposition
+            let chunkTempURL = tempDir.appendingPathComponent("chunk_\(String(format: "%05d", index)).mp4")
+            try decryptedData.write(to: chunkTempURL)
+            chunkURLs.append(chunkTempURL)
 
             // Update progress
             decryptionProgress = Double(index + 1) / Double(chunkFiles.count)
         }
 
-        // Combine chunks into a playable video file
-        let outputURL = tempDir.appendingPathComponent("playback.mov")
-        try await assembleVideoChunks(decryptedChunks, to: outputURL)
+        // Assemble chunks into a playable video file using AVMutableComposition
+        let outputURL = try await assembleChunks(urls: chunkURLs)
 
         return outputURL
     }
@@ -288,21 +291,37 @@ class NASBrowserService: ObservableObject {
         return manualFormatter.date(from: cleanDate)
     }
 
-    private func assembleVideoChunks(_ chunks: [Data], to outputURL: URL) async throws {
-        // For MVP: Write raw video data
-        // In production: Would use AVAssetWriter to properly mux video/audio
+    private func assembleChunks(urls: [URL]) async throws -> URL {
+        let composition = AVMutableComposition()
 
-        // Remove existing file
-        try? FileManager.default.removeItem(at: outputURL)
+        for url in urls {
+            let asset = AVURLAsset(url: url)
+            let duration = try await asset.load(.duration)
 
-        // Combine all chunk data
-        var combinedData = Data()
-        for chunk in chunks {
-            combinedData.append(chunk)
+            if let videoTrack = try await asset.loadTracks(withMediaType: .video).first {
+                let compositionTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                try compositionTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: videoTrack, at: composition.duration)
+            }
+
+            if let audioTrack = try await asset.loadTracks(withMediaType: .audio).first {
+                let compositionTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+                try compositionTrack?.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: audioTrack, at: composition.duration)
+            }
         }
 
-        // Write to file
-        try combinedData.write(to: outputURL)
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("assembled_\(UUID().uuidString).mp4")
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            throw NSError(domain: "NASBrowser", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create export session"])
+        }
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        await exportSession.export()
+
+        guard exportSession.status == .completed else {
+            throw exportSession.error ?? NSError(domain: "NASBrowser", code: -2, userInfo: [NSLocalizedDescriptionKey: "Export failed"])
+        }
+
+        return outputURL
     }
 
     // MARK: - Cleanup

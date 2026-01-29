@@ -33,7 +33,7 @@ class SiriShortcutManager: NSObject, ObservableObject {
         activity.becomeCurrent()
 
         isShortcutDonated = true
-        print("[OnTheRecord] Siri shortcut donated: Activate Witness")
+        debugLog("[OnTheRecord] Siri shortcut donated: Activate Witness")
     }
 
     /// Donate the "I'm Safe" shortcut to Siri
@@ -46,7 +46,7 @@ class SiriShortcutManager: NSObject, ObservableObject {
         activity.persistentIdentifier = Self.safeActivityType
 
         activity.becomeCurrent()
-        print("[OnTheRecord] Siri shortcut donated: I'm Safe")
+        debugLog("[OnTheRecord] Siri shortcut donated: I'm Safe")
     }
 
     // MARK: - Handle Shortcuts

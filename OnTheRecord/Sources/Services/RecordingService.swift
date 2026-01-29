@@ -276,6 +276,7 @@ class RecordingService: NSObject, ObservableObject {
     // MARK: - Session Management
 
     private var currentIncidentID: String?
+    private var lastChunkHash: Data?
     private var chunkTimer: Timer?
     private let sessionQueue = DispatchQueue(label: "com.ontherecord.session", qos: .userInitiated)
     private let processingQueue = DispatchQueue(label: "com.ontherecord.processing", qos: .userInitiated)
@@ -285,9 +286,10 @@ class RecordingService: NSObject, ObservableObject {
     private var backVideoURL: URL?
     private var localVideoURL: URL? // For single camera fallback
 
-    // Track completion of dual recording
+    // Track completion of dual recording (guarded by recordingFinishedLock for thread safety)
     private var frontRecordingFinished = false
     private var backRecordingFinished = false
+    private let recordingFinishedLock = NSLock()
 
     // MARK: - Errors
 
@@ -319,6 +321,8 @@ class RecordingService: NSObject, ObservableObject {
 
     private let shakeService = ShakeGestureService.shared
     private let legalService = LegalComplianceService.shared
+    private let watermarkService = WatermarkService.shared
+    private let depthCaptureService = DepthCaptureService.shared
     private var cancellables = Set<AnyCancellable>()
     
     // Published event for UI to handle "Superlock" (black screen)
@@ -350,16 +354,19 @@ class RecordingService: NSObject, ObservableObject {
     @MainActor
     private func handleShakeEvent() {
         debugLog("[RecordingService] Handling Shake Event - Superlock Triggered")
-        
+
         // 1. If not recording, start recording immediately
         if !isRecording {
             Task {
                 try? await startRecording(incidentID: UUID().uuidString, quality: .high)
             }
         }
-        
+
         // 2. Signal UI to "Lock" (show black screen / require PIN)
         shouldLockScreen = true
+
+        // 3. Escalate alerts via notification (RecordingService doesn't have AlertService access)
+        NotificationCenter.default.post(name: NSNotification.Name("com.ontherecord.shakeEscalation"), object: nil)
     }
     
     deinit {
@@ -634,16 +641,28 @@ class RecordingService: NSObject, ObservableObject {
     // MARK: - Recording Control
 
     func startRecording(incidentID: String, quality: AppState.VideoQuality) async throws {
+        // Guard on camera + microphone before anything else
+        guard await requestCameraPermission() else {
+            throw RecordingError.cameraAccessDenied
+        }
+        guard await requestMicrophonePermission() else {
+            throw RecordingError.microphoneAccessDenied
+        }
+
         self.currentIncidentID = incidentID
         self.currentQuality = quality
+        self.lastChunkHash = nil
 
         // Request photo library permission
         _ = await requestPhotoLibraryPermission()
 
         // Reset state
+        recordingFinishedLock.lock()
+        frontRecordingFinished = false
+        backRecordingFinished = false
+        recordingFinishedLock.unlock()
+
         await MainActor.run {
-            self.frontRecordingFinished = false
-            self.backRecordingFinished = false
             self.frontSavedToPhotos = false
             self.backSavedToPhotos = false
             self.savedToPhotos = false
@@ -716,6 +735,20 @@ class RecordingService: NSObject, ObservableObject {
             }
         }
 
+        // Start LiDAR depth capture (no-op on non-LiDAR devices)
+        await MainActor.run {
+            depthCaptureService.startCapture(incidentID: incidentID)
+        }
+
+        // Start live transcription (best-effort, requires prior authorization)
+        await MainActor.run {
+            let transcription = TranscriptionService.shared
+            if transcription.authorizationStatus == .authorized {
+                // Use audio sample feed via captureOutput rather than engine tap
+                transcription.isTranscribing = true
+            }
+        }
+
         // Update UI state
         await MainActor.run {
             self.isRecording = true
@@ -752,6 +785,23 @@ class RecordingService: NSObject, ObservableObject {
 
         // Stop location
         locationService.stopTracking()
+
+        // Stop LiDAR depth capture
+        await depthCaptureService.stopCapture()
+
+        // Stop transcription and save transcript
+        await MainActor.run {
+            let transcription = TranscriptionService.shared
+            transcription.stopTranscription()
+            if let incidentID = self.currentIncidentID, !transcription.segments.isEmpty {
+                do {
+                    let _ = try transcription.saveTranscript(incidentID: incidentID)
+                    debugLog("[RecordingService] Transcript saved for \(incidentID)")
+                } catch {
+                    debugLog("[RecordingService] Failed to save transcript: \(error)")
+                }
+            }
+        }
 
         // Update UI
         await MainActor.run {
@@ -829,7 +879,7 @@ class RecordingService: NSObject, ObservableObject {
         let location = locationService.currentLocation
         let chunkNum = await MainActor.run { self.currentChunkNumber }
 
-        let metadata = ChunkMetadata(
+        var metadata = ChunkMetadata(
             incidentID: currentIncidentID ?? "",
             chunkNumber: chunkNum,
             timestamp: Date(),
@@ -847,12 +897,17 @@ class RecordingService: NSObject, ObservableObject {
                     }
                 }
             }
-            
+
             // 2. Load Data ONLY for Encryption (Ephemeral)
             let chunkData = try Data(contentsOf: chunkURL)
-            
+
+            // Wire chain hash from previous chunk
+            metadata.previousChunkHash = lastChunkHash
+
             // 3. Encrypt and Serialize
             if let encryptedChunk = try? encryptionService.encryptChunk(chunkData, metadata: metadata) {
+                // Update chain hash for next chunk
+                lastChunkHash = encryptedChunk.computeHash()
                 let serializedData = encryptedChunk.serialize()
                 
                 // 4. Write .iwc file (ready for upload)
@@ -1014,9 +1069,27 @@ extension RecordingService: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapt
         guard let writer = chunkWriter else { return }
 
         if output is AVCaptureVideoDataOutput {
+            // Embed invisible metadata watermark before writing
+            if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+               let incidentID = currentIncidentID {
+                let payload = WatermarkService.WatermarkPayload(
+                    incidentID: incidentID,
+                    chunkNumber: chunkWriter?.currentChunkNumber ?? 0,
+                    latitude: locationService.currentLocation?.latitude ?? 0,
+                    longitude: locationService.currentLocation?.longitude ?? 0,
+                    timestamp: Date(),
+                    deviceID: UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+                )
+                watermarkService.embedWatermark(in: imageBuffer, payload: payload)
+            }
             writer.appendVideoSample(sampleBuffer)
         } else if output is AVCaptureAudioDataOutput {
             writer.appendAudioSample(sampleBuffer)
+
+            // Feed audio to transcription service
+            Task { @MainActor in
+                TranscriptionService.shared.appendAudioSample(sampleBuffer)
+            }
         }
     }
 }
@@ -1033,6 +1106,15 @@ extension RecordingService: AVCaptureFileOutputRecordingDelegate {
         // Determine which camera this is from
         let isFront = (output == frontMovieOutput) ||
                       (movieFileOutput != nil && currentCameraPosition == .front)
+
+        // Thread-safe update of recording finished flags
+        recordingFinishedLock.lock()
+        if isFront {
+            frontRecordingFinished = true
+        } else {
+            backRecordingFinished = true
+        }
+        recordingFinishedLock.unlock()
 
         // Save the recorded video to Photos library
         saveVideoToPhotos(url: outputFileURL, isFront: isFront)

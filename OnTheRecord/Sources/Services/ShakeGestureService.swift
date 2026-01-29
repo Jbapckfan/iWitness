@@ -30,7 +30,7 @@ final class ShakeGestureService: ObservableObject {
     func startMonitoring() {
         guard !isMonitoring else { return }
         guard motionManager.isAccelerometerAvailable else {
-            print("[ShakeGestureService] Accelerometer not available")
+            debugLog("[ShakeGestureService] Accelerometer not available")
             return
         }
         
@@ -41,7 +41,7 @@ final class ShakeGestureService: ObservableObject {
         }
         
         isMonitoring = true
-        print("[ShakeGestureService] Started monitoring")
+        debugLog("[ShakeGestureService] Started monitoring")
     }
     
     /// Stops monitoring
@@ -49,7 +49,7 @@ final class ShakeGestureService: ObservableObject {
         guard isMonitoring else { return }
         motionManager.stopAccelerometerUpdates()
         isMonitoring = false
-        print("[ShakeGestureService] Stopped monitoring")
+        debugLog("[ShakeGestureService] Stopped monitoring")
     }
     
     private func detectShake(acceleration: CMAcceleration) {
@@ -59,7 +59,7 @@ final class ShakeGestureService: ObservableObject {
         if gForce > shakeThreshold {
             let now = Date()
             if now.timeIntervalSince(lastShakeTime) > shakeInterval {
-                print("[ShakeGestureService] Shake detected! G-Force: \(gForce)")
+                debugLog("[ShakeGestureService] Shake detected! G-Force: \(gForce)")
                 lastShakeTime = now
                 
                 // Trigger action on main thread

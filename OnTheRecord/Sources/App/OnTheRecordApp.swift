@@ -1,18 +1,43 @@
 import SwiftUI
+import UIKit
+import Combine
+
+// MARK: - AppDelegate (Background Upload Session)
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+    static let backgroundSessionEvent = Notification.Name("BackgroundSessionCompletionHandler")
+
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        NotificationCenter.default.post(
+            name: Self.backgroundSessionEvent,
+            object: nil,
+            userInfo: ["completionHandler": completionHandler]
+        )
+    }
+}
 
 @main
 struct OnTheRecordApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
     @StateObject private var appState = AppState()
     @StateObject private var recordingService = RecordingService()
     @StateObject private var uploadService = UploadService()
     @StateObject private var alertService = AlertService()
     @StateObject private var liveStreamService = LiveStreamService()
     @StateObject private var connectivityGuardian = ConnectivityGuardian()
+    @StateObject private var locationService = LocationService()
     @StateObject private var witnessBeaconService = WitnessBeaconService.shared
 
     // Watch connectivity
     private let phoneConnectivity = PhoneConnectivityManager.shared
     private let siriManager = SiriShortcutManager.shared
+    private let geofenceService = GeofenceService.shared
+    private var cancellables = Set<AnyCancellable>()
 
     var body: some Scene {
         WindowGroup {
@@ -23,6 +48,7 @@ struct OnTheRecordApp: App {
                 .environmentObject(alertService)
                 .environmentObject(liveStreamService)
                 .environmentObject(connectivityGuardian)
+                .environmentObject(locationService)
                 .environmentObject(witnessBeaconService)
                 .onAppear {
                     setupServices()
@@ -56,14 +82,64 @@ struct OnTheRecordApp: App {
             siriManager.donateSafeShortcut()
         }
 
+        // Request location authorization
+        locationService.requestAuthorization()
+
+        // Request speech recognition authorization (for live transcription)
+        Task {
+            await TranscriptionService.shared.requestAuthorization()
+        }
+
         // Listen for Siri notifications
         setupSiriNotifications()
 
-        // Defer heavy config/keychain lifting to background
+        // Listen for shake escalation events from RecordingService
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("com.ontherecord.shakeEscalation"),
+            object: nil,
+            queue: .main
+        ) { [self] _ in
+            Task { @MainActor in
+                if let incidentID = appState.currentIncidentID {
+                    await alertService.escalateAlert(incidentID: incidentID)
+                }
+            }
+        }
+
+        // Wire background session completion handler from AppDelegate → UploadService
         let uploadService = self.uploadService
+        NotificationCenter.default.addObserver(
+            forName: AppDelegate.backgroundSessionEvent,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let handler = notification.userInfo?["completionHandler"] as? () -> Void {
+                uploadService.backgroundSessionCompletionHandler = handler
+            }
+        }
+
+        // Defer heavy config/keychain lifting to background
         Task.detached(priority: .userInitiated) {
             Self.migrateSecretsToKeychain()
             await Self.loadSavedUploadDestinationsBackground(uploadService: uploadService)
+        }
+
+        // Wire geofence auto-record: when entering a monitored zone, activate witness mode
+        geofenceService.onZoneEntered = { [self] zone in
+            debugLog("[OnTheRecord] Geofence triggered: \(zone.name)")
+            Task { @MainActor in
+                await activateWitnessMode()
+            }
+        }
+
+        // Load audio enhancement settings
+        AudioEnhancementService.shared.loadSettings()
+
+        // Auto-record on launch if enabled
+        if UserDefaults.standard.bool(forKey: "auto_record_on_launch") {
+            Task { @MainActor in
+                await activateWitnessMode()
+            }
         }
     }
 
@@ -159,7 +235,7 @@ struct OnTheRecordApp: App {
         await MainActor.run {
             if let (url, user, pass) = nasConfig {
                 uploadService.addNASDestination(url: url, username: user, password: pass)
-                print("[OnTheRecord] Loaded NAS destination: \(url)")
+                debugLog("[OnTheRecord] Loaded NAS destination: \(url)")
             }
             
             if let (acc, bucket, access, secret) = cloudConfig {
@@ -169,7 +245,7 @@ struct OnTheRecordApp: App {
                     accessKeyID: access,
                     secretAccessKey: secret
                 )
-                print("[OnTheRecord] Loaded R2 cloud destination")
+                debugLog("[OnTheRecord] Loaded R2 cloud destination")
             }
         }
     }
@@ -192,13 +268,32 @@ struct OnTheRecordApp: App {
 
     @MainActor
     private func activateWitnessMode() async {
+        // Run preflight checks
+        let preflight = PreflightCheckService()
+        let report = await preflight.runChecks(alertService: alertService, uploadService: uploadService)
+
+        if report.hasBlockers {
+            debugLog("[OnTheRecord] Activation blocked by preflight: \(report.blockers.map(\.message).joined(separator: ", "))")
+            return
+        }
+
         // Activate app state
         appState.activateICEMode()
         // Apply stealth start in blackout if enabled
         if UserDefaults.standard.bool(forKey: "stealth_start_blackout") {
             appState.isBlackoutOn = true
         }
-        
+
+        // Start location tracking and feed updates into appState
+        locationService.startTracking()
+        locationService.$currentLocation
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak appState] location in
+                appState?.currentLocation = location
+            }
+            .store(in: &cancellables)
+
         // Start looking for nearby witnesses to offload data to
         witnessBeaconService.startBroadcastingMode()
 
@@ -230,7 +325,7 @@ struct OnTheRecordApp: App {
             LiveActivityManager.shared.start(incidentID: appState.currentIncidentID ?? "unknown")
 
         } catch {
-            print("[OnTheRecord] Failed to start recording: \(error)")
+            debugLog("[OnTheRecord] Failed to start recording: \(error)")
         }
     }
 
@@ -238,7 +333,10 @@ struct OnTheRecordApp: App {
     private func markSafe() async {
         // Stop recording
         await recordingService.stopRecording()
-        
+
+        // Stop location tracking
+        locationService.stopTracking()
+
         // Stop P2P
         witnessBeaconService.stopAll()
 

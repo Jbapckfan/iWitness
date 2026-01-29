@@ -82,7 +82,7 @@ class PhoneConnectivityManager: NSObject, ObservableObject {
         guard let session = session, session.isReachable else { return }
 
         session.sendMessage(message, replyHandler: nil, errorHandler: { error in
-            print("[OnTheRecord] Watch send error: \(error)")
+            debugLog("[OnTheRecord] Watch send error: \(error)")
         })
     }
 }
