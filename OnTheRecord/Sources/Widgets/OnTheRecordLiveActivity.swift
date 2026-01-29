@@ -9,7 +9,7 @@ import ActivityKit
 @available(iOS 16.1, *)
 struct OnTheRecordLiveActivity: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: IWitnessAttributes.self) { context in
+        ActivityConfiguration(for: OnTheRecordAttributes.self) { context in
             // Lock screen / banner view
             LockScreenLiveActivityView(context: context)
         } dynamicIsland: { context in
@@ -77,7 +77,7 @@ struct OnTheRecordLiveActivity: Widget {
 
 @available(iOS 16.1, *)
 struct LockScreenLiveActivityView: View {
-    let context: ActivityViewContext<IWitnessAttributes>
+    let context: ActivityViewContext<OnTheRecordAttributes>
 
     var body: some View {
         HStack(spacing: 16) {

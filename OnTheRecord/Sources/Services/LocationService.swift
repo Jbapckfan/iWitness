@@ -74,7 +74,7 @@ class LocationService: NSObject, ObservableObject {
                 return formatPlacemark(placemark)
             }
         } catch {
-            print("[OnTheRecord] Reverse geocoding failed: \(error)")
+            debugLog("[OnTheRecord] Reverse geocoding failed: \(error)")
         }
 
         return nil
@@ -166,7 +166,7 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("[OnTheRecord] Location error: \(error)")
+        debugLog("[OnTheRecord] Location error: \(error)")
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

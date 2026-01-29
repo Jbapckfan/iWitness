@@ -11,8 +11,8 @@ class SiriShortcutManager: NSObject, ObservableObject {
 
     // MARK: - Activity Types
 
-    static let activateActivityType = "com.iwitness.activate"
-    static let safeActivityType = "com.iwitness.safe"
+    static let activateActivityType = "com.ontherecord.activate"
+    static let safeActivityType = "com.ontherecord.safe"
 
     // MARK: - Published State
 

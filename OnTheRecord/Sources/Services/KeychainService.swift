@@ -13,10 +13,10 @@ final class KeychainService {
     // MARK: - Keys
     
     enum Key: String {
-        case twilioAccountSID = "com.iwitness.twilio.accountSID"
-        case twilioAuthToken = "com.iwitness.twilio.authToken"
-        case twilioFromNumber = "com.iwitness.twilio.fromNumber"
-        case encryptionMasterKey = "com.iwitness.encryption.masterKey"
+        case twilioAccountSID = "com.ontherecord.twilio.accountSID"
+        case twilioAuthToken = "com.ontherecord.twilio.authToken"
+        case twilioFromNumber = "com.ontherecord.twilio.fromNumber"
+        case encryptionMasterKey = "com.ontherecord.encryption.masterKey"
     }
     
     // MARK: - Errors

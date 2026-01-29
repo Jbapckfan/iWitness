@@ -23,7 +23,7 @@
     <key>WKApplication</key>
     <true/>
     <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.iwitness.app</string>
+    <string>com.ontherecord.app</string>
     <key>WKRunsIndependentlyOfCompanionApp</key>
     <false/>
 </dict>

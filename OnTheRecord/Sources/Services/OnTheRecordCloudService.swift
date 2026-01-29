@@ -9,7 +9,7 @@ class OnTheRecordCloudService: ObservableObject {
     // MARK: - Configuration
     
     /// Your Cloudflare Worker endpoint for upload proxy
-    private let apiEndpoint = "https://iwitness-cloud.your-domain.workers.dev"
+    private let apiEndpoint = "https://ontherecord-cloud.your-domain.workers.dev"
     
     // MARK: - Published State
     

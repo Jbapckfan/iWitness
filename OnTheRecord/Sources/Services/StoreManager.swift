@@ -8,18 +8,18 @@ class StoreManager: ObservableObject {
     // MARK: - Product IDs (Security-Focused Tiers)
     
     // Core protection - one-time purchase
-    static let witnessID = "com.iwitness.witness"              // $9.99 one-time
+    static let witnessID = "com.ontherecord.witness"              // $9.99 one-time
     
     // Subscription tiers - escalating security
-    static let guardianMonthlyID = "com.iwitness.guardian.monthly"   // $4.99/mo
-    static let guardianYearlyID = "com.iwitness.guardian.yearly"     // $39.99/yr
-    static let defenderMonthlyID = "com.iwitness.defender.monthly"   // $9.99/mo
-    static let defenderYearlyID = "com.iwitness.defender.yearly"     // $79.99/yr
+    static let guardianMonthlyID = "com.ontherecord.guardian.monthly"   // $4.99/mo
+    static let guardianYearlyID = "com.ontherecord.guardian.yearly"     // $39.99/yr
+    static let defenderMonthlyID = "com.ontherecord.defender.monthly"   // $9.99/mo
+    static let defenderYearlyID = "com.ontherecord.defender.yearly"     // $79.99/yr
     
     // Cloud storage add-ons
-    static let cloudBasicID = "com.iwitness.cloud.10gb"        // 10GB - $1.99/mo
-    static let cloudPlusID = "com.iwitness.cloud.50gb"         // 50GB - $4.99/mo
-    static let cloudUnlimitedID = "com.iwitness.cloud.unlimited" // 500GB - $9.99/mo
+    static let cloudBasicID = "com.ontherecord.cloud.10gb"        // 10GB - $1.99/mo
+    static let cloudPlusID = "com.ontherecord.cloud.50gb"         // 50GB - $4.99/mo
+    static let cloudUnlimitedID = "com.ontherecord.cloud.unlimited" // 500GB - $9.99/mo
     
     private static let productIDs: Set<String> = [
         witnessID,

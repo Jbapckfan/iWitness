@@ -12,14 +12,18 @@ import UIKit
 class EncryptionService {
     // MARK: - Constants
 
-    private let keyTag = "com.iwitness.encryption.privatekey"
-    private let publicKeyTag = "com.iwitness.encryption.publickey"
+    private let keyTag = "com.ontherecord.encryption.privatekey"
+    private let publicKeyTag = "com.ontherecord.encryption.publickey"
 
     // MARK: - State
 
     private var incidentMasterKey: SymmetricKey?
     private var privateKey: SecKey?
+    private var privateKey: SecKey?
     private var publicKey: SecKey?
+    
+    // Signing Keys (P256 for Elliptic Curve Signatures)
+    private var signingKey: P256.Signing.PrivateKey?
 
     // MARK: - Initialization
 
@@ -40,6 +44,67 @@ class EncryptionService {
 
         // Generate new key pair
         generateKeyPair()
+        loadOrGenerateSigningKey()
+    }
+    
+    // MARK: - Signing Key Management (Admissibility)
+    
+    private let signingKeyTag = "com.ontherecord.signing.key"
+    
+    private func loadOrGenerateSigningKey() {
+        // Try to load from keychain
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: signingKeyTag,
+            kSecAttrKeyType as String: kSecAttrKeyTypeEC,
+            kSecReturnRef as String: true
+        ]
+        
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        
+        if status == errSecSuccess, let keyRef = item as? SecKey {
+            // Convert SecKey to CryptoKit P256 PrivateKey
+            // This conversion is non-trivial directly, so for MVP we regenerate if using Secure Enclave
+            // Or we store the raw Representation in Keychain Generic Password
+            
+            // SIMPLIFICATION for MVP: Store P256 Private Key bits in Keychain Generic Password
+            // In Production: Use Secure Enclave directly
+            
+            if let keyData = loadKeyData(tag: signingKeyTag),
+               let key = try? P256.Signing.PrivateKey(rawRepresentation: keyData) {
+                self.signingKey = key
+                return
+            }
+        }
+        
+        // Generate New
+        let key = P256.Signing.PrivateKey()
+        self.signingKey = key
+        saveKeyData(data: key.rawRepresentation, tag: signingKeyTag)
+    }
+    
+    private func saveKeyData(data: Data, tag: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: tag,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    
+    private func loadKeyData(tag: String) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: tag,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var item: CFTypeRef?
+        SecItemCopyMatching(query as CFDictionary, &item)
+        return item as? Data
     }
 
     private func loadPrivateKey() -> SecKey? {
@@ -54,7 +119,7 @@ class EncryptionService {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
         guard status == errSecSuccess else { return nil }
-        return (item as! SecKey)
+        return item as? SecKey
     }
 
     private func generateKeyPair() {
@@ -70,7 +135,7 @@ class EncryptionService {
 
         var error: Unmanaged<CFError>?
         guard let privKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            print("[OnTheRecord] Failed to generate key pair: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            debugLog("[OnTheRecord] Failed to generate key pair: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return
         }
 
@@ -132,6 +197,22 @@ class EncryptionService {
         // Compute hash of previous chunk for chain
         // (This would be passed in from the upload service in a real implementation)
         let previousHash = metadata.previousChunkHash
+        
+        // --- Admissibility Sealing (Digital Signature) ---
+        var signature: Data?
+        if let signer = signingKey {
+            // Sign: EncryptedPayload + AuthTag + Metadata + PreviousHash
+            var dataToSign = sealedBox.ciphertext
+            dataToSign.append(sealedBox.tag)
+            dataToSign.append(metadataJSON)
+            if let prev = previousHash {
+                dataToSign.append(prev)
+            }
+            
+            if let sig = try? signer.signature(for: dataToSign) {
+                signature = sig.rawRepresentation
+            }
+        }
 
         return EncryptedChunk(
             header: ChunkHeader(
@@ -147,7 +228,8 @@ class EncryptionService {
             metadata: metadataJSON,
             metadataHMAC: Data(metadataHMAC),
             wrappedMasterKey: wrappedMasterKey,
-            previousChunkHash: previousHash
+            previousChunkHash: previousHash,
+            signature: signature
         )
     }
 
@@ -191,7 +273,7 @@ class EncryptionService {
             keyData as CFData,
             &error
         ) else {
-            print("[OnTheRecord] Key wrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            debugLog("[OnTheRecord] Key wrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return nil
         }
 
@@ -208,7 +290,7 @@ class EncryptionService {
             wrappedKey as CFData,
             &error
         ) else {
-            print("[OnTheRecord] Key unwrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
+            debugLog("[OnTheRecord] Key unwrap failed: \(error?.takeRetainedValue().localizedDescription ?? "unknown")")
             return nil
         }
 
@@ -344,10 +426,11 @@ struct EncryptedChunk: Codable {
     let metadataHMAC: Data
     let wrappedMasterKey: Data?
     let previousChunkHash: Data?
+    let signature: Data? // Digital Signature for Admissibility
 
     /// Serializes the chunk for transmission
     func serialize() -> Data {
-        try! JSONEncoder().encode(self)
+        (try? JSONEncoder().encode(self)) ?? Data()
     }
 
     /// Computes SHA-256 hash of this chunk for chain

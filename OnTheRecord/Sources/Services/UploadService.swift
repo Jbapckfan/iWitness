@@ -27,7 +27,9 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             case webdav
             case sftp
             case s3Compatible // Cloudflare R2, Backblaze B2
+            case s3Compatible // Cloudflare R2, Backblaze B2
             case local
+            case beacon // P2P Witness Beacon
         }
     }
 
@@ -108,7 +110,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
 
     private func setupBackgroundSession() {
-        let config = URLSessionConfiguration.background(withIdentifier: "com.iwitness.backgroundUpload")
+        let config = URLSessionConfiguration.background(withIdentifier: "com.ontherecord.backgroundUpload")
         config.isDiscretionary = false // We want it to happen ASAP
         config.sessionSendsLaunchEvents = true
         config.shouldUseExtendedBackgroundIdleMode = true
@@ -132,7 +134,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     
     // MARK: - Queue Persistence (Production Hardening)
     
-    private let queuePersistenceKey = "com.iwitness.uploadQueue"
+    private let queuePersistenceKey = "com.ontherecord.uploadQueue"
     
     private func loadPersistedQueue() {
         guard let data = UserDefaults.standard.data(forKey: queuePersistenceKey),
@@ -149,7 +151,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         }
         
         if !queue.isEmpty {
-            print("[OnTheRecord] Restored \(queue.count) pending uploads from previous session")
+            debugLog("[OnTheRecord] Restored \(queue.count) pending uploads from previous session")
             processQueue()
         }
     }
@@ -207,13 +209,54 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         // Calculate relative path for persistence
         guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first,
               let relativePath = fileURL.path.components(separatedBy: support.path).last?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) else {
-            print("[UploadService] Failed to determine relative path for \(fileURL)")
+            debugLog("[UploadService] Failed to determine relative path for \(fileURL)")
             return
         }
         
         let queuedChunk = QueuedChunk(
             chunkID: UUID().uuidString,
             relativePath: relativePath,
+            incidentID: incidentID,
+            chunkNumber: chunkNumber,
+            addedAt: Date(),
+            fileHash: hash
+        )
+        
+        queueLock.lock()
+        pendingQueue.append(queuedChunk)
+        queueLock.unlock()
+        
+        persistQueue()
+        
+        Task { @MainActor in
+            self.queueDepth = pendingQueue.count
+        }
+        
+        processQueue()
+    }
+    
+    // MARK: - Foreign Chunk Queuing (Mule Mode)
+    
+    /// Queue a chunk received from another device (via Witness Beacon)
+    func queueForeignChunk(url: URL) {
+        // We don't have the original metadata easily unless we inspect the file or sidebar it.
+        // For MVP, we treat it as a generic chunk but we MUST upload it.
+        
+        let chunkID = UUID().uuidString
+        let chunkNumber = 0 // Unknown
+        let incidentID = "foreign_evidence"
+        
+        // Calculate hash
+        guard let data = try? Data(contentsOf: url) else { return }
+        let hash = SHA256.hash(data: data).compactMap { String(format: "%02x", $0) }.joined()
+        
+        // Use same relative path logic but in "WitnessedEvidence"
+        // ... (Persistence logic similar to queueChunk)
+        // For simplicity, we just inject it into the queue
+        
+         let queuedChunk = QueuedChunk(
+            chunkID: chunkID,
+            relativePath: "WitnessedEvidence/\(url.lastPathComponent)",
             incidentID: incidentID,
             chunkNumber: chunkNumber,
             addedAt: Date(),
@@ -262,7 +305,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             
             // Verify file exists
             guard let url = chunk.fileURL, FileManager.default.fileExists(atPath: url.path) else {
-                print("[UploadService] Error: File missing for chunk \(chunk.chunkNumber)")
+                debugLog("[UploadService] Error: File missing for chunk \(chunk.chunkNumber)")
                 continue
             }
             
@@ -298,6 +341,14 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 request = try createWebDAVRequest(chunk: chunk, destination: destination)
             case .s3Compatible:
                 request = try createS3Request(chunk: chunk, destination: destination)
+            case .s3Compatible:
+                request = try createS3Request(chunk: chunk, destination: destination)
+            case .beacon:
+                // P2P offload is not a URLRequest, it's a direct send
+                Task {
+                    await offloadToBeacon(chunk: chunk, destination: destination)
+                }
+                return
             default:
                 Task { try await saveLocally(chunk: chunk, destination: destination) }
                 return
@@ -320,7 +371,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             }
             
         } catch {
-            print("[OnTheRecord] Failed to start background upload: \(error)")
+            debugLog("[OnTheRecord] Failed to start background upload: \(error)")
         }
     }
     
@@ -373,11 +424,17 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         request.setValue(contentHash, forHTTPHeaderField: "x-amz-content-sha256")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         
-        // Sign
-        let signature = "placeholder_sig" 
-        request.setValue("AWS4-HMAC-SHA256 Credential=\(accessKey)/...,Signature=\(signature)", forHTTPHeaderField: "Authorization")
+        // Create Signing Keys
+        let signerKeys = AWSV4Signer.SigningKeys(
+            accessKey: accessKey,
+            secretKey: secretKey ?? "",
+            region: "auto", // R2 uses 'auto', S3 might need specific region
+            service: "s3"
+        )
         
-        return request
+        let signedRequest = AWSV4Signer.sign(request: request, keys: signerKeys, payloadHash: contentHash)
+        
+        return signedRequest
     }
     
     // MARK: - Local Save
@@ -390,6 +447,28 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         try? FileManager.default.removeItem(at: destURL)
         try FileManager.default.copyItem(at: sourceURL, to: destURL)
         
+        handleSuccess(chunkID: chunk.chunkID, destinationName: destination.name)
+    }
+    
+    // MARK: - Beacon Offload
+    
+    private func offloadToBeacon(chunk: QueuedChunk, destination: UploadDestination) async {
+        guard let sourceURL = chunk.fileURL else { return }
+        
+        // Reconstruct basic metadata for the beacon
+        // In a real app we'd read it from the .iwc header
+        let metadata = ChunkMetadata(
+            incidentID: chunk.incidentID,
+            chunkNumber: chunk.chunkNumber,
+            timestamp: chunk.addedAt,
+            location: nil,
+            quality: .high, // Unknown
+            deviceState: DeviceState(batteryLevel: 1.0, batteryState: "unknown", networkType: "p2p", orientation: "unknown")
+        )
+        
+        WitnessBeaconService.shared.sendChunk(url: sourceURL, metadata: metadata)
+        
+        // Mark as "uploaded" to Beacon
         handleSuccess(chunkID: chunk.chunkID, destinationName: destination.name)
     }
 
@@ -411,7 +490,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         activeTasksLock.unlock()
         
         if let error = error {
-            print("[OnTheRecord] Background upload failed for \(chunkID) to \(destName): \(error)")
+            debugLog("[OnTheRecord] Background upload failed for \(chunkID) to \(destName): \(error)")
             handleFailure(chunkID: chunkID, destinationName: destName)
         } else {
             // Check status code
@@ -419,7 +498,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 handleSuccess(chunkID: chunkID, destinationName: destName)
             } else {
                 let statusCode = (task.response as? HTTPURLResponse)?.statusCode ?? 0
-                print("[OnTheRecord] Server error for \(chunkID) to \(destName): \(statusCode)")
+                debugLog("[OnTheRecord] Server error for \(chunkID) to \(destName): \(statusCode)")
                 handleFailure(chunkID: chunkID, destinationName: destName)
             }
         }
@@ -436,7 +515,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 // Schedule retry with exponential backoff
                 let delayIndex = min(chunk.uploadAttempts - 1, retryDelays.count - 1)
                 let delay = retryDelays[delayIndex]
-                print("[OnTheRecord] Retry \(chunk.uploadAttempts) for \(chunkID) in \(delay)s")
+                debugLog("[OnTheRecord] Retry \(chunk.uploadAttempts) for \(chunkID) in \(delay)s")
                 
                 // Find the destination and retry after delay
                 if let destination = destinations.first(where: { $0.name == destinationName }) {
@@ -446,7 +525,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                     }
                 }
             } else {
-                print("[OnTheRecord] Max retries reached for \(chunkID). Will retry when network allows.")
+                debugLog("[OnTheRecord] Max retries reached for \(chunkID). Will retry when network allows.")
             }
         }
         queueLock.unlock()

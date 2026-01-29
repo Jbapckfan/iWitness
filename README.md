@@ -52,7 +52,7 @@ OnTheRecord/
 
 1. Enable WebDAV on your Ugreen NAS (UGOS Pro Settings)
 2. Create a folder for OnTheRecord footage
-3. Note the WebDAV URL (e.g., `https://192.168.1.100:5006/webdav/iwitness`)
+3. Note the WebDAV URL (e.g., `https://192.168.1.100:5006/webdav/ontherecord`)
 4. In the app, go to Settings > NAS Storage and enter credentials
 
 ## Security Architecture

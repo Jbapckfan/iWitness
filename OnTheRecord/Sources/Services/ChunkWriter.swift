@@ -45,7 +45,7 @@ class ChunkWriter {
         do {
             try FileManager.default.createDirectory(at: self.outputDirectory, withIntermediateDirectories: true)
         } catch {
-            print("[ChunkWriter] Failed to create output directory: \(error)")
+            debugLog("[ChunkWriter] Failed to create output directory: \(error)")
         }
     }
 
@@ -72,7 +72,7 @@ class ChunkWriter {
             try setupWriter()
             isWriting = true
         } catch {
-            print("[ChunkWriter] Failed to setup chunk writer: \(error)")
+            debugLog("[ChunkWriter] Failed to setup chunk writer: \(error)")
             isWriting = false
         }
     }
@@ -238,7 +238,7 @@ class ChunkWriter {
     /// Wipes any orphaned cleartext chunks (.mp4) left behind by a crash
     /// Should be called on app launch
     static func wipeOrphanedChunks() {
-        print("[ChunkWriter] Starting orphaned chunk cleanup...")
+        debugLog("[ChunkWriter] Starting orphaned chunk cleanup...")
         guard let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
         let pendingDir = paths.appendingPathComponent("OnTheRecord/PendingUploads")
         
@@ -254,17 +254,17 @@ class ChunkWriter {
                 do {
                     try fileManager.removeItem(at: fileURL)
                     wipedCount += 1
-                    print("[ChunkWriter] Security Wipe: Removed orphaned cleartext chunk at \(fileURL.lastPathComponent)")
+                    debugLog("[ChunkWriter] Security Wipe: Removed orphaned cleartext chunk at \(fileURL.lastPathComponent)")
                 } catch {
-                    print("[ChunkWriter] Security Wipe Failed for \(fileURL.lastPathComponent): \(error)")
+                    debugLog("[ChunkWriter] Security Wipe Failed for \(fileURL.lastPathComponent): \(error)")
                 }
             }
         }
         
         if wipedCount > 0 {
-            print("[ChunkWriter] Security Hygiene: Wiped \(wipedCount) orphaned cleartext chunks.")
+            debugLog("[ChunkWriter] Security Hygiene: Wiped \(wipedCount) orphaned cleartext chunks.")
         } else {
-            print("[ChunkWriter] Security Hygiene: No cleartext orphans found. Clean.")
+            debugLog("[ChunkWriter] Security Hygiene: No cleartext orphans found. Clean.")
         }
     }
 }

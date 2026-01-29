@@ -17,7 +17,7 @@ class VaultManager: ObservableObject {
     
     private let fileManager = FileManager.default
     private let vaultDirectoryName = "Vault"
-    private let keyTag = "com.iwitness.vault.encryptionkey"
+    private let keyTag = "com.ontherecord.vault.encryptionkey"
     
     // Encryption key (lazily loaded from Keychain)
     private lazy var encryptionKey: SymmetricKey = {
@@ -69,7 +69,7 @@ class VaultManager: ObservableObject {
                     return date1 > date2
                 }
             } catch {
-                print("[VaultManager] Error listing files: \(error)")
+                debugLog("[VaultManager] Error listing files: \(error)")
                 return []
             }
         }.value
@@ -93,7 +93,7 @@ class VaultManager: ObservableObject {
             // Encrypt with AES-GCM
             let sealedBox = try AES.GCM.seal(videoData, using: encryptionKey)
             guard let encryptedData = sealedBox.combined else {
-                print("[VaultManager] Encryption failed - no combined data")
+                debugLog("[VaultManager] Encryption failed - no combined data")
                 return false
             }
             
@@ -111,7 +111,7 @@ class VaultManager: ObservableObject {
             }
             return true
         } catch {
-            print("[VaultManager] Encryption/Move failed: \(error)")
+            debugLog("[VaultManager] Encryption/Move failed: \(error)")
             return false
         }
     }
@@ -127,7 +127,7 @@ class VaultManager: ObservableObject {
             try decryptedData.write(to: tempURL)
             return tempURL
         } catch {
-            print("[VaultManager] Decryption failed: \(error)")
+            debugLog("[VaultManager] Decryption failed: \(error)")
             return nil
         }
     }
@@ -139,7 +139,7 @@ class VaultManager: ObservableObject {
                 await refreshFiles()
             }
         } catch {
-            print("[VaultManager] Delete failed: \(error)")
+            debugLog("[VaultManager] Delete failed: \(error)")
         }
     }
     
@@ -195,6 +195,22 @@ class VaultManager: ObservableObject {
     
     func lock() {
         isAuthenticated = false
+    }
+
+    @MainActor
+    func handleDuressEntry() {
+        // 1. Immediately Lock
+        lock()
+        
+        // 2. Clear known files from memory (decoy mode)
+        vaultFiles = []
+        
+        // 3. Trigger Silent Panic (via AlertService)
+        // Note: AlertService is EnvironmentObject usually, but we can access via shared instance if available
+        // Or post notification
+        NotificationCenter.default.post(name: NSNotification.Name("com.ontherecord.panicTriggered"), object: nil)
+        
+        debugLog("[VaultManager] Duress PIN entered. Vault locked and decoy mode active.")
     }
 }
 
@@ -261,8 +277,8 @@ class RecordingService: NSObject, ObservableObject {
 
     private var currentIncidentID: String?
     private var chunkTimer: Timer?
-    private let sessionQueue = DispatchQueue(label: "com.iwitness.session", qos: .userInitiated)
-    private let processingQueue = DispatchQueue(label: "com.iwitness.processing", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "com.ontherecord.session", qos: .userInitiated)
+    private let processingQueue = DispatchQueue(label: "com.ontherecord.processing", qos: .userInitiated)
 
     // Local video file URLs
     private var frontVideoURL: URL?
@@ -333,7 +349,7 @@ class RecordingService: NSObject, ObservableObject {
     
     @MainActor
     private func handleShakeEvent() {
-        print("[RecordingService] Handling Shake Event - Superlock Triggered")
+        debugLog("[RecordingService] Handling Shake Event - Superlock Triggered")
         
         // 1. If not recording, start recording immediately
         if !isRecording {
@@ -658,7 +674,7 @@ class RecordingService: NSObject, ObservableObject {
         
         // Check legal compliance (Two-Party Consent laws)
         legalService.checkCompliance()
-        print("[RecordingService] Legal Consent Law: \(legalService.currentLaw.rawValue)")
+        debugLog("[RecordingService] Legal Consent Law: \(legalService.currentLaw.rawValue)")
 
         // Start location tracking
         locationService.startTracking()
@@ -751,7 +767,7 @@ class RecordingService: NSObject, ObservableObject {
         let newPosition: AVCaptureDevice.Position = (currentCameraPosition == .front) ? .back : .front
 
         guard let newCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
-            print("[OnTheRecord] Could not get camera for position: \(newPosition)")
+            debugLog("[OnTheRecord] Could not get camera for position: \(newPosition)")
             return
         }
         
@@ -773,7 +789,7 @@ class RecordingService: NSObject, ObservableObject {
                     session.addInput(newInput)
                 }
             } catch {
-                print("[OnTheRecord] Failed to add new camera input: \(error)")
+                debugLog("[OnTheRecord] Failed to add new camera input: \(error)")
             }
 
             session.commitConfiguration()
@@ -854,7 +870,7 @@ class RecordingService: NSObject, ObservableObject {
             }
             
         } catch {
-            print("[RecordingService] Error processing chunk: \(error)")
+            debugLog("[RecordingService] Error processing chunk: \(error)")
         }
     }
 
@@ -885,7 +901,7 @@ class RecordingService: NSObject, ObservableObject {
                     if success {
                         try? FileManager.default.removeItem(at: url)
                     } else {
-                        print("[OnTheRecord] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
+                        debugLog("[OnTheRecord] Failed to save to Photos: \(error?.localizedDescription ?? "unknown")")
                     }
                 }
             }
@@ -903,11 +919,11 @@ class RecordingService: NSObject, ObservableObject {
             try FileManager.default.copyItem(at: url, to: tempCopy)
             let success = VaultManager.shared.moveFileToVault(from: tempCopy)
             if success {
-                print("[OnTheRecord] Hidden vault backup created for \(isFront ? "front" : "back") camera")
+                debugLog("[OnTheRecord] Hidden vault backup created for \(isFront ? "front" : "back") camera")
             }
             return success
         } catch {
-            print("[OnTheRecord] Failed to create vault backup: \(error)")
+            debugLog("[OnTheRecord] Failed to create vault backup: \(error)")
             return false
         }
     }
@@ -930,7 +946,7 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         if success {
-            print("[OnTheRecord] Video saved to \(scheme) (front: \(isFront))")
+            debugLog("[OnTheRecord] Video saved to \(scheme) (front: \(isFront))")
         }
     }
     
@@ -953,18 +969,25 @@ class RecordingService: NSObject, ObservableObject {
         
         switch state {
         case .nominal:
-            // Cool - maintain high quality if set
-            break
+            // Cool - maintain or upgrade to high quality
+            if currentQuality != .high {
+                debugLog("[OnTheRecord] Thermal state NOMINAL. Restoring high quality.")
+                newQuality = .high
+            }
         case .fair:
             // Getting warm - optional step down if we wanted to be proactive
-            break
+            // For now, allow high quality if we were already there, or upgrade from low if we cooled down
+             if currentQuality == .low {
+                debugLog("[OnTheRecord] Thermal state FAIR. Restoring medium quality.")
+                newQuality = .medium
+            }
         case .serious:
             // Hot - downgrade to medium (720p)
-            print("[OnTheRecord] Thermal state SERIOUS. Downgrading to medium quality.")
+            debugLog("[OnTheRecord] Thermal state SERIOUS. Downgrading to medium quality.")
             newQuality = .medium
         case .critical:
             // Very hot - downgrade to low (480p) to keep camera alive
-            print("[OnTheRecord] Thermal state CRITICAL. Downgrading to low quality.")
+            debugLog("[OnTheRecord] Thermal state CRITICAL. Downgrading to low quality.")
             newQuality = .low
         @unknown default:
             break
@@ -1003,7 +1026,7 @@ extension RecordingService: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapt
 extension RecordingService: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
         if let error = error {
-            print("[OnTheRecord] Recording error: \(error.localizedDescription)")
+            debugLog("[OnTheRecord] Recording error: \(error.localizedDescription)")
             return
         }
 

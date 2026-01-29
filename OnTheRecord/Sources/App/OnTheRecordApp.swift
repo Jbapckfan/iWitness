@@ -8,6 +8,7 @@ struct OnTheRecordApp: App {
     @StateObject private var alertService = AlertService()
     @StateObject private var liveStreamService = LiveStreamService()
     @StateObject private var connectivityGuardian = ConnectivityGuardian()
+    @StateObject private var witnessBeaconService = WitnessBeaconService.shared
 
     // Watch connectivity
     private let phoneConnectivity = PhoneConnectivityManager.shared
@@ -22,6 +23,7 @@ struct OnTheRecordApp: App {
                 .environmentObject(alertService)
                 .environmentObject(liveStreamService)
                 .environmentObject(connectivityGuardian)
+                .environmentObject(witnessBeaconService)
                 .onAppear {
                     setupServices()
                 }
@@ -43,6 +45,7 @@ struct OnTheRecordApp: App {
         alertService.configure()
         alertService.loadTwilioConfig()
         connectivityGuardian.configure(alertService: alertService)
+        witnessBeaconService.configure(uploadService: uploadService)
 
         // Setup Watch connectivity
         setupWatchConnectivity()
@@ -195,6 +198,9 @@ struct OnTheRecordApp: App {
         if UserDefaults.standard.bool(forKey: "stealth_start_blackout") {
             appState.isBlackoutOn = true
         }
+        
+        // Start looking for nearby witnesses to offload data to
+        witnessBeaconService.startBroadcastingMode()
 
         // Start recording
         do {
@@ -232,6 +238,9 @@ struct OnTheRecordApp: App {
     private func markSafe() async {
         // Stop recording
         await recordingService.stopRecording()
+        
+        // Stop P2P
+        witnessBeaconService.stopAll()
 
         // Send safe signal
         await alertService.sendSafeSignal()

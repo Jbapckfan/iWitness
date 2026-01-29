@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var uploadService: UploadService
+    @EnvironmentObject var witnessBeaconService: WitnessBeaconService
 
     @State private var showingAddContact = false
     @State private var showingNASSetup = false
@@ -39,6 +40,45 @@ struct SettingsView: View {
                     Text("Emergency Contacts")
                 } footer: {
                     Text("These contacts will be notified when you activate Witness mode.")
+                }
+
+                // Witness Network Section
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { witnessBeaconService.isAdvertising },
+                        set: { enabled in
+                            if enabled {
+                                witnessBeaconService.startWitnessMode()
+                            } else {
+                                witnessBeaconService.stopAll()
+                            }
+                        }
+                    )) {
+                        HStack {
+                            Label("Witness Beacon", systemImage: "antenna.radiowaves.left.and.right")
+                                .foregroundColor(witnessBeaconService.isAdvertising ? .blue : .primary)
+                            
+                            if witnessBeaconService.isAdvertising {
+                                Spacer()
+                                Text("Active")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    if witnessBeaconService.isAdvertising {
+                        HStack {
+                            Text("Chunks Received")
+                            Spacer()
+                            Text("\(witnessBeaconService.receivedChunksCount)")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Witness Network")
+                } footer: {
+                    Text("Help others by securely offloading and uploading their encrypted evidence. You cannot view the content.")
                 }
 
                 // Upload Destinations Section
@@ -358,11 +398,11 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Link(destination: URL(string: "https://iwitness.app/privacy")!) {
+                    Link(destination: URL(string: "https://ontherecord.app/privacy")!) {
                         Label("Privacy Policy", systemImage: "hand.raised.fill")
                     }
 
-                    Link(destination: URL(string: "https://iwitness.app/terms")!) {
+                    Link(destination: URL(string: "https://ontherecord.app/terms")!) {
                         Label("Terms of Service", systemImage: "doc.text.fill")
                     }
                 } header: {

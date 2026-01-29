@@ -4,7 +4,7 @@ import Foundation
 import ActivityKit
 
 @available(iOS 16.1, *)
-struct IWitnessAttributes: ActivityAttributes {
+struct OnTheRecordAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var incidentID: String
         var startedAt: Date
@@ -13,7 +13,7 @@ struct IWitnessAttributes: ActivityAttributes {
 
 @available(iOS 16.1, *)
 enum LiveActivityRuntime {
-    static var activity: Activity<IWitnessAttributes>?
+    static var activity: Activity<OnTheRecordAttributes>?
 }
 #endif
 
@@ -25,11 +25,11 @@ class LiveActivityManager {
         #if canImport(ActivityKit)
         if #available(iOS 16.2, *) {
             guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-            let attributes = IWitnessAttributes()
-            let state = IWitnessAttributes.ContentState(incidentID: incidentID, startedAt: Date())
+            let attributes = OnTheRecordAttributes()
+            let state = OnTheRecordAttributes.ContentState(incidentID: incidentID, startedAt: Date())
             let content = ActivityContent(state: state, staleDate: nil)
             do {
-                LiveActivityRuntime.activity = try Activity<IWitnessAttributes>.request(
+                LiveActivityRuntime.activity = try Activity<OnTheRecordAttributes>.request(
                     attributes: attributes,
                     content: content,
                     pushType: nil
@@ -40,10 +40,10 @@ class LiveActivityManager {
         } else if #available(iOS 16.1, *) {
             // Fallback for iOS 16.1
             guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-            let attributes = IWitnessAttributes()
-            let state = IWitnessAttributes.ContentState(incidentID: incidentID, startedAt: Date())
+            let attributes = OnTheRecordAttributes()
+            let state = OnTheRecordAttributes.ContentState(incidentID: incidentID, startedAt: Date())
             do {
-                LiveActivityRuntime.activity = try Activity<IWitnessAttributes>.request(
+                LiveActivityRuntime.activity = try Activity<OnTheRecordAttributes>.request(
                     attributes: attributes,
                     contentState: state,
                     pushType: nil
