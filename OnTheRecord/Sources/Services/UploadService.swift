@@ -25,8 +25,6 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
         enum DestinationType {
             case webdav
-            case sftp
-            case s3Compatible // Cloudflare R2, Backblaze B2
             case s3Compatible // Cloudflare R2, Backblaze B2
             case local
             case beacon // P2P Witness Beacon
@@ -42,7 +40,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
     // MARK: - State
 
-    private var destinations: [UploadDestination] = []
+    private(set) var destinations: [UploadDestination] = []
     private var backgroundSession: URLSession!
     
     // Track active tasks to map back to metadata
@@ -133,36 +131,67 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
     
     // MARK: - Queue Persistence (Production Hardening)
-    
-    private let queuePersistenceKey = "com.ontherecord.uploadQueue"
-    
+
+    /// File-based persistence to avoid UserDefaults 5-10MB limit.
+    /// Queue is stored as JSON in Application Support.
+    private var queueFilePath: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("OnTheRecord", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("upload_queue.json")
+    }
+
     private func loadPersistedQueue() {
-        guard let data = UserDefaults.standard.data(forKey: queuePersistenceKey),
+        // Migrate from legacy UserDefaults if present
+        let legacyKey = "com.ontherecord.uploadQueue"
+        if let legacyData = UserDefaults.standard.data(forKey: legacyKey) {
+            if let legacyQueue = try? JSONDecoder().decode([QueuedChunk].self, from: legacyData), !legacyQueue.isEmpty {
+                debugLog("[UploadService] Migrating \(legacyQueue.count) queued items from UserDefaults to file")
+                if let encoded = try? JSONEncoder().encode(legacyQueue) {
+                    try? encoded.write(to: queueFilePath, options: .atomic)
+                }
+            }
+            UserDefaults.standard.removeObject(forKey: legacyKey)
+        }
+
+        // Load from file
+        let filePath = queueFilePath
+        guard FileManager.default.fileExists(atPath: filePath.path),
+              let data = try? Data(contentsOf: filePath),
               let queue = try? JSONDecoder().decode([QueuedChunk].self, from: data) else {
             return
         }
-        
+
         queueLock.lock()
         pendingQueue = queue
         queueLock.unlock()
-        
+
         Task { @MainActor in
             self.queueDepth = queue.count
         }
-        
+
         if !queue.isEmpty {
             debugLog("[OnTheRecord] Restored \(queue.count) pending uploads from previous session")
             processQueue()
         }
     }
-    
+
     private func persistQueue() {
         queueLock.lock()
         let queue = pendingQueue
         queueLock.unlock()
-        
-        if let data = try? JSONEncoder().encode(queue) {
-            UserDefaults.standard.set(data, forKey: queuePersistenceKey)
+
+        do {
+            let data = try JSONEncoder().encode(queue)
+            try data.write(to: queueFilePath, options: .atomic)
+
+            // Queue size monitoring: warn if file exceeds 5MB
+            let fileSize = data.count
+            if fileSize > 5 * 1024 * 1024 {
+                debugLog("[UploadService] WARNING: Queue file size is \(fileSize / (1024 * 1024))MB — exceeds 5MB threshold. \(queue.count) items pending.")
+            }
+        } catch {
+            debugLog("[UploadService] ERROR: Failed to persist upload queue to file: \(error)")
         }
     }
 
@@ -341,15 +370,13 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 request = try createWebDAVRequest(chunk: chunk, destination: destination)
             case .s3Compatible:
                 request = try createS3Request(chunk: chunk, destination: destination)
-            case .s3Compatible:
-                request = try createS3Request(chunk: chunk, destination: destination)
             case .beacon:
                 // P2P offload is not a URLRequest, it's a direct send
                 Task {
                     await offloadToBeacon(chunk: chunk, destination: destination)
                 }
                 return
-            default:
+            case .local:
                 Task { try await saveLocally(chunk: chunk, destination: destination) }
                 return
             }
@@ -419,7 +446,10 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         
         let contentHash = chunk.fileHash
         
-        let date = ISO8601DateFormatter().string(from: Date())
+        let awsDateFormatter = DateFormatter()
+        awsDateFormatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        awsDateFormatter.timeZone = TimeZone(identifier: "UTC")
+        let date = awsDateFormatter.string(from: Date())
         request.setValue(date, forHTTPHeaderField: "x-amz-date")
         request.setValue(contentHash, forHTTPHeaderField: "x-amz-content-sha256")
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
@@ -427,7 +457,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         // Create Signing Keys
         let signerKeys = AWSV4Signer.SigningKeys(
             accessKey: accessKey,
-            secretKey: secretKey ?? "",
+            secretKey: creds.secretKey ?? "",
             region: "auto", // R2 uses 'auto', S3 might need specific region
             service: "s3"
         )
@@ -454,22 +484,25 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     
     private func offloadToBeacon(chunk: QueuedChunk, destination: UploadDestination) async {
         guard let sourceURL = chunk.fileURL else { return }
-        
+
         // Reconstruct basic metadata for the beacon
-        // In a real app we'd read it from the .iwc header
         let metadata = ChunkMetadata(
             incidentID: chunk.incidentID,
             chunkNumber: chunk.chunkNumber,
             timestamp: chunk.addedAt,
             location: nil,
-            quality: .high, // Unknown
+            quality: .high,
             deviceState: DeviceState(batteryLevel: 1.0, batteryState: "unknown", networkType: "p2p", orientation: "unknown")
         )
-        
-        WitnessBeaconService.shared.sendChunk(url: sourceURL, metadata: metadata)
-        
-        // Mark as "uploaded" to Beacon
-        handleSuccess(chunkID: chunk.chunkID, destinationName: destination.name)
+
+        let sent = WitnessBeaconService.shared.sendChunkWithConfirmation(url: sourceURL, metadata: metadata)
+
+        if sent {
+            handleSuccess(chunkID: chunk.chunkID, destinationName: destination.name)
+        } else {
+            debugLog("[UploadService] Beacon offload failed — no connected peers for \(chunk.chunkID)")
+            handleFailure(chunkID: chunk.chunkID, destinationName: destination.name)
+        }
     }
 
     // MARK: - URLSessionDelegate Methods
@@ -526,6 +559,9 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 }
             } else {
                 debugLog("[OnTheRecord] Max retries reached for \(chunkID). Will retry when network allows.")
+                Task { @MainActor in
+                    self.lastError = .uploadFailed("Max retries reached for chunk. Check network and destination.")
+                }
             }
         }
         queueLock.unlock()
@@ -533,10 +569,12 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         persistQueue()
     }
     
+    var backgroundSessionCompletionHandler: (() -> Void)?
+
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
-        // Call system completion handler if stored
-        DispatchQueue.main.async {
-            // (In AppDelegate we would store the completion handler)
+        DispatchQueue.main.async { [weak self] in
+            self?.backgroundSessionCompletionHandler?()
+            self?.backgroundSessionCompletionHandler = nil
         }
     }
     

@@ -5,6 +5,21 @@ import CoreMedia
 /// Writes video/audio samples to MP4 chunks
 /// Simplified for maximum stability
 class ChunkWriter {
+    // MARK: - Notifications
+
+    /// Posted when ChunkWriter encounters a critical error that may affect recording integrity.
+    /// The `userInfo` dictionary contains "message" (String) describing the failure.
+    static let chunkWriteErrorNotification = Notification.Name("com.ontherecord.chunkWriteError")
+
+    private func postWriteError(_ message: String) {
+        debugLog("[ChunkWriter] ERROR: \(message)")
+        NotificationCenter.default.post(
+            name: Self.chunkWriteErrorNotification,
+            object: nil,
+            userInfo: ["message": message]
+        )
+    }
+
     // MARK: - Configuration
 
     private let incidentID: String
@@ -20,7 +35,7 @@ class ChunkWriter {
 
     // MARK: - State
 
-    private var currentChunkNumber: Int = 0
+    private(set) var currentChunkNumber: Int = 0
     private var sessionStarted = false
     private var isWriting = false
     private let lock = NSLock()
@@ -46,6 +61,11 @@ class ChunkWriter {
             try FileManager.default.createDirectory(at: self.outputDirectory, withIntermediateDirectories: true)
         } catch {
             debugLog("[ChunkWriter] Failed to create output directory: \(error)")
+            NotificationCenter.default.post(
+                name: Self.chunkWriteErrorNotification,
+                object: nil,
+                userInfo: ["message": "Failed to create chunk output directory: \(error.localizedDescription)"]
+            )
         }
     }
 
@@ -72,8 +92,8 @@ class ChunkWriter {
             try setupWriter()
             isWriting = true
         } catch {
-            debugLog("[ChunkWriter] Failed to setup chunk writer: \(error)")
             isWriting = false
+            postWriteError("Failed to setup chunk writer for chunk \(currentChunkNumber): \(error.localizedDescription)")
         }
     }
 
@@ -98,23 +118,34 @@ class ChunkWriter {
                 continuation.resume()
             }
         }
-        
+
+        // Verify writer completed successfully
+        guard writer.status == .completed else {
+            if let error = writer.error {
+                postWriteError("Chunk finalization failed: \(error.localizedDescription)")
+            } else {
+                postWriteError("Chunk finalization finished with unexpected status: \(writer.status.rawValue)")
+            }
+            return nil
+        }
+
         let outputURL = writer.outputURL
-        
+
         // clear references
         lock.lock()
         assetWriter = nil
         videoInput = nil
         audioInput = nil
         lock.unlock()
-        
+
         // Verify file exists and has size
         guard FileManager.default.fileExists(atPath: outputURL.path),
               let attrs = try? FileManager.default.attributesOfItem(atPath: outputURL.path),
               let size = attrs[.size] as? Int64, size > 0 else {
+            postWriteError("Finalized chunk file is missing or empty at \(outputURL.lastPathComponent)")
             return nil
         }
-        
+
         return outputURL
     }
 
@@ -134,7 +165,13 @@ class ChunkWriter {
             sessionStarted = true
         }
 
-        input.append(sampleBuffer)
+        if !input.append(sampleBuffer) {
+            let writerStatus = assetWriter?.status ?? .unknown
+            let writerError = assetWriter?.error?.localizedDescription ?? "none"
+            lock.unlock()
+            postWriteError("Failed to append video sample (writer status: \(writerStatus.rawValue), error: \(writerError))")
+            return
+        }
         lock.unlock()
     }
 
@@ -145,7 +182,13 @@ class ChunkWriter {
             return
         }
 
-        input.append(sampleBuffer)
+        if !input.append(sampleBuffer) {
+            let writerStatus = assetWriter?.status ?? .unknown
+            let writerError = assetWriter?.error?.localizedDescription ?? "none"
+            lock.unlock()
+            postWriteError("Failed to append audio sample (writer status: \(writerStatus.rawValue), error: \(writerError))")
+            return
+        }
         lock.unlock()
     }
 
@@ -185,7 +228,10 @@ class ChunkWriter {
         guard writer.startWriting() else {
             throw NSError(domain: "ChunkWriter", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to start writing"])
         }
-        
+
+        // Set file protection so chunks are accessible while device is locked (for background uploads)
+        try? (outputURL as NSURL).setResourceValue(URLFileProtection.completeUnlessOpen, forKey: .fileProtectionKey)
+
         self.assetWriter = writer
     }
     

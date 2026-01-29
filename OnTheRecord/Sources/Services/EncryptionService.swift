@@ -19,11 +19,13 @@ class EncryptionService {
 
     private var incidentMasterKey: SymmetricKey?
     private var privateKey: SecKey?
-    private var privateKey: SecKey?
     private var publicKey: SecKey?
-    
+
     // Signing Keys (P256 for Elliptic Curve Signatures)
     private var signingKey: P256.Signing.PrivateKey?
+
+    // Thread safety
+    private let lock = NSLock()
 
     // MARK: - Initialization
 
@@ -63,7 +65,7 @@ class EncryptionService {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         
-        if status == errSecSuccess, let keyRef = item as? SecKey {
+        if status == errSecSuccess, let keyRef = item.map({ $0 as! SecKey }) {
             // Convert SecKey to CryptoKit P256 PrivateKey
             // This conversion is non-trivial directly, so for MVP we regenerate if using Secure Enclave
             // Or we store the raw Representation in Keychain Generic Password
@@ -85,13 +87,20 @@ class EncryptionService {
     }
     
     private func saveKeyData(data: Data, tag: String) {
-        let query: [String: Any] = [
+        // Delete any existing key first (upsert pattern)
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: tag
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: tag,
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        SecItemAdd(query as CFDictionary, nil)
+        SecItemAdd(addQuery as CFDictionary, nil)
     }
     
     private func loadKeyData(tag: String) -> Data? {
@@ -119,7 +128,7 @@ class EncryptionService {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
         guard status == errSecSuccess else { return nil }
-        return item as? SecKey
+        return (item as! SecKey)
     }
 
     private func generateKeyPair() {
@@ -167,10 +176,14 @@ class EncryptionService {
 
     /// Encrypts a video chunk with metadata
     func encryptChunk(_ data: Data, metadata: ChunkMetadata) throws -> EncryptedChunk {
-        guard let masterKey = incidentMasterKey else {
-            // Generate new key if none exists
+        lock.lock()
+        defer { lock.unlock() }
+
+        if incidentMasterKey == nil {
             _ = generateIncidentKey()
-            return try encryptChunk(data, metadata: metadata)
+        }
+        guard let masterKey = incidentMasterKey else {
+            throw EncryptionError.encryptionFailed
         }
 
         // Derive chunk-specific key (forward secrecy)
@@ -237,17 +250,45 @@ class EncryptionService {
 
     /// Decrypts a video chunk (for local playback)
     func decryptChunk(_ encryptedChunk: EncryptedChunk) throws -> Data {
-        guard let masterKey = incidentMasterKey else {
-            // Try to unwrap master key from chunk
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Unwrap master key from chunk if needed
+        if incidentMasterKey == nil {
             if let wrappedKey = encryptedChunk.wrappedMasterKey,
                let unwrapped = unwrapKey(wrappedKey) {
                 incidentMasterKey = unwrapped
-                return try decryptChunk(encryptedChunk)
+            } else {
+                throw EncryptionError.noMasterKey
             }
+        }
+        guard let masterKey = incidentMasterKey else {
             throw EncryptionError.noMasterKey
         }
 
         let chunkKey = deriveChunkKey(masterKey: masterKey, chunkNumber: encryptedChunk.header.chunkNumber)
+
+        // Verify metadata HMAC before trusting metadata
+        let expectedHMAC = HMAC<SHA256>.authenticationCode(for: encryptedChunk.metadata, using: chunkKey)
+        guard Data(expectedHMAC) == encryptedChunk.metadataHMAC else {
+            debugLog("[EncryptionService] HMAC verification failed for chunk \(encryptedChunk.header.chunkNumber)")
+            throw EncryptionError.decryptionFailed
+        }
+
+        // Verify digital signature if present
+        if let signatureData = encryptedChunk.signature, let signer = signingKey {
+            var dataToVerify = encryptedChunk.encryptedPayload
+            dataToVerify.append(encryptedChunk.authTag)
+            dataToVerify.append(encryptedChunk.metadata)
+            if let prev = encryptedChunk.previousChunkHash {
+                dataToVerify.append(prev)
+            }
+            guard let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
+                  signer.publicKey.isValidSignature(signature, for: dataToVerify) else {
+                debugLog("[EncryptionService] Signature verification failed for chunk \(encryptedChunk.header.chunkNumber)")
+                throw EncryptionError.decryptionFailed
+            }
+        }
 
         let nonce = try AES.GCM.Nonce(data: encryptedChunk.nonce)
         let sealedBox = try AES.GCM.SealedBox(
@@ -309,6 +350,28 @@ class EncryptionService {
         }
 
         return data as Data
+    }
+
+    /// Exports the P256 signing public key for third-party verification
+    func exportSigningPublicKey() -> Data? {
+        return signingKey?.publicKey.rawRepresentation
+    }
+
+    /// Verifies a chunk's digital signature using a provided public key (third-party verification without decryption)
+    func verifyChunkSignature(_ encryptedChunk: EncryptedChunk, publicKey: P256.Signing.PublicKey) -> Bool {
+        guard let signatureData = encryptedChunk.signature else { return false }
+
+        var dataToVerify = encryptedChunk.encryptedPayload
+        dataToVerify.append(encryptedChunk.authTag)
+        dataToVerify.append(encryptedChunk.metadata)
+        if let prev = encryptedChunk.previousChunkHash {
+            dataToVerify.append(prev)
+        }
+
+        guard let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData) else {
+            return false
+        }
+        return publicKey.isValidSignature(signature, for: dataToVerify)
     }
 
     // MARK: - Key Revocation
