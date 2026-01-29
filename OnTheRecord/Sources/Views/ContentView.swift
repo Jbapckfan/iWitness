@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
@@ -7,13 +8,15 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingOnboarding = false
     @State private var showingSavedConfirmation = false
-    
+
     // Calculator Camouflage
     @State private var isCamouflageUnlocked = false
     @State private var isDuressActive = false
-    
+
     // Superlock State
     @State private var isSuperlocked = false
+    @State private var superlockFailureCount = 0
+    @State private var showPasscodeFallback = false
     
     private var isCamouflageEnabled: Bool {
         UserDefaults.standard.bool(forKey: "calculator_camouflage")
@@ -42,13 +45,21 @@ struct ContentView: View {
                 Color.black
                     .ignoresSafeArea()
                     .onTapGesture {
-                        // Attempt unlock on tap
                         attemptSuperlockUnlock()
                     }
-                    .overlay(
-                        // Subtle hint only if user taps
-                        Text(isSuperlocked ? "" : "") // Placeholder to keep view alive
-                    )
+                    .overlay(alignment: .bottom) {
+                        if showPasscodeFallback {
+                            Button {
+                                attemptPasscodeUnlock()
+                            } label: {
+                                Text("Use Passcode")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            .padding(.bottom, 60)
+                            .accessibilityLabel("Unlock with device passcode")
+                        }
+                    }
             }
         }
         .animation(.easeInOut(duration: 0.3), value: isCamouflageUnlocked)
@@ -79,8 +90,35 @@ struct ContentView: View {
             if success {
                 withAnimation {
                     isSuperlocked = false
-                    // Reset service state so it can be triggered again
+                    superlockFailureCount = 0
+                    showPasscodeFallback = false
                     recordingService.shouldLockScreen = false
+                }
+            } else {
+                superlockFailureCount += 1
+                if superlockFailureCount >= 3 {
+                    showPasscodeFallback = true
+                }
+            }
+        }
+    }
+
+    private func attemptPasscodeUnlock() {
+        let context = LAContext()
+        context.localizedFallbackTitle = "Enter Passcode"
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthentication,
+                                   localizedReason: "Unlock OnTheRecord") { success, _ in
+                DispatchQueue.main.async {
+                    if success {
+                        withAnimation {
+                            isSuperlocked = false
+                            superlockFailureCount = 0
+                            showPasscodeFallback = false
+                            recordingService.shouldLockScreen = false
+                        }
+                    }
                 }
             }
         }
@@ -113,11 +151,16 @@ struct RecordingSavedView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var uploadService: UploadService
     @EnvironmentObject var recordingService: RecordingService
+    @EnvironmentObject var alertService: AlertService
     @Binding var isShowing: Bool
 
     @State private var isViewAppeared = false
     @State private var iconScale: CGFloat = 0.5
     @State private var glowRadius: CGFloat = 10
+    @State private var showingShareSheet = false
+    @State private var pdfURL: URL?
+    @State private var isExportingEvidence = false
+    @State private var exportURL: URL?
 
     var body: some View {
         ZStack {
@@ -197,6 +240,44 @@ struct RecordingSavedView: View {
                 .padding(.horizontal, Spacing.lg)
                 .staggeredEntrance(isPresented: isViewAppeared, index: 2)
 
+                // Generate Incident Report button
+                Button {
+                    generateIncidentReport()
+                } label: {
+                    Label("Generate Incident Report", systemImage: "doc.text.fill")
+                        .font(Typography.bodyLarge)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, Spacing.lg)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 3)
+
+                // Export Evidence Package button
+                Button {
+                    exportEvidencePackage()
+                } label: {
+                    HStack {
+                        if isExportingEvidence {
+                            ProgressView()
+                                .tint(.white)
+                                .padding(.trailing, 4)
+                        }
+                        Label("Export Evidence Package", systemImage: "shippingbox.fill")
+                    }
+                    .font(Typography.bodyLarge)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
+                .disabled(isExportingEvidence)
+                .padding(.horizontal, Spacing.lg)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 3)
+
                 Spacer()
 
                 // Done button
@@ -210,7 +291,7 @@ struct RecordingSavedView: View {
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xl)
-                .staggeredEntrance(isPresented: isViewAppeared, index: 3)
+                .staggeredEntrance(isPresented: isViewAppeared, index: 4)
             }
         }
         .onAppear {
@@ -218,7 +299,82 @@ struct RecordingSavedView: View {
                 isViewAppeared = true
             }
         }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = pdfURL {
+                ShareSheet(activityItems: [url])
+            }
+        }
     }
+
+    private func exportEvidencePackage() {
+        isExportingEvidence = true
+        let incidentID = appState.currentIncidentID ?? "unknown"
+        let transcription = TranscriptionService.shared
+
+        Task {
+            do {
+                let package = try await EvidenceExportService.shared.exportEvidence(
+                    incidentID: incidentID,
+                    transcriptText: transcription.segments.isEmpty ? nil : transcription.exportAsText()
+                )
+                await MainActor.run {
+                    exportURL = package.zipURL
+                    pdfURL = package.zipURL
+                    showingShareSheet = true
+                    isExportingEvidence = false
+                }
+                debugLog("[RecordingSaved] Evidence package exported: \(package.fileCount) files, \(package.manifestHash)")
+            } catch {
+                debugLog("[RecordingSaved] Evidence export failed: \(error)")
+                await MainActor.run {
+                    isExportingEvidence = false
+                }
+            }
+        }
+    }
+
+    private func generateIncidentReport() {
+        let encService = EncryptionService()
+        let fingerprint: String? = encService.exportSigningPublicKey().map {
+            IncidentSummaryService.fingerprint(of: $0)
+        }
+
+        let summary = IncidentSummaryService.IncidentSummary(
+            incidentID: appState.currentIncidentID ?? "unknown",
+            startTime: appState.recordingStartTime ?? Date(),
+            endTime: Date(),
+            duration: appState.recordingStartTime.map { Date().timeIntervalSince($0) } ?? 0,
+            locations: [],
+            chunkCount: uploadService.chunksUploaded,
+            totalDataSize: 0,
+            destinations: uploadService.destinations.map(\.name),
+            contacts: alertService.contacts.map(\.displayName),
+            deviceInfo: IncidentSummaryService.IncidentSummary.DeviceInfo(
+                name: UIDevice.current.name,
+                model: UIDevice.current.model,
+                osVersion: UIDevice.current.systemVersion
+            ),
+            signingPublicKeyFingerprint: fingerprint
+        )
+
+        if let pdfData = IncidentSummaryService.generatePDF(from: summary),
+           let url = IncidentSummaryService.savePDF(pdfData, incidentID: summary.incidentID) {
+            pdfURL = url
+            showingShareSheet = true
+        }
+    }
+}
+
+// MARK: - Share Sheet (UIKit bridge)
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Save Status Row
@@ -262,6 +418,7 @@ struct HomeView: View {
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var uploadService: UploadService
     @EnvironmentObject var liveStreamService: LiveStreamService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var showingSettings: Bool
     @Binding var showingOnboarding: Bool
 
@@ -283,12 +440,13 @@ struct HomeView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("ON_THE_RECORD // V2.0")
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .font(Typography.terminalBold)
                                 .foregroundColor(Colors.witnessRed)
                             Text("SECURE_ENCLAVE: ACTIVE")
-                                .font(.system(size: 10, design: .monospaced))
+                                .font(Typography.terminalLog)
                                 .foregroundColor(.gray)
                         }
+                        .accessibilityLabel("OnTheRecord version 2.0")
                         Spacer()
                         
                         // Settings / Info Gear
@@ -297,40 +455,47 @@ struct HomeView: View {
                                 Image(systemName: "questionmark.square.dashed")
                                     .font(.system(size: 20))
                             }
+                            .accessibilityLabel("Help")
                             Button { showingSettings = true } label: {
                                 Image(systemName: "gearshape.fill")
                                     .font(.system(size: 20))
                             }
+                            .accessibilityLabel("Settings")
                         }
                         .foregroundColor(.white)
                     }
                     .padding()
                     .background(Colors.glassDark)
-                    
+                    .fadeScaleEntrance(isPresented: isViewAppeared)
+
                     // Main Terminal Display
                     ScrollView {
-                        VStack(spacing: 24) {
-                            
+                        VStack(spacing: Spacing.lg) {
+
                             // 1. Diagnostics Log (Aesthetic)
                             VStack(alignment: .leading, spacing: 4) {
                                 ForEach(diagLog.suffix(5), id: \.self) { log in
                                     Text("> \(log)")
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundColor(.green.opacity(0.7))
+                                        .font(Typography.terminalLog)
+                                        .foregroundColor(Colors.safeGreen.opacity(0.7))
                                         .transition(.opacity)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
                             .background(Color.black.opacity(0.5))
-                            .border(Color.green.opacity(0.2), width: 1)
+                            .border(Colors.safeGreen.opacity(0.2), width: 1)
                             .padding(.horizontal)
+                            .slideUpEntrance(isPresented: isViewAppeared, delay: 0.1)
                             
                             // 2. Critical Status check
-                            VStack(spacing: 12) {
+                            VStack(spacing: Spacing.sm) {
                                 SystemCheckRow(label: "CONTACTS_LINK", status: !alertService.contacts.isEmpty)
+                                    .staggeredEntrance(isPresented: isViewAppeared, index: 0)
                                 SystemCheckRow(label: "OFFSHORE_UPLINK", status: UserDefaults.standard.string(forKey: "nas_url") != nil)
+                                    .staggeredEntrance(isPresented: isViewAppeared, index: 1)
                                 SystemCheckRow(label: "CAMERA_MATRIX", status: true)
+                                    .staggeredEntrance(isPresented: isViewAppeared, index: 2)
                             }
                             .padding(.horizontal)
                             
@@ -344,20 +509,23 @@ struct HomeView: View {
                                     .frame(width: 260, height: 260)
                                 
                                 // Dashed Ring
-                                Circle()
-                                    .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                                    .frame(width: 290, height: 290)
-                                    .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
-                                    .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
+                                if !reduceMotion {
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                                        .frame(width: 290, height: 290)
+                                        .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
+                                        .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
+                                }
                                 
                                 ActivationButton()
                             }
                             
                             Text("SYSTEM_ARMED // READY_TO_ENGAGE")
-                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .font(Typography.terminalSmall)
                                 .foregroundColor(Colors.safeGreen)
                                 .tracking(2)
-                                .padding(.top, 20)
+                                .padding(.top, Spacing.screenPadding)
+                                .fadeScaleEntrance(isPresented: isViewAppeared, delay: 0.3)
                             
                         }
                         .padding(.vertical)
@@ -404,18 +572,19 @@ struct SystemCheckRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .font(Typography.terminalBody)
                 .foregroundColor(.white)
             
             Spacer()
             
             Text(status ? "[ONLINE]" : "[OFFLINE]")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .font(Typography.terminalBold)
                 .foregroundColor(status ? Colors.safeGreen : Colors.errorRed)
         }
-        .padding(12)
+        .padding(Spacing.sm)
         .background(Color.white.opacity(0.05))
         .border(status ? Colors.safeGreen.opacity(0.3) : Colors.errorRed.opacity(0.3), width: 1)
+        .accessibilityLabel("\(label): \(status ? "online" : "offline")")
     }
 }
 
@@ -443,6 +612,7 @@ struct ActivationButton: View {
     @EnvironmentObject var alertService: AlertService
     @EnvironmentObject var uploadService: UploadService
     @EnvironmentObject var liveStreamService: LiveStreamService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isPressed = false
     @State private var isActivating = false
@@ -535,11 +705,11 @@ struct ActivationButton: View {
         .onAppear {
             startPulseAnimation()
             startGlowAnimation()
-            startBreathingAnimation()
         }
     }
 
     private func startPulseAnimation() {
+        guard !reduceMotion else { return }
         withAnimation(
             .easeInOut(duration: 2.5)
             .repeatForever(autoreverses: false)
@@ -547,18 +717,9 @@ struct ActivationButton: View {
             pulseScale = 1.3
         }
     }
-    
-    private func startBreathingAnimation() {
-        withAnimation(
-            .easeInOut(duration: 2.0)
-            .repeatForever(autoreverses: true)
-        ) {
-            // Subtle "breathing" of the main button
-            glowIntensity = 0.8
-        }
-    }
 
     private func startGlowAnimation() {
+        guard !reduceMotion else { return }
         withAnimation(
             .easeInOut(duration: 2.0)
             .repeatForever(autoreverses: true)
@@ -602,9 +763,9 @@ struct ActivationButton: View {
                     do {
                         let streamURL = try await liveStreamService.startStream(incidentID: incidentID)
                         streamURLString = streamURL.absoluteString
-                        print("[OnTheRecord] Live stream started: \(streamURLString ?? "none")")
+                        debugLog("[OnTheRecord] Live stream started: \(streamURLString ?? "none")")
                     } catch {
-                        print("[OnTheRecord] Live stream failed (continuing without): \(error)")
+                        debugLog("[OnTheRecord] Live stream failed (continuing without): \(error)")
                         // Continue without live stream - recording still works
                     }
                 }
@@ -621,7 +782,7 @@ struct ActivationButton: View {
                 successGenerator.notificationOccurred(.success)
 
             } catch {
-                print("[OnTheRecord] Failed to start recording: \(error)")
+                debugLog("[OnTheRecord] Failed to start recording: \(error)")
 
                 // Error haptic
                 let errorGenerator = UINotificationFeedbackGenerator()

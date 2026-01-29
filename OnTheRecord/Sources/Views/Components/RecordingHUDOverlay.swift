@@ -3,7 +3,8 @@ import SwiftUI
 struct RecordingHUDOverlay: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var recordingService: RecordingService
-    
+    @StateObject private var transcriptionService = TranscriptionService.shared
+
     // Aesthetic state for simulated telemetry
     @State private var shutterSpeed: String = "1/60"
     @State private var iso: String = "ISO 400"
@@ -31,14 +32,14 @@ struct RecordingHUDOverlay: View {
                         HUDText(label: "ENCR", value: "AES-256")
                         HUDText(label: "STOR", value: "SECURE")
                     }
-                    
+
                     Spacer()
-                    
+
                     // Top Center: Compass / Heading (Simulated)
                     CompassStrip()
-                    
+
                     Spacer()
-                    
+
                     // Top Right: Camera Stats
                     VStack(alignment: .trailing, spacing: 4) {
                         HUDText(label: "CAM", value: recordingService.isDualCameraSupported ? "DUAL" : "SGL")
@@ -46,7 +47,7 @@ struct RecordingHUDOverlay: View {
                         HUDText(label: "FPS", value: "60")
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Spacing.screenPadding)
                 .padding(.top, 60) // Safe area
                 
                 Spacer()
@@ -74,11 +75,24 @@ struct RecordingHUDOverlay: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Spacing.screenPadding)
                 .padding(.bottom, 120) // Leave space for controls
+            }
+
+            // 5. Live Transcript Overlay
+            if transcriptionService.isTranscribing, !transcriptionService.currentTranscript.isEmpty {
+                VStack {
+                    Spacer()
+                    LiveTranscriptBanner(transcript: transcriptionService.currentTranscript)
+                        .padding(.horizontal, Spacing.screenPadding)
+                        .padding(.bottom, 130) // Above bottom controls
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.3), value: transcriptionService.currentTranscript)
             }
         }
         .allowsHitTesting(false) // Pass touches through to camera/buttons
+        .accessibilityHidden(true)
         .onReceive(timer) { _ in
             updateTelemetry()
         }
@@ -102,11 +116,11 @@ struct HUDText: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(Typography.hudLabel)
                 .foregroundColor(.white.opacity(0.6))
             Text(value)
-                .font(.system(size: 10, weight: .regular, design: .monospaced))
-                .foregroundColor(.green.opacity(0.9))
+                .font(Typography.hudValue)
+                .foregroundColor(Colors.safeGreen.opacity(0.9))
         }
     }
 }
@@ -117,7 +131,7 @@ struct CenterReticle: View {
     var body: some View {
         ZStack {
             Circle() // Center dot
-                .fill(Color.red.opacity(0.6))
+                .fill(Colors.witnessRed.opacity(0.6))
                 .frame(width: 4, height: 4)
             
             Circle() // Outer ring
@@ -137,7 +151,7 @@ struct CenterReticle: View {
 
 struct CompassStrip: View {
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.xs) {
             ForEach(0..<15) { i in
                 Rectangle()
                     .fill(Color.white.opacity(i % 5 == 0 ? 0.6 : 0.2))
@@ -149,8 +163,60 @@ struct CompassStrip: View {
         .overlay(
             Image(systemName: "arrowtriangle.down.fill")
                 .font(.system(size: 8))
-                .foregroundColor(.red)
+                .foregroundColor(Colors.witnessRed)
                 .offset(y: -10)
         )
+    }
+}
+
+// MARK: - Live Transcript Banner
+
+struct LiveTranscriptBanner: View {
+    let transcript: String
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                Text(transcript)
+                    .font(Typography.hudValue)
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .id("transcriptEnd")
+            }
+            .frame(maxHeight: 60)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.55))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Colors.safeGreen.opacity(0.3), lineWidth: 0.5)
+                    )
+            )
+            .overlay(
+                HStack(spacing: 4) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 8))
+                        .foregroundColor(Colors.safeGreen.opacity(0.7))
+                    Text("LIVE")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundColor(Colors.safeGreen.opacity(0.7))
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.black.opacity(0.6))
+                .cornerRadius(4)
+                .offset(x: 0, y: -4),
+                alignment: .topTrailing
+            )
+            .onChange(of: transcript) { _ in
+                withAnimation {
+                    proxy.scrollTo("transcriptEnd", anchor: .bottom)
+                }
+            }
+        }
     }
 }

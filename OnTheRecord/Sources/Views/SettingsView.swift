@@ -13,6 +13,8 @@ struct SettingsView: View {
     @State private var showingTwilioSetup = false
     @State private var showingSafePINSetup = false
     @State private var showingDuressPINSetup = false
+    @State private var showingKeyRecoveryQR = false
+    @State private var recoveryQRImage: UIImage?
     @State private var showingStreamingSetup = false
 
     @EnvironmentObject var liveStreamService: LiveStreamService
@@ -91,7 +93,7 @@ struct SettingsView: View {
                             Spacer()
                             if hasNASConfigured {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Colors.safeGreen)
                             }
                         }
                     }
@@ -104,7 +106,7 @@ struct SettingsView: View {
                             Spacer()
                             if hasCloudConfigured {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Colors.safeGreen)
                             }
                         }
                     }
@@ -140,7 +142,7 @@ struct SettingsView: View {
                             if liveStreamService.isConfigured {
                                 Text("Configured")
                                     .font(.caption)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Colors.safeGreen)
                             } else {
                                 Text("Not Set Up")
                                     .font(.caption)
@@ -199,7 +201,7 @@ struct SettingsView: View {
                             if SiriShortcutManager.shared.isShortcutDonated {
                                 Text("Active")
                                     .font(.caption)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(Colors.safeGreen)
                             }
                         }
                     }
@@ -210,11 +212,11 @@ struct SettingsView: View {
                         if PhoneConnectivityManager.shared.isWatchReachable {
                             Text("Connected")
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundColor(Colors.safeGreen)
                         } else if PhoneConnectivityManager.shared.isWatchPaired {
                             Text("Paired")
                                 .font(.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Colors.warningOrange)
                         } else {
                             Text("Not Paired")
                                 .font(.caption)
@@ -343,7 +345,7 @@ struct SettingsView: View {
                             if alertService.deadManSwitchActive {
                                 Text(alertService.deadManSwitchTimeRemaining)
                                     .font(.caption)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Colors.warningOrange)
                             }
                         }
                     }
@@ -351,6 +353,43 @@ struct SettingsView: View {
                     Text("Safety")
                 } footer: {
                     Text("Quick Alerts send pre-written messages instantly. Dead Man's Switch alerts contacts if you don't check in.")
+                }
+
+                // Advanced Recording Section
+                Section {
+                    Toggle("Live Transcription", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "live_transcription_enabled") },
+                        set: { UserDefaults.standard.set($0, forKey: "live_transcription_enabled") }
+                    ))
+
+                    Toggle("Audio Enhancement", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "audio_enhancement_enabled") },
+                        set: {
+                            UserDefaults.standard.set($0, forKey: "audio_enhancement_enabled")
+                            AudioEnhancementService.shared.config.isEnabled = $0
+                            AudioEnhancementService.shared.saveSettings()
+                        }
+                    ))
+
+                    Toggle("Metadata Watermarking", isOn: Binding(
+                        get: { UserDefaults.standard.object(forKey: "watermark_enabled") as? Bool ?? true },
+                        set: { UserDefaults.standard.set($0, forKey: "watermark_enabled") }
+                    ))
+
+                    Toggle("Geo-Fence Auto-Record", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "geofence_monitoring_enabled") },
+                        set: {
+                            if $0 {
+                                GeofenceService.shared.startMonitoring()
+                            } else {
+                                GeofenceService.shared.stopMonitoring()
+                            }
+                        }
+                    ))
+                } header: {
+                    Text("Advanced Recording")
+                } footer: {
+                    Text("Live Transcription converts speech to text in real-time (on-device). Audio Enhancement boosts voice clarity. Watermarking embeds invisible origin metadata in every frame. Geo-Fence starts recording automatically when you enter marked zones.")
                 }
 
                 // Community Section (Growth)
@@ -387,6 +426,24 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Legal")
+                }
+
+                // Key Recovery Section
+                Section {
+                    Button {
+                        let encService = EncryptionService()
+                        if let bundle = KeyRecoveryService.createRecoveryBundle(from: encService),
+                           let image = KeyRecoveryService.generateQRCode(from: bundle) {
+                            recoveryQRImage = image
+                            showingKeyRecoveryQR = true
+                        }
+                    } label: {
+                        Label("Export Recovery QR Code", systemImage: "qrcode")
+                    }
+                } header: {
+                    Text("Key Recovery")
+                } footer: {
+                    Text("Export your public keys as a QR code. Share with a trusted attorney or backup device. Private keys never leave this device.")
                 }
 
                 // About Section
@@ -443,6 +500,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingStreamingSetup) {
                 StreamingSetupView()
             }
+            .sheet(isPresented: $showingKeyRecoveryQR) {
+                KeyRecoveryQRView(image: recoveryQRImage)
+            }
         }
     }
 
@@ -476,9 +536,9 @@ struct SettingsView: View {
         if UIApplication.shared.supportsAlternateIcons {
             UIApplication.shared.setAlternateIconName("CalculatorIcon") { error in
                 if let error = error {
-                    print("[OnTheRecord] Failed to set calculator icon: \(error)")
+                    debugLog("[OnTheRecord] Failed to set calculator icon: \(error)")
                 } else {
-                    print("[OnTheRecord] Calculator camouflage icon set")
+                    debugLog("[OnTheRecord] Calculator camouflage icon set")
                 }
             }
         }
@@ -488,9 +548,9 @@ struct SettingsView: View {
         if UIApplication.shared.supportsAlternateIcons {
             UIApplication.shared.setAlternateIconName(nil) { error in
                 if let error = error {
-                    print("[OnTheRecord] Failed to reset icon: \(error)")
+                    debugLog("[OnTheRecord] Failed to reset icon: \(error)")
                 } else {
-                    print("[OnTheRecord] Default icon restored")
+                    debugLog("[OnTheRecord] Default icon restored")
                 }
             }
         }
@@ -532,7 +592,7 @@ struct ContactRow: View {
                             .font(.system(size: 9, weight: .bold))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.blue)
+                            .background(Colors.witnessRed)
                             .foregroundColor(.white)
                             .cornerRadius(3)
                     }
@@ -550,6 +610,70 @@ struct ContactRow: View {
                 .font(.system(size: 18))
         }
         .padding(.vertical, Spacing.xxs)
+    }
+}
+
+// MARK: - Key Recovery QR View
+
+struct KeyRecoveryQRView: View {
+    @Environment(\.dismiss) var dismiss
+    let image: UIImage?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Spacing.lg) {
+                Text("Recovery QR Code")
+                    .font(Typography.headline2)
+                    .foregroundColor(.white)
+
+                if let image = image {
+                    Image(uiImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 280, maxHeight: 280)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(12)
+
+                    Text("This QR contains your **public** encryption and signing keys. Share it with a trusted attorney or store in a secure location.")
+                        .font(Typography.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.lg)
+
+                    if let imageData = image.pngData(),
+                       let pngImage = UIImage(data: imageData) {
+                        ShareLink(
+                            item: Image(uiImage: pngImage),
+                            preview: SharePreview("OnTheRecord Recovery Key", image: Image(uiImage: pngImage))
+                        ) {
+                            Label("Share QR Code", systemImage: "square.and.arrow.up")
+                                .font(Typography.bodyLarge)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Colors.witnessRed.opacity(0.8))
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+                    }
+                } else {
+                    Text("Failed to generate QR code. Keys may not be initialized yet.")
+                        .foregroundColor(Colors.witnessRed)
+                }
+
+                Spacer()
+            }
+            .padding(.top, Spacing.xl)
+            .background(Color.black)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -792,7 +916,7 @@ struct VaultView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 80))
-                            .foregroundColor(.orange)
+                            .foregroundColor(Colors.warningOrange)
                         
                         Text("Vault Locked")
                             .font(.title)
@@ -812,7 +936,7 @@ struct VaultView: View {
                                 .foregroundColor(.black)
                                 .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(Color.orange)
+                                .background(Colors.warningOrange)
                                 .cornerRadius(12)
                         }
                         .padding(.horizontal, 40)
@@ -887,7 +1011,7 @@ struct VaultVideoPlayerView: View {
                 VStack {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 40))
-                        .foregroundColor(.orange)
+                        .foregroundColor(Colors.warningOrange)
                     Text(error)
                         .foregroundColor(.gray)
                 }
@@ -1434,7 +1558,7 @@ struct SiriSettingsView: View {
                                 .foregroundColor(.secondary)
                             Text("• Voice activation may not work in noisy environments")
                                 .font(Typography.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(Colors.warningOrange)
                         }
                     }
                     .staggeredEntrance(isPresented: isAppeared, index: 4)
@@ -1567,7 +1691,7 @@ struct TwilioSetupView: View {
                                         Text("MOCK")
                                             .font(.caption2)
                                             .padding(.horizontal, 4)
-                                            .background(Color.blue.opacity(0.2))
+                                            .background(Colors.witnessRed.opacity(0.2))
                                             .cornerRadius(4)
                                     }
                                 }
@@ -1774,7 +1898,7 @@ struct DuressPINSetupView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Image(systemName: "exclamationmark.shield.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(.orange)
+                            .foregroundColor(Colors.warningOrange)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical)
 
@@ -1863,7 +1987,7 @@ struct StreamingSetupView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Image(systemName: "dot.radiowaves.left.and.right")
                             .font(.system(size: 48))
-                            .foregroundColor(.red)
+                            .foregroundColor(Colors.witnessRed)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical)
 
@@ -2052,7 +2176,7 @@ struct QuickAlertsView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: alert.icon)
                                     .font(.title2)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Colors.warningOrange)
                                     .frame(width: 40)
                                 
                                 VStack(alignment: .leading, spacing: 4) {
@@ -2069,7 +2193,7 @@ struct QuickAlertsView: View {
                                 
                                 Image(systemName: "arrow.up.circle.fill")
                                     .font(.title2)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(Colors.warningOrange)
                             }
                             .padding(.vertical, 8)
                         }
@@ -2145,7 +2269,7 @@ struct DeadManSwitchView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "timer")
                             .font(.system(size: 60))
-                            .foregroundColor(.orange)
+                            .foregroundColor(Colors.warningOrange)
                         
                         Text(alertService.deadManSwitchTimeRemaining)
                             .font(.system(size: 72, weight: .bold, design: .monospaced))
@@ -2164,7 +2288,7 @@ struct DeadManSwitchView: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.green)
+                                .background(Colors.safeGreen)
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 40)
@@ -2174,7 +2298,7 @@ struct DeadManSwitchView: View {
                             alertService.stopDeadManSwitch()
                         } label: {
                             Text("Stop Timer")
-                                .foregroundColor(.red)
+                                .foregroundColor(Colors.witnessRed)
                         }
                         .padding(.top, 8)
                     }
@@ -2237,7 +2361,7 @@ struct DeadManSwitchView: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.orange)
+                                .background(Colors.warningOrange)
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 40)
