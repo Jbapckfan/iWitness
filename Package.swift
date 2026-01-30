@@ -17,12 +17,18 @@ let package = Package(
         .target(
             name: "OnTheRecordCore",
             dependencies: [],
-            path: "OnTheRecord/Sources"
+            path: "OnTheRecord/Sources",
+            exclude: ["Views/Components/CameraPreviewView.swift"]
         ),
         .target(
             name: "OnTheRecordWatch",
             dependencies: [],
             path: "OnTheRecordWatch/Sources"
+        ),
+        .testTarget(
+            name: "OnTheRecordTests",
+            dependencies: ["OnTheRecordCore"],
+            path: "Tests/OnTheRecordTests"
         )
     ]
 )
