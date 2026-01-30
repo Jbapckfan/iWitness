@@ -75,6 +75,65 @@ final class WebDAVService: ObservableObject {
         }
     }
     
+    // MARK: - Directory Creation (MKCOL)
+
+    /// Directories we've already created in this session (avoids redundant MKCOL requests)
+    private var createdDirectories: Set<String> = []
+    private let createdDirsLock = NSLock()
+
+    /// Ensures all parent directories exist for a given upload path on a WebDAV server.
+    /// Sends MKCOL for each path component (e.g. "OnTheRecord/" then "OnTheRecord/IW-123/").
+    /// HTTP 405 (Method Not Allowed) or 301 responses are treated as "directory already exists".
+    func ensureDirectoriesExist(
+        baseURL: URL,
+        remotePath: String,
+        username: String,
+        password: String
+    ) async {
+        // Split "OnTheRecord/IW-20260130T1200-AB12/chunk_00001.iwc" into directory components
+        let components = remotePath.split(separator: "/").dropLast() // Drop the filename
+        var currentPath = ""
+
+        for component in components {
+            currentPath += "\(component)/"
+
+            // Skip if already created this session
+            createdDirsLock.lock()
+            let alreadyCreated = createdDirectories.contains(currentPath)
+            createdDirsLock.unlock()
+            if alreadyCreated { continue }
+
+            let dirURL = baseURL.appendingPathComponent(currentPath)
+            var request = URLRequest(url: dirURL)
+            request.httpMethod = "MKCOL"
+
+            let authString = "\(username):\(password)"
+            if let authData = authString.data(using: .utf8) {
+                let base64Auth = authData.base64EncodedString()
+                request.setValue("Basic \(base64Auth)", forHTTPHeaderField: "Authorization")
+            }
+
+            do {
+                let (_, response) = try await session.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse {
+                    // 201 = Created, 405 = Already exists (Method Not Allowed on existing collection),
+                    // 301 = Redirect (some servers redirect to existing dir)
+                    if [201, 405, 301].contains(httpResponse.statusCode) ||
+                       (200...299).contains(httpResponse.statusCode) {
+                        createdDirsLock.lock()
+                        createdDirectories.insert(currentPath)
+                        createdDirsLock.unlock()
+                        debugLog("[WebDAVService] Directory ensured: \(currentPath) (HTTP \(httpResponse.statusCode))")
+                    } else {
+                        debugLog("[WebDAVService] MKCOL unexpected status \(httpResponse.statusCode) for \(currentPath)")
+                    }
+                }
+            } catch {
+                debugLog("[WebDAVService] MKCOL failed for \(currentPath): \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Validates connection by attempting to list root directory (PROPFIND)
     func validateConnection(url: URL, credentials: URLCredential) async throws -> Bool {
         var request = URLRequest(url: url)

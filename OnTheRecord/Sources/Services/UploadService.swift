@@ -233,6 +233,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         )
         destinations.append(destination)
         destinations.sort { $0.priority < $1.priority }
+        processQueue() // Drain any chunks that were waiting for a destination
     }
 
     func addR2Destination(accountID: String, bucketName: String, accessKeyID: String, secretAccessKey: String) {
@@ -249,6 +250,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         )
         destinations.append(destination)
         destinations.sort { $0.priority < $1.priority }
+        processQueue() // Drain any chunks that were waiting for a destination
     }
 
     // MARK: - Queue Management
@@ -352,6 +354,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
     private func processQueue() {
         guard isNetworkAvailable else { return }
+        guard !destinations.isEmpty else { return } // Wait for destinations to load
         
         // Safety: Warn user if queue is accumulating too much (Edge Case: Stranded Data)
         queueLock.lock()
@@ -394,10 +397,9 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
     
     private func hasUploadedToAllDestinations(_ chunk: QueuedChunk) -> Bool {
-        // We consider it "done" if uploaded to at least one primary destination if multiple exist
-        // Or all configured.
-        // For highest assurance: Must upload to ALL.
-        guard !destinations.isEmpty else { return true }
+        // Safety: if no destinations are configured yet (e.g. still loading from Keychain),
+        // chunks must NOT be considered "done" — they stay in the queue until destinations load.
+        guard !destinations.isEmpty else { return false }
         return destinations.allSatisfy { chunk.uploadedTo.contains($0.name) }
     }
     
@@ -406,17 +408,38 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     private func startBackgroundUpload(chunk: QueuedChunk, destination: UploadDestination) {
         // Use the persistent file directly - NO COPYING to temp
         guard let sourceURL = chunk.fileURL else { return }
-        
+
+        // WebDAV needs directory pre-creation via MKCOL before the background PUT
+        if destination.type == .webdav {
+            let remotePath = "OnTheRecord/\(chunk.incidentID)/chunk_\(String(format: "%05d", chunk.chunkNumber)).iwc"
+            Task {
+                if let creds = destination.credentials,
+                   let username = creds.username,
+                   let password = creds.password {
+                    await WebDAVService.shared.ensureDirectoriesExist(
+                        baseURL: destination.url,
+                        remotePath: remotePath,
+                        username: username,
+                        password: password
+                    )
+                }
+                self.initiateBackgroundTask(chunk: chunk, destination: destination, sourceURL: sourceURL)
+            }
+        } else {
+            initiateBackgroundTask(chunk: chunk, destination: destination, sourceURL: sourceURL)
+        }
+    }
+
+    private func initiateBackgroundTask(chunk: QueuedChunk, destination: UploadDestination, sourceURL: URL) {
         do {
             var request: URLRequest?
-            
+
             switch destination.type {
             case .webdav:
                 request = try createWebDAVRequest(chunk: chunk, destination: destination)
             case .s3Compatible:
                 request = try createS3Request(chunk: chunk, destination: destination)
             case .beacon:
-                // P2P offload is not a URLRequest, it's a direct send
                 Task {
                     await offloadToBeacon(chunk: chunk, destination: destination)
                 }
@@ -425,23 +448,22 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
                 Task { try await saveLocally(chunk: chunk, destination: destination) }
                 return
             }
-            
+
             if let request = request {
-                // uploadTask(withRequest:fromFile:) enables true background upload
                 let task = backgroundSession.uploadTask(with: request, fromFile: sourceURL)
                 task.taskDescription = "\(chunk.chunkID)|\(destination.name)"
-                
+
                 activeTasksLock.lock()
                 activeTasks[task.taskIdentifier] = chunk
                 activeTasksLock.unlock()
-                
+
                 task.resume()
-                
+
                 Task { @MainActor in
                     self.isUploading = true
                 }
             }
-            
+
         } catch {
             debugLog("[OnTheRecord] Failed to start background upload: \(error)")
         }
@@ -467,13 +489,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             }
         }
         
-        // Note: MKCOL logic for creating directories is tricky in background sessions
-        // because we can't chain dependent requests easily.
-        // In this architecture, we assume the directory structure is pre-created or flat,
-        // OR we rely on the server handling it.
-        // Standard WebDAV requires parent dirs to exist.
-        // For MVP High Assurance, we assume the root (OnTheRecord) exists.
-        
+        // MKCOL directory creation is handled in startBackgroundUpload() before this request.
         return request
     }
     
