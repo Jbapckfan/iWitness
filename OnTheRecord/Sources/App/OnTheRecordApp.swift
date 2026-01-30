@@ -151,6 +151,16 @@ struct OnTheRecordApp: App {
             }
         }
 
+        // Listen for auto-stop triggered by max recording duration
+        NotificationCenter.default.addObserver(
+            forName: .autoStopTriggered, object: nil, queue: .main
+        ) { [self] _ in
+            Task { @MainActor in
+                debugLog("[OnTheRecord] Auto-stop triggered after \(appState.maxRecordingDuration.rawValue)")
+                await markSafe()
+            }
+        }
+
         // Load audio enhancement settings
         AudioEnhancementService.shared.loadSettings()
 
@@ -341,6 +351,7 @@ struct OnTheRecordApp: App {
 
         // Activate app state
         appState.activateICEMode()
+        IncidentHistoryService.shared.registerIncident(id: appState.currentIncidentID ?? "unknown")
         // Apply stealth start in blackout if enabled
         if UserDefaults.standard.bool(forKey: "stealth_start_blackout") {
             appState.isBlackoutOn = true
@@ -404,6 +415,16 @@ struct OnTheRecordApp: App {
 
         // Send safe signal
         await alertService.sendSafeSignal()
+
+        // Track incident for retention management
+        let duration = appState.recordingDuration
+        let bytesPerSec = Double(appState.currentQuality.bitrate) / 8.0
+        let estimatedBytes = Int64(duration * bytesPerSec * 2) // x2 for dual camera
+        IncidentHistoryService.shared.markIncidentStopped(
+            id: appState.currentIncidentID ?? "unknown",
+            estimatedBytes: estimatedBytes
+        )
+        IncidentHistoryService.shared.promoteEligibleIncidents()
 
         // Update state
         appState.markSafe()

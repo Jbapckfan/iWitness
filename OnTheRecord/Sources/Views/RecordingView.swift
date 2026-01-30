@@ -687,6 +687,11 @@ struct RecordingStatusOverlay: View {
             Text("\(recordingService.currentChunkNumber) segments • \(uploadService.chunksUploaded) uploaded")
                 .font(Typography.caption)
                 .foregroundColor(.white.opacity(0.7))
+
+            // Estimated size
+            Text("\(appState.formattedEstimatedSize) estimated")
+                .font(Typography.caption)
+                .foregroundColor(.white.opacity(0.5))
         }
     }
 }
@@ -1306,6 +1311,17 @@ struct PINDialOverlay: View {
 
             LiveActivityManager.shared.end()
             await alertService.sendSafeSignal()
+
+            // Track incident for retention management
+            let duration = appState.recordingDuration
+            let bytesPerSec = Double(appState.currentQuality.bitrate) / 8.0
+            let estimatedBytes = Int64(duration * bytesPerSec * 2) // x2 for dual camera
+            IncidentHistoryService.shared.markIncidentStopped(
+                id: appState.currentIncidentID ?? "unknown",
+                estimatedBytes: estimatedBytes
+            )
+            IncidentHistoryService.shared.promoteEligibleIncidents()
+
             appState.markSafe()
 
             let successGenerator = UINotificationFeedbackGenerator()

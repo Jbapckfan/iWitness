@@ -260,6 +260,15 @@ struct SettingsView: View {
                         Label("Video Quality", systemImage: "video.fill")
                     }
 
+                    Picker("Max Recording Duration", selection: Binding(
+                        get: { AppState.MaxRecordingDuration(rawValue: UserDefaults.standard.string(forKey: "max_recording_duration") ?? "1 hour") ?? .oneHour },
+                        set: { UserDefaults.standard.set($0.rawValue, forKey: "max_recording_duration") }
+                    )) {
+                        ForEach(AppState.MaxRecordingDuration.allCases, id: \.self) { duration in
+                            Text(duration.rawValue).tag(duration)
+                        }
+                    }
+
                     Button {
                         showingSafePINSetup = true
                     } label: {
@@ -1459,9 +1468,61 @@ struct CloudSetupView: View {
 // MARK: - Placeholder Views
 
 struct QualitySettingsView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var selectedQuality: AppState.VideoQuality
+
+    init() {
+        let raw = UserDefaults.standard.string(forKey: "video_quality") ?? "1080p"
+        _selectedQuality = State(initialValue: AppState.VideoQuality(rawValue: raw) ?? .high)
+    }
+
     var body: some View {
-        Text("Quality Settings")
-            .navigationTitle("Video Quality")
+        List {
+            Section {
+                ForEach(AppState.VideoQuality.allCases, id: \.self) { quality in
+                    Button {
+                        selectedQuality = quality
+                        UserDefaults.standard.set(quality.rawValue, forKey: "video_quality")
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(quality.rawValue)
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text(storageRate(for: quality))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            if selectedQuality == quality {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Recording Quality")
+            } footer: {
+                Text("Higher quality uses more storage and bandwidth. Quality may automatically decrease if your device overheats.")
+            }
+
+            Section {
+                Toggle("Adaptive Quality", isOn: Binding(
+                    get: { UserDefaults.standard.object(forKey: "adaptive_quality") as? Bool ?? true },
+                    set: { UserDefaults.standard.set($0, forKey: "adaptive_quality") }
+                ))
+            } footer: {
+                Text("Automatically reduce quality when the device overheats to keep recording alive.")
+            }
+        }
+        .navigationTitle("Video Quality")
+    }
+
+    private func storageRate(for quality: AppState.VideoQuality) -> String {
+        let mbPerMin = Double(quality.bitrate) / 8.0 * 60.0 / (1024 * 1024)
+        let dualRate = mbPerMin * 2 // dual camera
+        return String(format: "~%.0f MB/min (dual camera)", dualRate)
     }
 }
 

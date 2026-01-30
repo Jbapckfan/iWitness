@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingOnboarding = false
     @State private var showingSavedConfirmation = false
+    @State private var showingRetentionPrompt = false
 
     // Calculator Camouflage
     @State private var isCamouflageUnlocked = false
@@ -70,12 +71,21 @@ struct ContentView: View {
         .sheet(isPresented: $showingOnboarding) {
             OnboardingView()
         }
+        .sheet(isPresented: $showingRetentionPrompt) {
+            RetentionPromptView()
+        }
         .onAppear {
             checkFirstLaunch()
         }
         .onChange(of: appState.recordingMode) { oldValue, newValue in
             if oldValue == .recording && newValue == .uploading {
                 showingSavedConfirmation = true
+                // Check for old incidents to review after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    if !IncidentHistoryService.shared.incidentsPendingReview.isEmpty {
+                        showingRetentionPrompt = true
+                    }
+                }
             }
         }
         .onReceive(recordingService.$shouldLockScreen) { shouldLock in
@@ -940,6 +950,58 @@ struct TacticalGrid: View {
                 path.addLine(to: CGPoint(x: w - 20, y: h - 60))
             }
             .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        }
+    }
+}
+
+// MARK: - Retention Prompt View
+
+struct RetentionPromptView: View {
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject private var historyService = IncidentHistoryService.shared
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("These older recordings have been safely uploaded. You can free up space by removing local copies, or keep them.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+                ForEach(historyService.incidentsPendingReview) { incident in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(incident.id)
+                                .font(.system(.caption, design: .monospaced))
+                            Text("\(incident.formattedDuration) • \(incident.formattedSize)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button("Keep") {
+                            historyService.keepIncident(id: incident.id)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.green)
+
+                        Button("Delete") {
+                            historyService.deleteIncidentData(id: incident.id)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                    }
+                }
+            }
+            .navigationTitle("Manage Storage")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

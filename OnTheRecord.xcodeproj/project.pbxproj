@@ -59,6 +59,7 @@
 		UTIL003 /* AWSV4Signer.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC036 /* AWSV4Signer.swift */; };
 		VW008 /* FakeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC037 /* FakeGalleryView.swift */; };
 		SVC026 /* EvidenceExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC047 /* EvidenceExportService.swift */; };
+		SVC027 /* IncidentHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC048 /* IncidentHistoryService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -117,6 +118,7 @@
 		SRC045 /* AudioEnhancementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEnhancementService.swift; sourceTree = "<group>"; };
 		SRC046 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		SRC047 /* EvidenceExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExportService.swift; sourceTree = "<group>"; };
+		SRC048 /* IncidentHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentHistoryService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,6 +211,7 @@
 				SRC044 /* TimestampAnchorService.swift */,
 				SRC045 /* AudioEnhancementService.swift */,
 				SRC047 /* EvidenceExportService.swift */,
+				SRC048 /* IncidentHistoryService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -400,6 +403,7 @@
 				SVC025 /* AudioEnhancementService.swift in Sources */,
 				VW009 /* AppLockView.swift in Sources */,
 				SVC026 /* EvidenceExportService.swift in Sources */,
+				SVC027 /* IncidentHistoryService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

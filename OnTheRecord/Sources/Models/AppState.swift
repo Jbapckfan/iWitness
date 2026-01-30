@@ -73,8 +73,50 @@ class AppState: ObservableObject {
         }
     }
 
-    @Published var currentQuality: VideoQuality = .high
+    @Published var currentQuality: VideoQuality = {
+        if let raw = UserDefaults.standard.string(forKey: "video_quality"),
+           let q = VideoQuality(rawValue: raw) {
+            return q
+        }
+        return .high
+    }()
     @Published var adaptiveQualityEnabled: Bool = true
+
+    // MARK: - Auto-Stop Timer
+
+    enum MaxRecordingDuration: String, CaseIterable {
+        case thirtyMinutes = "30 min"
+        case oneHour = "1 hour"
+        case twoHours = "2 hours"
+        case fourHours = "4 hours"
+        case unlimited = "Unlimited"
+
+        var seconds: TimeInterval? {
+            switch self {
+            case .thirtyMinutes: return 1800
+            case .oneHour: return 3600
+            case .twoHours: return 7200
+            case .fourHours: return 14400
+            case .unlimited: return nil
+            }
+        }
+
+        var warningThreshold: TimeInterval? {
+            // Warn 5 minutes before auto-stop
+            guard let s = seconds else { return nil }
+            return s - 300
+        }
+    }
+
+    @Published var maxRecordingDuration: MaxRecordingDuration = {
+        if let raw = UserDefaults.standard.string(forKey: "max_recording_duration"),
+           let val = MaxRecordingDuration(rawValue: raw) {
+            return val
+        }
+        return .oneHour
+    }()
+
+    @Published var autoStopWarningShown = false
 
     // MARK: - Computed Properties
 
@@ -91,6 +133,20 @@ class AppState: ObservableObject {
         let minutes = Int(recordingDuration) / 60
         let seconds = Int(recordingDuration) % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var estimatedRecordingSizeMB: Double {
+        let bytesPerSec = Double(currentQuality.bitrate) / 8.0
+        let dualMultiplier: Double = 2.0 // dual camera
+        return (recordingDuration * bytesPerSec * dualMultiplier) / (1024 * 1024)
+    }
+
+    var formattedEstimatedSize: String {
+        let mb = estimatedRecordingSizeMB
+        if mb >= 1024 {
+            return String(format: "%.1f GB", mb / 1024)
+        }
+        return String(format: "%.0f MB", mb)
     }
 
     // MARK: - Actions
@@ -115,6 +171,19 @@ class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self = self, let startTime = self.recordingStartTime else { return }
                 self.recordingDuration = Date().timeIntervalSince(startTime)
+
+                // Auto-stop warning
+                if let warning = self.maxRecordingDuration.warningThreshold,
+                   self.recordingDuration >= warning && !self.autoStopWarningShown {
+                    self.autoStopWarningShown = true
+                    NotificationCenter.default.post(name: .autoStopWarning, object: nil)
+                }
+
+                // Auto-stop
+                if let max = self.maxRecordingDuration.seconds,
+                   self.recordingDuration >= max {
+                    NotificationCenter.default.post(name: .autoStopTriggered, object: nil)
+                }
             }
         }
     }
@@ -142,6 +211,7 @@ class AppState: ObservableObject {
         contactsConfirmed = 0
         locationHistory = []
         isBlackoutOn = false
+        autoStopWarningShown = false
     }
 
     // MARK: - Private
@@ -176,4 +246,11 @@ struct Location: Codable, Equatable {
     var googleMapsURL: URL? {
         URL(string: "https://www.google.com/maps?q=\(latitude),\(longitude)")
     }
+}
+
+// MARK: - Auto-Stop Notifications
+
+extension Notification.Name {
+    static let autoStopWarning = Notification.Name("com.ontherecord.autoStopWarning")
+    static let autoStopTriggered = Notification.Name("com.ontherecord.autoStopTriggered")
 }
