@@ -60,6 +60,7 @@
 		VW008 /* FakeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC037 /* FakeGalleryView.swift */; };
 		SVC026 /* EvidenceExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC047 /* EvidenceExportService.swift */; };
 		SVC027 /* IncidentHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC048 /* IncidentHistoryService.swift */; };
+		CMP006 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC049 /* CameraPreviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -119,6 +120,7 @@
 		SRC046 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		SRC047 /* EvidenceExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExportService.swift; sourceTree = "<group>"; };
 		SRC048 /* IncidentHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentHistoryService.swift; sourceTree = "<group>"; };
+		SRC049 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -257,6 +259,7 @@
 			isa = PBXGroup;
 			children = (
 				SRC025 /* AnimatedGradient.swift */,
+				SRC049 /* CameraPreviewView.swift */,
 				SRC022 /* GlassCard.swift */,
 				SRC023 /* PremiumButton.swift */,
 				SRC024 /* StatusBadge.swift */,
@@ -378,6 +381,7 @@
 				CMP003 /* StatusBadge.swift in Sources */,
 				CMP004 /* AnimatedGradient.swift in Sources */,
 				CMP005 /* TransitionModifiers.swift in Sources */,
+				CMP006 /* CameraPreviewView.swift in Sources */,
 				WGT001 /* OnTheRecordLiveActivity.swift in Sources */,
 				VW007 /* CalculatorCamouflageView.swift in Sources */,
 				77DE98D64C6A1CCF54FA0992 /* ShakeGestureService.swift in Sources */,

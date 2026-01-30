@@ -236,8 +236,8 @@ class RecordingService: NSObject, ObservableObject {
 
     // MARK: - Camera Preview Layers (for UI)
 
-    private(set) var frontPreviewLayer: AVCaptureVideoPreviewLayer?
-    private(set) var backPreviewLayer: AVCaptureVideoPreviewLayer?
+    @Published private(set) var frontPreviewLayer: AVCaptureVideoPreviewLayer?
+    @Published private(set) var backPreviewLayer: AVCaptureVideoPreviewLayer?
 
     // Legacy single preview (for fallback)
     var previewLayer: AVCaptureVideoPreviewLayer? {
