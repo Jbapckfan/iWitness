@@ -517,24 +517,34 @@ struct HomeView: View {
                             
                             Spacer(minLength: 40)
                             
-                            // 3. Activation Core
-                            ZStack {
-                                // Industrial Ring
-                                Circle()
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 2)
-                                    .frame(width: 260, height: 260)
-                                
-                                // Dashed Ring
-                                if !reduceMotion {
+                            // 3. Activation Core — responsive to screen width
+                            GeometryReader { geo in
+                                let baseSize = min(geo.size.width, geo.size.height) * 0.65
+                                let mainSize = max(baseSize, 180)   // floor for SE
+                                let ringSize = mainSize * (260.0 / 240.0)
+                                let dashSize = mainSize * (290.0 / 240.0)
+
+                                ZStack {
+                                    // Industrial Ring
                                     Circle()
-                                        .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                                        .frame(width: 290, height: 290)
-                                        .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
-                                        .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                                        .frame(width: ringSize, height: ringSize)
+
+                                    // Dashed Ring
+                                    if !reduceMotion {
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                                            .frame(width: dashSize, height: dashSize)
+                                            .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
+                                            .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
+                                    }
+
+                                    ActivationButton(buttonSize: mainSize)
                                 }
-                                
-                                ActivationButton()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
+                            .frame(height: 310)
+                            .frame(maxWidth: .infinity)
                             
                             Text("SYSTEM_ARMED // READY_TO_ENGAGE")
                                 .font(Typography.terminalSmall)
@@ -623,6 +633,8 @@ struct PressableButtonStyle: ButtonStyle {
 // MARK: - Activation Button
 
 struct ActivationButton: View {
+    var buttonSize: CGFloat = 240
+
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var recordingService: RecordingService
     @EnvironmentObject var alertService: AlertService
@@ -635,6 +647,11 @@ struct ActivationButton: View {
     @State private var pulseScale: CGFloat = 1.0
     @State private var glowIntensity: CGFloat = 0.4
 
+    private var glowSize: CGFloat { buttonSize * (280.0 / 240.0) }
+    private var pulseRingSize: CGFloat { buttonSize * (260.0 / 240.0) }
+    private var iconSize: CGFloat { max(buttonSize * (56.0 / 240.0), 32) }
+    private var textSize: CGFloat { max(buttonSize * (28.0 / 240.0), 18) }
+
     var body: some View {
         Button {
             activateWitnessMode()
@@ -643,7 +660,7 @@ struct ActivationButton: View {
                 // Outer glow ring
                 Circle()
                     .fill(DesignSystem.witnessRed.opacity(0.15))
-                    .frame(width: 280, height: 280)
+                    .frame(width: glowSize, height: glowSize)
                     .blur(radius: 20)
                     .scaleEffect(pulseScale)
 
@@ -660,7 +677,7 @@ struct ActivationButton: View {
                         ),
                         lineWidth: 3
                     )
-                    .frame(width: 260, height: 260)
+                    .frame(width: pulseRingSize, height: pulseRingSize)
                     .scaleEffect(pulseScale)
 
                 // Main button with premium gradient
@@ -673,10 +690,10 @@ struct ActivationButton: View {
                             ]),
                             center: .center,
                             startRadius: 0,
-                            endRadius: 120
+                            endRadius: buttonSize / 2
                         )
                     )
-                    .frame(width: 240, height: 240)
+                    .frame(width: buttonSize, height: buttonSize)
                     .overlay(
                         Circle()
                             .stroke(
@@ -704,10 +721,10 @@ struct ActivationButton: View {
                 } else {
                     VStack(spacing: Spacing.sm) {
                         Image(systemName: "video.fill")
-                            .font(.system(size: 56, weight: .medium))
+                            .font(.system(size: iconSize, weight: .medium))
 
                         Text("WITNESS")
-                            .font(.system(size: 28, weight: .heavy))
+                            .font(.system(size: textSize, weight: .heavy))
                             .tracking(1)
                     }
                     .foregroundColor(.white)
@@ -962,44 +979,102 @@ struct RetentionPromptView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("These older recordings have been safely uploaded. You can free up space by removing local copies, or keep them.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-                ForEach(historyService.incidentsPendingReview) { incident in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(incident.id)
-                                .font(.system(.caption, design: .monospaced))
-                            Text("\(incident.formattedDuration) • \(incident.formattedSize)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                ScrollView {
+                    VStack(spacing: Spacing.md) {
+                        // Header explanation
+                        GlassCard(material: .thinMaterial, padding: Spacing.md) {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: "externaldrive.fill.badge.checkmark")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(Colors.safeGreen)
+
+                                Text("These older recordings have been safely uploaded. Free up space by removing local copies, or keep them.")
+                                    .font(Typography.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, Spacing.lg)
+
+                        // Incident cards
+                        ForEach(historyService.incidentsPendingReview) { incident in
+                            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                                VStack(spacing: Spacing.sm) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(incident.id)
+                                                .font(.system(.caption, design: .monospaced))
+                                                .foregroundColor(.white)
+                                            Text("\(incident.formattedDuration) • \(incident.formattedSize)")
+                                                .font(Typography.caption)
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        Spacer()
+                                    }
+
+                                    HStack(spacing: Spacing.sm) {
+                                        Button {
+                                            withAnimation { historyService.keepIncident(id: incident.id) }
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                Text("Keep")
+                                            }
+                                            .font(Typography.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, Spacing.xs)
+                                            .background(Colors.safeGreen.opacity(0.8), in: RoundedRectangle(cornerRadius: Spacing.Radius.sm))
+                                        }
+
+                                        Button {
+                                            withAnimation { historyService.deleteIncidentData(id: incident.id) }
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "trash.fill")
+                                                Text("Delete")
+                                            }
+                                            .font(Typography.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, Spacing.xs)
+                                            .background(Colors.witnessRed.opacity(0.8), in: RoundedRectangle(cornerRadius: Spacing.Radius.sm))
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, Spacing.lg)
                         }
 
-                        Spacer()
-
-                        Button("Keep") {
-                            historyService.keepIncident(id: incident.id)
+                        if historyService.incidentsPendingReview.isEmpty {
+                            VStack(spacing: Spacing.sm) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(Colors.safeGreen)
+                                Text("All clear")
+                                    .font(Typography.bodyLarge)
+                                    .foregroundColor(.white)
+                                Text("No incidents pending review.")
+                                    .font(Typography.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, Spacing.xl)
                         }
-                        .buttonStyle(.bordered)
-                        .tint(.green)
-
-                        Button("Delete") {
-                            historyService.deleteIncidentData(id: incident.id)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
                     }
+                    .padding(.top, Spacing.md)
                 }
             }
             .navigationTitle("Manage Storage")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
                 }
             }
         }

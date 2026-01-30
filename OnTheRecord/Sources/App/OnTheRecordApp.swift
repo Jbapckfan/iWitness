@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Combine
+import UserNotifications
 
 // MARK: - AppDelegate (Background Upload Session)
 
@@ -74,8 +75,16 @@ struct OnTheRecordApp: App {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background {
+            switch newPhase {
+            case .background:
                 appLockService.lock()
+                if appState.isRecording {
+                    postBackgroundRecordingNotification()
+                }
+            case .active:
+                removeBackgroundRecordingNotification()
+            default:
+                break
             }
         }
     }
@@ -438,5 +447,40 @@ struct OnTheRecordApp: App {
 
         // End Live Activity
         LiveActivityManager.shared.end()
+    }
+
+    // MARK: - Background Recording Notification
+
+    private static let backgroundNotificationID = "com.ontherecord.backgroundRecording"
+
+    private func postBackgroundRecordingNotification() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "Recording Active"
+            content.body = "On The Record is still recording in the background. Tap to return."
+            content.sound = nil
+            content.interruptionLevel = .passive
+
+            // Fire immediately (1 second trigger)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let request = UNNotificationRequest(
+                identifier: Self.backgroundNotificationID,
+                content: content,
+                trigger: trigger
+            )
+            center.add(request) { error in
+                if let error = error {
+                    debugLog("[OnTheRecord] Background notification failed: \(error)")
+                }
+            }
+        }
+    }
+
+    private func removeBackgroundRecordingNotification() {
+        let center = UNUserNotificationCenter.current()
+        center.removeDeliveredNotifications(withIdentifiers: [Self.backgroundNotificationID])
+        center.removePendingNotificationRequests(withIdentifiers: [Self.backgroundNotificationID])
     }
 }

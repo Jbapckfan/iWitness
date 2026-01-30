@@ -44,7 +44,7 @@ struct SettingsView: View {
                         Label("Add Contact", systemImage: "plus")
                     }
                 } header: {
-                    Text("Emergency Contacts")
+                    SettingSectionHeader(title: "Emergency Contacts", icon: "person.crop.circle.badge.exclamationmark.fill", tint: Colors.witnessRed)
                 } footer: {
                     Text("These contacts will be notified when you activate Witness mode.")
                 }
@@ -83,7 +83,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Witness Network")
+                    SettingSectionHeader(title: "Witness Network", icon: "antenna.radiowaves.left.and.right", tint: .blue)
                 } footer: {
                     Text("Help others by securely offloading and uploading their encrypted evidence. You cannot view the content.")
                 }
@@ -131,7 +131,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Upload Destinations")
+                    SettingSectionHeader(title: "Upload Destinations", icon: "externaldrive.fill.badge.checkmark", tint: .indigo)
                 } footer: {
                     Text("Footage is encrypted before upload. Configure multiple destinations for redundancy.")
                 }
@@ -168,7 +168,7 @@ struct SettingsView: View {
                     ))
                     .disabled(!liveStreamService.isConfigured)
                 } header: {
-                    Text("Live Streaming")
+                    SettingSectionHeader(title: "Live Streaming", icon: "dot.radiowaves.left.and.right", tint: Colors.witnessRed)
                 } footer: {
                     Text("Stream video in real-time to cloud storage. Contacts receive a link to watch live.")
                 }
@@ -190,7 +190,7 @@ struct SettingsView: View {
                     Toggle("Use Twilio for Alerts", isOn: $alertService.useTwilio)
                         .disabled(alertService.twilioConfig == nil)
                 } header: {
-                    Text("Background SMS")
+                    SettingSectionHeader(title: "Background SMS", icon: "message.fill", tint: Colors.safeGreen)
                 } footer: {
                     Text("Twilio enables automatic SMS without opening Messages app. Mock mode available for testing.")
                 }
@@ -229,7 +229,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Voice & Watch")
+                    SettingSectionHeader(title: "Voice & Watch", icon: "applewatch", tint: .cyan)
                 } footer: {
                     Text("Use Siri or your Apple Watch to activate OnTheRecord hands-free.")
                 }
@@ -332,6 +332,8 @@ struct SettingsView: View {
                     } label: {
                         Label("Passcode Drill", systemImage: "hand.tap.fill")
                     }
+                } header: {
+                    SettingSectionHeader(title: "Security & Recording", icon: "lock.shield.fill", tint: Colors.warningOrange)
                 } footer: {
                     Text("The Secure Vault keeps evidence isolated from your Photos app. If your phone is seized or unlocked by force, these recordings remain encrypted and inaccessible.")
                 }
@@ -364,7 +366,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Safety")
+                    SettingSectionHeader(title: "Safety", icon: "bolt.shield.fill", tint: Colors.warningOrange)
                 } footer: {
                     Text("Quick Alerts send pre-written messages instantly. Dead Man's Switch alerts contacts if you don't check in.")
                 }
@@ -386,7 +388,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Security")
+                    SettingSectionHeader(title: "Security", icon: "faceid", tint: Colors.safeGreen)
                 } footer: {
                     Text("When enabled, OnTheRecord requires \(AppLockService.shared.biometricName) or device passcode each time you open the app. Protects your recordings if someone else has access to your unlocked phone.")
                 }
@@ -429,7 +431,7 @@ struct SettingsView: View {
                         }
                     ))
                 } header: {
-                    Text("Advanced Recording")
+                    SettingSectionHeader(title: "Advanced Recording", icon: "waveform.badge.mic", tint: .purple)
                 } footer: {
                     Text("Live Transcription converts speech to text in real-time (on-device). Audio Enhancement boosts voice clarity in exported evidence packages (originals preserved). Watermarking embeds invisible origin metadata in every frame. 3D Depth Capture uses LiDAR to record spatial data (supported devices only). Geo-Fence starts recording automatically when you enter marked zones.")
                 }
@@ -449,7 +451,7 @@ struct SettingsView: View {
                         Label("Share on X / Twitter", systemImage: "message.fill")
                     }
                 } header: {
-                    Text("Community")
+                    SettingSectionHeader(title: "Community", icon: "person.3.fill", tint: .pink)
                 } footer: {
                     Text("Help us build the world's largest witness network.")
                 }
@@ -468,7 +470,7 @@ struct SettingsView: View {
                         Label("Legal Resources", systemImage: "building.columns.fill")
                     }
                 } header: {
-                    Text("Legal")
+                    SettingSectionHeader(title: "Legal", icon: "building.columns.fill", tint: .gray)
                 }
 
                 // Recovery Kit Section
@@ -485,7 +487,7 @@ struct SettingsView: View {
                         Label("Import Recovery Kit", systemImage: "square.and.arrow.down")
                     }
                 } header: {
-                    Text("Recovery Kit")
+                    SettingSectionHeader(title: "Recovery Kit", icon: "key.fill", tint: .yellow)
                 } footer: {
                     Text("Your Recovery Kit lets you or a trusted contact decrypt evidence on a new device. Save the recovery file and write down your recovery code. Both are needed.")
                 }
@@ -507,7 +509,7 @@ struct SettingsView: View {
                         Label("Terms of Service", systemImage: "doc.text.fill")
                     }
                 } header: {
-                    Text("About")
+                    SettingSectionHeader(title: "About", icon: "info.circle.fill", tint: .gray)
                 }
                 }
                 .scrollContentBackground(.hidden)
@@ -1465,7 +1467,29 @@ struct CloudSetupView: View {
     }
 }
 
-// MARK: - Placeholder Views
+// MARK: - Tinted Settings Section Header
+
+struct SettingSectionHeader: View {
+    let title: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 22, height: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(tint)
+                )
+            Text(title)
+        }
+    }
+}
+
+// MARK: - Quality Settings
 
 struct QualitySettingsView: View {
     @EnvironmentObject var appState: AppState
@@ -1485,13 +1509,32 @@ struct QualitySettingsView: View {
                         UserDefaults.standard.set(quality.rawValue, forKey: "video_quality")
                     } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text(quality.rawValue)
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 Text(storageRate(for: quality))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                // Storage weight bar
+                                GeometryReader { geo in
+                                    let fraction = storageWeight(for: quality)
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.gray.opacity(0.2))
+                                            .frame(height: 4)
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Colors.safeGreen, Colors.warningOrange],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .frame(width: geo.size.width * fraction, height: 4)
+                                    }
+                                }
+                                .frame(height: 4)
                             }
                             Spacer()
                             if selectedQuality == quality {
@@ -1523,6 +1566,11 @@ struct QualitySettingsView: View {
         let mbPerMin = Double(quality.bitrate) / 8.0 * 60.0 / (1024 * 1024)
         let dualRate = mbPerMin * 2 // dual camera
         return String(format: "~%.0f MB/min (dual camera)", dualRate)
+    }
+
+    private func storageWeight(for quality: AppState.VideoQuality) -> CGFloat {
+        let maxBitrate = Double(AppState.VideoQuality.high.bitrate)
+        return CGFloat(Double(quality.bitrate) / maxBitrate)
     }
 }
 

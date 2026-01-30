@@ -141,12 +141,36 @@ class AppState: ObservableObject {
         return (recordingDuration * bytesPerSec * dualMultiplier) / (1024 * 1024)
     }
 
+    var autoStopTimeRemaining: TimeInterval? {
+        guard let max = maxRecordingDuration.seconds else { return nil }
+        let remaining = max - recordingDuration
+        return remaining > 0 ? remaining : 0
+    }
+
+    var formattedAutoStopRemaining: String? {
+        guard autoStopWarningShown, let remaining = autoStopTimeRemaining, remaining > 0 else { return nil }
+        let m = Int(remaining) / 60, s = Int(remaining) % 60
+        return String(format: "Auto-stop in %d:%02d", m, s)
+    }
+
     var formattedEstimatedSize: String {
         let mb = estimatedRecordingSizeMB
         if mb >= 1024 {
             return String(format: "%.1f GB", mb / 1024)
         }
         return String(format: "%.0f MB", mb)
+    }
+
+    /// Color progresses green→orange→red as estimated size grows
+    var estimatedSizeColor: (red: Double, green: Double, blue: Double) {
+        let mb = estimatedRecordingSizeMB
+        if mb < 500 {
+            return (0.2, 0.8, 0.3)    // green
+        } else if mb < 2048 {
+            return (1.0, 0.6, 0.0)    // orange
+        } else {
+            return (0.9, 0.1, 0.1)    // red
+        }
     }
 
     // MARK: - Actions
@@ -171,6 +195,15 @@ class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self = self, let startTime = self.recordingStartTime else { return }
                 self.recordingDuration = Date().timeIntervalSince(startTime)
+
+                // Update Live Activity every 5 seconds
+                let elapsed = Int(self.recordingDuration)
+                if elapsed % 5 == 0 {
+                    LiveActivityManager.shared.update(
+                        elapsedSeconds: elapsed,
+                        estimatedSizeMB: self.estimatedRecordingSizeMB
+                    )
+                }
 
                 // Auto-stop warning
                 if let warning = self.maxRecordingDuration.warningThreshold,

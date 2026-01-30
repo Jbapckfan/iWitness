@@ -347,14 +347,17 @@ struct DualCameraPreviewView: View {
     // State for draggable PiP position (corner: 0=topLeft, 1=topRight, 2=bottomLeft, 3=bottomRight)
     @State private var pipCorner: Int = 0
     @State private var dragOffset: CGSize = .zero
-    
+    @State private var lastDragQuadrant: Int = -1
+
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 // Main camera (back camera - full screen)
                 BackCameraLayer(recordingService: recordingService)
                     .ignoresSafeArea()
-                
+
                 // PiP camera (front camera - overlay)
                 FrontCameraPiP(
                     recordingService: recordingService,
@@ -366,16 +369,33 @@ struct DualCameraPreviewView: View {
                     DragGesture()
                         .onChanged { value in
                             dragOffset = value.translation
+
+                            // Tick haptic when crossing quadrant boundaries
+                            let currentPos = pipPosition(for: geometry)
+                            let fx = currentPos.x + value.translation.width
+                            let fy = currentPos.y + value.translation.height
+                            let cx = geometry.size.width / 2
+                            let cy = geometry.size.height / 2
+                            let quadrant: Int
+                            if fx > cx && fy > cy { quadrant = 3 }
+                            else if fx > cx { quadrant = 1 }
+                            else if fy > cy { quadrant = 2 }
+                            else { quadrant = 0 }
+
+                            if quadrant != lastDragQuadrant && lastDragQuadrant != -1 {
+                                selectionFeedback.selectionChanged()
+                            }
+                            lastDragQuadrant = quadrant
                         }
                         .onEnded { value in
                             // Determine which corner to snap to
                             let currentPos = pipPosition(for: geometry)
                             let finalX = currentPos.x + value.translation.width
                             let finalY = currentPos.y + value.translation.height
-                            
+
                             let centerX = geometry.size.width / 2
                             let centerY = geometry.size.height / 2
-                            
+
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                                 if finalX > centerX && finalY > centerY {
                                     pipCorner = 3
@@ -388,13 +408,15 @@ struct DualCameraPreviewView: View {
                                 }
                                 dragOffset = .zero
                             }
-                            
+                            lastDragQuadrant = -1
+
                             let generator = UIImpactFeedbackGenerator(style: .light)
                             generator.impactOccurred()
                         }
                 )
             }
         }
+        .onAppear { selectionFeedback.prepare() }
     }
     
     private func pipSize(for geometry: GeometryProxy) -> CGSize {
@@ -578,10 +600,35 @@ struct RecordingHeader: View {
                 .font(Typography.timerLarge)
                 .foregroundColor(.white)
                 .monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(.snappy, value: appState.formattedDuration)
                 .shadow(color: Colors.witnessRed.opacity(0.3), radius: 10)
                 .accessibilityLabel("Recording time: \(appState.formattedDuration)")
+
+            // Auto-stop countdown badge
+            if let countdown = appState.formattedAutoStopRemaining {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "timer")
+                        .font(.system(size: 12, weight: .bold))
+                    Text(countdown)
+                        .font(Typography.caption)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xxs)
+                .background(
+                    Capsule()
+                        .fill(Colors.warningOrange)
+                )
+                .shadow(color: Colors.warningOrange.opacity(0.5), radius: 8)
+                .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel(countdown)
+            }
         }
         .padding(.vertical, Spacing.lg)
+        .animation(.easeInOut(duration: 0.3), value: appState.autoStopWarningShown)
     }
 }
 
@@ -596,6 +643,7 @@ struct RecordingStatusOverlay: View {
 
     @State private var showingShareSheet = false
     @State private var showingAddContact = false
+    @State private var isOverlayVisible = false
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -612,7 +660,8 @@ struct RecordingStatusOverlay: View {
                     icon: "video.fill"
                 )
             }
-            
+            .staggeredEntrance(isPresented: isOverlayVisible, index: 0)
+
             // Live Stream status (if active)
             if liveStreamService.isStreaming {
                 LiveBadge(segmentCount: liveStreamService.segmentsUploaded) {
@@ -622,6 +671,7 @@ struct RecordingStatusOverlay: View {
                 .sheet(isPresented: $showingShareSheet) {
                     ShareStreamSheet(streamURL: liveStreamService.streamURL)
                 }
+                .staggeredEntrance(isPresented: isOverlayVisible, index: 1)
             }
 
             // Contacts notified status
@@ -653,6 +703,7 @@ struct RecordingStatusOverlay: View {
                 }
                 .foregroundColor(.white)
             }
+            .staggeredEntrance(isPresented: isOverlayVisible, index: 2)
             .sheet(isPresented: $showingAddContact) {
                 QuickAddContactSheet()
             }
@@ -682,16 +733,34 @@ struct RecordingStatusOverlay: View {
                 }
                 .foregroundColor(.white)
             }
+            .staggeredEntrance(isPresented: isOverlayVisible, index: 3)
 
             // Segment counter
             Text("\(recordingService.currentChunkNumber) segments • \(uploadService.chunksUploaded) uploaded")
                 .font(Typography.caption)
                 .foregroundColor(.white.opacity(0.7))
+                .contentTransition(.numericText())
+                .animation(.snappy, value: recordingService.currentChunkNumber)
+                .staggeredEntrance(isPresented: isOverlayVisible, index: 4)
 
-            // Estimated size
+            // Estimated size with color progression
             Text("\(appState.formattedEstimatedSize) estimated")
                 .font(Typography.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(
+                    Color(
+                        red: appState.estimatedSizeColor.red,
+                        green: appState.estimatedSizeColor.green,
+                        blue: appState.estimatedSizeColor.blue
+                    ).opacity(0.8)
+                )
+                .contentTransition(.numericText())
+                .animation(.snappy, value: appState.formattedEstimatedSize)
+                .staggeredEntrance(isPresented: isOverlayVisible, index: 5)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isOverlayVisible = true
+            }
         }
     }
 }

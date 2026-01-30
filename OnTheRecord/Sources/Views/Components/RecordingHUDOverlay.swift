@@ -5,13 +5,7 @@ struct RecordingHUDOverlay: View {
     @EnvironmentObject var recordingService: RecordingService
     @StateObject private var transcriptionService = TranscriptionService.shared
 
-    // Aesthetic state for simulated telemetry
-    @State private var shutterSpeed: String = "1/60"
-    @State private var iso: String = "ISO 400"
     @State private var gridOpacity: Double = 0.6
-    
-    // Periodic update timer
-    let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     
     var body: some View {
         ZStack {
@@ -40,11 +34,11 @@ struct RecordingHUDOverlay: View {
 
                     Spacer()
 
-                    // Top Right: Camera Stats
+                    // Top Right: Camera Stats (live from quality setting)
                     VStack(alignment: .trailing, spacing: 4) {
                         HUDText(label: "CAM", value: recordingService.isDualCameraSupported ? "DUAL" : "SGL")
-                        HUDText(label: "RES", value: "4K")
-                        HUDText(label: "FPS", value: "60")
+                        HUDText(label: "RES", value: appState.currentQuality.rawValue)
+                        HUDText(label: "BPS", value: formatBitrate(appState.currentQuality.bitrate))
                     }
                 }
                 .padding(.horizontal, Spacing.screenPadding)
@@ -54,11 +48,11 @@ struct RecordingHUDOverlay: View {
                 
                 // 4. Bottom Telemetry Bar
                 HStack(alignment: .bottom) {
-                    // Bottom Left: Exposure Info
+                    // Bottom Left: Recording Metrics (live)
                     VStack(alignment: .leading, spacing: 4) {
-                        HUDText(label: "ISO", value: iso)
-                        HUDText(label: "SHT", value: shutterSpeed)
-                        HUDText(label: "EV", value: "+0.0")
+                        HUDText(label: "SEG", value: "\(recordingService.currentChunkNumber)")
+                        HUDText(label: "SIZE", value: appState.formattedEstimatedSize)
+                        HUDText(label: "DUR", value: appState.formattedDuration)
                     }
                     
                     Spacer()
@@ -93,17 +87,13 @@ struct RecordingHUDOverlay: View {
         }
         .allowsHitTesting(false) // Pass touches through to camera/buttons
         .accessibilityHidden(true)
-        .onReceive(timer) { _ in
-            updateTelemetry()
-        }
     }
-    
-    private func updateTelemetry() {
-        // Subtle randomization to make it feel "live"
-        if Bool.random() {
-            let isos = ["200", "250", "320", "400", "500", "640"]
-            iso = "ISO \(isos.randomElement()!)"
+
+    private func formatBitrate(_ bps: Int) -> String {
+        if bps >= 1_000_000 {
+            return String(format: "%.0fM", Double(bps) / 1_000_000)
         }
+        return String(format: "%.0fK", Double(bps) / 1_000)
     }
 }
 
