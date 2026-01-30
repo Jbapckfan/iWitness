@@ -16,7 +16,27 @@ xcrun simctl list devices available
 
 **Dual-camera recording requires a physical iPhone XS or newer** — the simulator cannot run `AVCaptureMultiCamSession`. Single-camera and non-AV features work in the simulator.
 
-There are no tests, no linter, and no CI configured. The project has zero external dependencies — everything uses Apple frameworks only.
+The project has zero external dependencies — everything uses Apple frameworks only.
+
+### Tests
+
+146 unit tests live in `Tests/OnTheRecordTests/` and run via the SPM test target:
+
+```bash
+# Run tests via Xcode (recommended — enables Keychain-dependent tests):
+xcodebuild test -scheme OnTheRecord -destination 'id=<SIMULATOR_UUID>' -only-testing:OnTheRecordTests
+
+# Or via SPM (33 Keychain-dependent tests will be skipped):
+swift test
+```
+
+| Suite | Tests | Coverage |
+|---|---|---|
+| EncryptionServiceTests | 37 | AES-GCM, HKDF, RSA wrapping, signatures, thread safety |
+| RecoveryKitTests | 27 | Code gen, create/import roundtrip, normalization |
+| TimestampAnchorTests | 19 | Hash chaining, tamper detection, disk persistence |
+| AppStateTests | 46 | State machine, ICE mode, computed properties |
+| ChunkWriterTests | 17 | File I/O, numbering, orphan cleanup, thread safety |
 
 ## Architecture
 

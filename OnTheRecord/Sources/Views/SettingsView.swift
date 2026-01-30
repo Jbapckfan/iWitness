@@ -1702,28 +1702,30 @@ struct LegalResourcesView: View {
             ScrollView {
                 VStack(spacing: Spacing.md) {
                     ForEach(Array(resources.enumerated()), id: \.offset) { index, resource in
-                        Link(destination: URL(string: resource.url)!) {
-                            HStack(spacing: Spacing.sm) {
-                                Image(systemName: resource.icon)
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.blue)
-                                    .frame(width: 32)
+                        if let url = URL(string: resource.url) {
+                            Link(destination: url) {
+                                HStack(spacing: Spacing.sm) {
+                                    Image(systemName: resource.icon)
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.blue)
+                                        .frame(width: 32)
 
-                                Text(resource.name)
-                                    .font(Typography.bodyMedium)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
+                                    Text(resource.name)
+                                        .font(Typography.bodyMedium)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
 
-                                Spacer()
+                                    Spacer()
 
-                                Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(Spacing.md)
+                                .glassBackground(cornerRadius: Spacing.Radius.md)
                             }
-                            .padding(Spacing.md)
-                            .glassBackground(cornerRadius: Spacing.Radius.md)
+                            .staggeredEntrance(isPresented: isAppeared, index: index)
                         }
-                        .staggeredEntrance(isPresented: isAppeared, index: index)
                     }
                 }
                 .padding()

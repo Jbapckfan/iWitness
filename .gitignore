@@ -21,6 +21,9 @@ Podfile.lock
 # Carthage
 Carthage/Build/
 
+# Serena IDE
+.serena/
+
 # OS files
 .DS_Store
 *.swp

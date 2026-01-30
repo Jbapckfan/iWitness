@@ -189,7 +189,9 @@ class RecoveryKitService {
             debugLog("[RecoveryKit] RSA key lookup failed: \(status)")
             return nil
         }
-        let key = item as! SecKey
+        // CFTypeRef from kSecClassKey + kSecReturnRef is guaranteed to be SecKey.
+        // The compiler confirms the downcast always succeeds for CoreFoundation types.
+        let key = item as! SecKey // swiftlint:disable:this force_cast
 
         var error: Unmanaged<CFError>?
         guard let data = SecKeyCopyExternalRepresentation(key, &error) else {

@@ -228,7 +228,7 @@ struct LiveBadge: View {
                 isPulsing = true
             }
         }
-        .accessibilityLabel("Live streaming\(segmentCount != nil ? ", \(segmentCount!) segments sent" : "")")
+        .accessibilityLabel("Live streaming\(segmentCount != nil ? ", \(segmentCount ?? 0) segments sent" : "")")
     }
 }
 

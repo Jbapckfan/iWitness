@@ -423,7 +423,8 @@ extension WitnessBeaconService: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
         // Found a witness. Auto-invite them!
         debugLog("[WitnessBeacon] Found witness: \(peerID.displayName). Inviting...")
-        browser.invitePeer(peerID, to: self.session!, withContext: nil, timeout: 10)
+        guard let session = self.session else { return }
+        browser.invitePeer(peerID, to: session, withContext: nil, timeout: 10)
     }
     
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
