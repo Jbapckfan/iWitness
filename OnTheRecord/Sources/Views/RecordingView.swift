@@ -529,35 +529,7 @@ private struct FrontCameraLayer: UIViewRepresentable {
     }
 }
 
-// MARK: - Camera Preview (UIKit Bridge) - Single Camera Fallback
-
-struct CameraPreviewView: UIViewRepresentable {
-    let recordingService: RecordingService
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        view.backgroundColor = .black
-
-        if let previewLayer = recordingService.previewLayer {
-            previewLayer.videoGravity = .resizeAspectFill
-            previewLayer.frame = UIScreen.main.bounds
-            view.layer.addSublayer(previewLayer)
-        }
-
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        if let previewLayer = recordingService.previewLayer {
-            if previewLayer.superlayer !== uiView.layer {
-                uiView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
-                previewLayer.videoGravity = .resizeAspectFill
-                uiView.layer.addSublayer(previewLayer)
-            }
-            previewLayer.frame = uiView.bounds
-        }
-    }
-}
+// CameraPreviewView (single camera fallback) is defined in Components/CameraPreviewView.swift
 
 // MARK: - Camera Flip Button
 
