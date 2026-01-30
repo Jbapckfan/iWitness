@@ -160,7 +160,7 @@ class TranscriptionService: ObservableObject {
             return
         }
 
-        guard let format = AVAudioFormat(streamDescription: audioStreamBasicDescription.pointee) else {
+        guard let format = AVAudioFormat(streamDescription: audioStreamBasicDescription) else {
             return
         }
 

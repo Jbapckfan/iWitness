@@ -96,7 +96,7 @@ class AudioEnhancementService {
         }
 
         try engine.start()
-        playerNode.scheduleFile(inputFile, at: nil)
+        playerNode.scheduleFile(inputFile, at: nil, completionHandler: nil)
         playerNode.play()
 
         // Wait for playback to complete

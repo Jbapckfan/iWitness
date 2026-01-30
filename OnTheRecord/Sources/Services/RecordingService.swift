@@ -611,7 +611,11 @@ class RecordingService: NSObject, ObservableObject {
         self.backPreviewLayer = backPreview
 
         // Configure LiDAR depth capture (best-effort, no-op on non-LiDAR devices)
-        let _ = depthCaptureService.configureDepthCapture(session: session, backCameraInput: backInput)
+        let capturedSession = session
+        let capturedInput = backInput
+        Task { @MainActor in
+            _ = depthCaptureService.configureDepthCapture(session: capturedSession, backCameraInput: capturedInput)
+        }
 
         self.multiCamSession = session
         registerSessionNotifications(for: session)

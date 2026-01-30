@@ -6,7 +6,7 @@ import Combine
 /// Captures LiDAR depth data alongside video for 3D scene reconstruction
 /// Gracefully degrades on non-LiDAR devices (silently skips)
 @MainActor
-class DepthCaptureService: ObservableObject {
+class DepthCaptureService: NSObject, ObservableObject {
     static let shared = DepthCaptureService()
 
     // MARK: - Published State
@@ -44,7 +44,8 @@ class DepthCaptureService: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    override init() {
+        super.init()
         checkLiDARAvailability()
     }
 

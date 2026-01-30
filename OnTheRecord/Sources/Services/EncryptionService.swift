@@ -197,12 +197,11 @@ class EncryptionService {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
-        guard status == errSecSuccess, let key = item as? SecKey else {
-            if status == errSecSuccess {
-                debugLog("[EncryptionService] ERROR: Keychain returned unexpected type for private key.")
-            }
+        guard status == errSecSuccess, let cfItem = item else {
             return nil
         }
+        // CFTypeRef from Keychain is always SecKey for kSecClassKey queries
+        let key = cfItem as! SecKey
         return key
     }
 

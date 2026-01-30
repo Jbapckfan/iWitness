@@ -47,9 +47,18 @@
 		SVC016 /* KeyRecoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC033 /* KeyRecoveryService.swift */; };
 		SVC017 /* IncidentSummaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC034 /* IncidentSummaryService.swift */; };
 		SVC018 /* RecoveryKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC038 /* RecoveryKitService.swift */; };
+		SVC019 /* AppLockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC039 /* AppLockService.swift */; };
+		SVC020 /* GeofenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC040 /* GeofenceService.swift */; };
+		SVC021 /* WatermarkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC041 /* WatermarkService.swift */; };
+		SVC022 /* DepthCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC042 /* DepthCaptureService.swift */; };
+		SVC023 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC043 /* TranscriptionService.swift */; };
+		SVC024 /* TimestampAnchorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC044 /* TimestampAnchorService.swift */; };
+		SVC025 /* AudioEnhancementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC045 /* AudioEnhancementService.swift */; };
+		VW009 /* AppLockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC046 /* AppLockView.swift */; };
 		UTIL002 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC035 /* Logger.swift */; };
 		UTIL003 /* AWSV4Signer.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC036 /* AWSV4Signer.swift */; };
 		VW008 /* FakeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC037 /* FakeGalleryView.swift */; };
+		SVC026 /* EvidenceExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC047 /* EvidenceExportService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -99,6 +108,15 @@
 		SRC036 /* AWSV4Signer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AWSV4Signer.swift; sourceTree = "<group>"; };
 		SRC037 /* FakeGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeGalleryView.swift; sourceTree = "<group>"; };
 		SRC038 /* RecoveryKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryKitService.swift; sourceTree = "<group>"; };
+		SRC039 /* AppLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockService.swift; sourceTree = "<group>"; };
+		SRC040 /* GeofenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeofenceService.swift; sourceTree = "<group>"; };
+		SRC041 /* WatermarkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkService.swift; sourceTree = "<group>"; };
+		SRC042 /* DepthCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthCaptureService.swift; sourceTree = "<group>"; };
+		SRC043 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
+		SRC044 /* TimestampAnchorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimestampAnchorService.swift; sourceTree = "<group>"; };
+		SRC045 /* AudioEnhancementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEnhancementService.swift; sourceTree = "<group>"; };
+		SRC046 /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
+		SRC047 /* EvidenceExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExportService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +201,14 @@
 				SRC033 /* KeyRecoveryService.swift */,
 				SRC034 /* IncidentSummaryService.swift */,
 				SRC038 /* RecoveryKitService.swift */,
+				SRC039 /* AppLockService.swift */,
+				SRC040 /* GeofenceService.swift */,
+				SRC041 /* WatermarkService.swift */,
+				SRC042 /* DepthCaptureService.swift */,
+				SRC043 /* TranscriptionService.swift */,
+				SRC044 /* TimestampAnchorService.swift */,
+				SRC045 /* AudioEnhancementService.swift */,
+				SRC047 /* EvidenceExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -199,6 +225,7 @@
 				SRC015 /* RecordingsView.swift */,
 				SRC028 /* CalculatorCamouflageView.swift */,
 				SRC037 /* FakeGalleryView.swift */,
+				SRC046 /* AppLockView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -364,6 +391,15 @@
 				UTIL002 /* Logger.swift in Sources */,
 				UTIL003 /* AWSV4Signer.swift in Sources */,
 				VW008 /* FakeGalleryView.swift in Sources */,
+				SVC019 /* AppLockService.swift in Sources */,
+				SVC020 /* GeofenceService.swift in Sources */,
+				SVC021 /* WatermarkService.swift in Sources */,
+				SVC022 /* DepthCaptureService.swift in Sources */,
+				SVC023 /* TranscriptionService.swift in Sources */,
+				SVC024 /* TimestampAnchorService.swift in Sources */,
+				SVC025 /* AudioEnhancementService.swift in Sources */,
+				VW009 /* AppLockView.swift in Sources */,
+				SVC026 /* EvidenceExportService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

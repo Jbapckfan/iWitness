@@ -40,7 +40,10 @@ struct OnTheRecordApp: App {
     private let phoneConnectivity = PhoneConnectivityManager.shared
     private let siriManager = SiriShortcutManager.shared
     private let geofenceService = GeofenceService.shared
-    private var cancellables = Set<AnyCancellable>()
+    private final class CancellableStorage {
+        var cancellables = Set<AnyCancellable>()
+    }
+    private let cancellableStorage = CancellableStorage()
 
     var body: some Scene {
         WindowGroup {
@@ -351,7 +354,7 @@ struct OnTheRecordApp: App {
             .sink { [weak appState] location in
                 appState?.currentLocation = location
             }
-            .store(in: &cancellables)
+            .store(in: &cancellableStorage.cancellables)
 
         // Start looking for nearby witnesses to offload data to
         witnessBeaconService.startBroadcastingMode()
