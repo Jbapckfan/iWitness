@@ -138,13 +138,19 @@ struct ContentView: View {
     private var mainContent: some View {
         if appState.isICEModeActive {
             RecordingView()
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 1.02)),
+                    removal: .opacity
+                ))
         } else if showingSavedConfirmation {
             RecordingSavedView(isShowing: $showingSavedConfirmation)
+                .transition(.opacity)
         } else {
             HomeView(
                 showingSettings: $showingSettings,
                 showingOnboarding: $showingOnboarding
             )
+            .transition(.opacity)
         }
     }
 
@@ -420,7 +426,7 @@ struct SaveStatusRow: View {
     }
 }
 
-// MARK: - Home View (Tactical Terminal)
+// MARK: - Home View (Premium Dashboard)
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
@@ -433,36 +439,37 @@ struct HomeView: View {
     @Binding var showingOnboarding: Bool
 
     @State private var isViewAppeared = false
-    
-    // Scrolling diag text
-    @State private var diagLog: [String] = []
-    let timer = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
+    @State private var readyOpacity: Double = 0.4
+
+    private var hasContacts: Bool { !alertService.contacts.isEmpty }
+    private var hasBackup: Bool { !uploadService.destinations.isEmpty }
+    private var contactCount: Int { alertService.contacts.count }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background: Deep Black with Grid
+                // Background: Warm ambient with floating orbs
                 Color.black.ignoresSafeArea()
-                TacticalGrid().opacity(0.3)
-                
+                AmbientOrbsBackground(accentColor: Colors.ambientWarm, intensity: 0.12)
+
                 VStack(spacing: 0) {
-                    // Header: System Identity
-                    HStack {
+                    // Header: Clean app name + controls
+                    HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("ON_THE_RECORD // V2.0")
-                                .font(Typography.terminalBold)
-                                .foregroundColor(Colors.witnessRed)
-                            Text("SECURE_ENCLAVE: ACTIVE")
-                                .font(Typography.terminalLog)
-                                .foregroundColor(.gray)
+                            Text("On The Record")
+                                .font(Typography.headline0)
+                                .foregroundColor(.white)
+                            Text("v2.0")
+                                .font(Typography.caption)
+                                .foregroundColor(.white.opacity(0.35))
                         }
                         .accessibilityLabel("OnTheRecord version 2.0")
+
                         Spacer()
-                        
-                        // Settings / Info Gear
+
                         HStack(spacing: 20) {
                             Button { showingOnboarding = true } label: {
-                                Image(systemName: "questionmark.square.dashed")
+                                Image(systemName: "questionmark.circle")
                                     .font(.system(size: 20))
                             }
                             .accessibilityLabel("Help")
@@ -472,68 +479,72 @@ struct HomeView: View {
                             }
                             .accessibilityLabel("Settings")
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.white.opacity(0.7))
                     }
-                    .padding()
-                    .background(Colors.glassDark)
-                    .fadeScaleEntrance(isPresented: isViewAppeared)
+                    .padding(.horizontal, Spacing.screenPadding)
+                    .padding(.top, Spacing.md)
+                    .padding(.bottom, Spacing.sm)
+                    .luxuryEntrance(isPresented: isViewAppeared)
 
-                    // Main Terminal Display
+                    // Main content
                     ScrollView {
                         VStack(spacing: Spacing.lg) {
 
-                            // 1. Diagnostics Log (Aesthetic)
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(diagLog.suffix(5), id: \.self) { log in
-                                    Text("> \(log)")
-                                        .font(Typography.terminalLog)
-                                        .foregroundColor(Colors.safeGreen.opacity(0.7))
-                                        .transition(.opacity)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(Color.black.opacity(0.5))
-                            .border(Colors.safeGreen.opacity(0.2), width: 1)
-                            .padding(.horizontal)
-                            .slideUpEntrance(isPresented: isViewAppeared, delay: 0.1)
-                            
-                            // 1.5 No-backup warning (persistent until configured)
-                            if uploadService.destinations.isEmpty {
+                            // No-backup warning (persistent until configured)
+                            if !hasBackup {
                                 NoBackupBanner(showingSettings: $showingSettings)
-                                    .slideUpEntrance(isPresented: isViewAppeared, delay: 0.15)
+                                    .luxuryEntrance(isPresented: isViewAppeared, delay: 0.1)
                             }
 
-                            // 2. Critical Status check
-                            VStack(spacing: Spacing.sm) {
-                                SystemCheckRow(label: "CONTACTS_LINK", status: !alertService.contacts.isEmpty)
-                                    .staggeredEntrance(isPresented: isViewAppeared, index: 0)
-                                SystemCheckRow(label: "OFFSHORE_UPLINK", status: UserDefaults.standard.string(forKey: "nas_url") != nil)
-                                    .staggeredEntrance(isPresented: isViewAppeared, index: 1)
-                                SystemCheckRow(label: "CAMERA_MATRIX", status: true)
-                                    .staggeredEntrance(isPresented: isViewAppeared, index: 2)
+                            // System readiness card
+                            GlassCard(material: .ultraThinMaterial, padding: Spacing.md) {
+                                VStack(spacing: Spacing.sm) {
+                                    StatusRow(
+                                        icon: "person.2.fill",
+                                        label: "Emergency Contacts",
+                                        isReady: hasContacts,
+                                        detail: hasContacts ? "\(contactCount) configured" : "None configured"
+                                    )
+
+                                    Divider().opacity(0.1)
+
+                                    StatusRow(
+                                        icon: "externaldrive.fill",
+                                        label: "Backup Destination",
+                                        isReady: hasBackup,
+                                        detail: hasBackup ? "Offsite backup active" : "Not configured"
+                                    )
+
+                                    Divider().opacity(0.1)
+
+                                    StatusRow(
+                                        icon: "camera.fill",
+                                        label: "Camera & Microphone",
+                                        isReady: true,
+                                        detail: recordingService.isDualCameraSupported ? "Dual camera ready" : "Single camera ready"
+                                    )
+                                }
                             }
-                            .padding(.horizontal)
-                            
+                            .padding(.horizontal, Spacing.screenPadding)
+                            .luxuryEntrance(isPresented: isViewAppeared, delay: 0.15)
+
                             Spacer(minLength: 40)
-                            
-                            // 3. Activation Core — responsive to screen width
+
+                            // Activation Core — responsive to screen width
                             GeometryReader { geo in
                                 let baseSize = min(geo.size.width, geo.size.height) * 0.65
-                                let mainSize = max(baseSize, 180)   // floor for SE
+                                let mainSize = max(baseSize, 180)
                                 let ringSize = mainSize * (260.0 / 240.0)
                                 let dashSize = mainSize * (290.0 / 240.0)
 
                                 ZStack {
-                                    // Industrial Ring
                                     Circle()
                                         .stroke(Color.gray.opacity(0.3), lineWidth: 2)
                                         .frame(width: ringSize, height: ringSize)
 
-                                    // Dashed Ring
                                     if !reduceMotion {
                                         Circle()
-                                            .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                                            .stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
                                             .frame(width: dashSize, height: dashSize)
                                             .rotationEffect(.degrees(isViewAppeared ? 360 : 0))
                                             .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: isViewAppeared)
@@ -545,14 +556,19 @@ struct HomeView: View {
                             }
                             .frame(height: 310)
                             .frame(maxWidth: .infinity)
-                            
-                            Text("SYSTEM_ARMED // READY_TO_ENGAGE")
-                                .font(Typography.terminalSmall)
-                                .foregroundColor(Colors.safeGreen)
-                                .tracking(2)
-                                .padding(.top, Spacing.screenPadding)
-                                .fadeScaleEntrance(isPresented: isViewAppeared, delay: 0.3)
-                            
+
+                            // Subtle ready indicator
+                            Text("Ready")
+                                .font(Typography.bodySmall)
+                                .foregroundColor(.white.opacity(readyOpacity))
+                                .padding(.top, Spacing.sm)
+                                .luxuryEntrance(isPresented: isViewAppeared, delay: 0.3)
+                                .onAppear {
+                                    guard !reduceMotion else { return }
+                                    withAnimation(AnimationPresets.breathe) {
+                                        readyOpacity = 0.15
+                                    }
+                                }
                         }
                         .padding(.vertical)
                     }
@@ -561,60 +577,46 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .onAppear {
                 isViewAppeared = true
-                addLog("INIT_SYSTEM_CORE")
-            }
-            .onReceive(timer) { _ in
-                 addRandomLog()
             }
         }
-    }
-    
-    private func addLog(_ text: String) {
-        withAnimation {
-            diagLog.append(text)
-            if diagLog.count > 10 { diagLog.removeFirst() }
-        }
-    }
-    
-    private func addRandomLog() {
-        let logs = [
-            "CHECK_MEM_INTEGRITY... OK",
-            "PING_OFFSHORE... 24ms",
-            "ENCR_KEYS_VERIFIED",
-            "AUDIO_SUB_SYSTEM... READY",
-            "GPS_TRIANGULATION... ACQUIRED",
-            "OPTICAL_SENSORS... CALIBRATED"
-        ]
-        addLog(logs.randomElement()!)
     }
 }
 
-// MARK: - Components
+// MARK: - Status Row
 
-struct SystemCheckRow: View {
+struct StatusRow: View {
+    let icon: String
     let label: String
-    let status: Bool
-    
+    let isReady: Bool
+    var detail: String? = nil
+
     var body: some View {
-        HStack {
-            Text(label)
-                .font(Typography.terminalBody)
-                .foregroundColor(.white)
-            
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(isReady ? Colors.safeGreen : Colors.warningOrange)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(Typography.statusLabel)
+                    .foregroundColor(.white)
+                if let detail {
+                    Text(detail)
+                        .font(Typography.caption)
+                        .foregroundColor(.white.opacity(0.5))
+                }
+            }
+
             Spacer()
-            
-            Text(status ? "[ONLINE]" : "[OFFLINE]")
-                .font(Typography.terminalBold)
-                .foregroundColor(status ? Colors.safeGreen : Colors.errorRed)
+
+            Image(systemName: isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(isReady ? Colors.safeGreen.opacity(0.7) : Colors.warningOrange.opacity(0.7))
         }
-        .padding(Spacing.sm)
-        .background(Color.white.opacity(0.05))
-        .border(status ? Colors.safeGreen.opacity(0.3) : Colors.errorRed.opacity(0.3), width: 1)
-        .accessibilityLabel("\(label): \(status ? "online" : "offline")")
+        .accessibilityLabel("\(label): \(isReady ? "ready" : "not configured")")
     }
 }
-
-// Re-using TacticalGrid from HUD
 
 
 // MARK: - Pressable Button Style
@@ -843,41 +845,32 @@ struct NoBackupBanner: View {
         Button {
             showingSettings = true
         } label: {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.black.opacity(0.85))
+            TintedGlassCard(tintColor: Colors.warningOrange, tintOpacity: 0.15, cornerRadius: Spacing.Radius.md, padding: Spacing.md) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Colors.warningOrange)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("NO BACKUP DESTINATION")
-                        .font(Typography.label)
-                        .fontWeight(.black)
-                        .tracking(1)
-                        .foregroundColor(.black.opacity(0.9))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("No Backup Destination")
+                            .font(Typography.statusLabel)
+                            .foregroundColor(.white)
 
-                    Text("Recordings won't leave this device")
-                        .font(Typography.caption)
-                        .foregroundColor(.black.opacity(0.7))
+                        Text("Recordings won't leave this device")
+                            .font(Typography.caption)
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.4))
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.black.opacity(0.5))
             }
-            .padding(Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: Spacing.Radius.md)
-                    .fill(Colors.warningOrange)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Spacing.Radius.md)
-                    .stroke(Colors.warningOrange.opacity(0.6), lineWidth: 1)
-            )
         }
         .buttonStyle(.plain)
-        .padding(.horizontal)
+        .padding(.horizontal, Spacing.screenPadding)
         .accessibilityLabel("No backup destination configured. Tap to open settings.")
         .accessibilityHint("Opens storage settings to configure offsite backup")
     }

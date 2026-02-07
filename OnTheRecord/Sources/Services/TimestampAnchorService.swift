@@ -29,8 +29,11 @@ class TimestampAnchorService: ObservableObject {
     // MARK: - Disk Persistence
 
     /// Directory for a given incident's pending uploads (matches ChunkWriter / EvidenceExportService layout)
-    private func anchorsDirectory(for incidentID: String) -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    private func anchorsDirectory(for incidentID: String) -> URL? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            debugLog("[TimestampAnchor] Failed to locate Application Support directory")
+            return nil
+        }
         return appSupport
             .appendingPathComponent("OnTheRecord", isDirectory: true)
             .appendingPathComponent("PendingUploads", isDirectory: true)
@@ -45,24 +48,25 @@ class TimestampAnchorService: ObservableObject {
             return
         }
 
-        let dir = anchorsDirectory(for: incidentID)
+        guard let dir = anchorsDirectory(for: incidentID) else { return }
         let filePath = dir.appendingPathComponent("timestamp_anchors.jsonl")
 
-        // Ensure directory exists
+        // Ensure directory exists with file protection
         do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
         } catch {
             debugLog("[TimestampAnchor] Failed to create anchors directory: \(error.localizedDescription)")
             return
         }
 
-        let lineData = (line + "\n").data(using: .utf8)!
+        guard let lineData = (line + "\n").data(using: .utf8) else { return }
 
         // Append to existing file, or create if first write
         if let handle = try? FileHandle(forWritingTo: filePath) {
+            defer { handle.closeFile() }
             handle.seekToEndOfFile()
             handle.write(lineData)
-            handle.closeFile()
         } else {
             do {
                 try lineData.write(to: filePath)
@@ -78,7 +82,8 @@ class TimestampAnchorService: ObservableObject {
             return anchors.filter { $0.incidentID == incidentID }
         }
         // Fall back to disk
-        let filePath = anchorsDirectory(for: incidentID).appendingPathComponent("timestamp_anchors.jsonl")
+        guard let dir = anchorsDirectory(for: incidentID) else { return [] }
+        let filePath = dir.appendingPathComponent("timestamp_anchors.jsonl")
         guard let content = try? String(contentsOf: filePath, encoding: .utf8) else {
             debugLog("[TimestampAnchor] No anchors file found on disk for \(incidentID)")
             return []
@@ -127,8 +132,10 @@ class TimestampAnchorService: ObservableObject {
         currentIncidentID = incidentID
 
         // Remove any stale anchors file so the new chain starts fresh
-        let filePath = anchorsDirectory(for: incidentID).appendingPathComponent("timestamp_anchors.jsonl")
-        try? FileManager.default.removeItem(at: filePath)
+        if let dir = anchorsDirectory(for: incidentID) {
+            let filePath = dir.appendingPathComponent("timestamp_anchors.jsonl")
+            try? FileManager.default.removeItem(at: filePath)
+        }
 
         debugLog("[TimestampAnchor] New chain started for \(incidentID)")
     }

@@ -238,6 +238,17 @@ extension View {
         modifier(StaggeredEntrance(isPresented: isPresented, index: index, baseDelay: baseDelay))
     }
 
+    /// Luxury entrance - slower, more premium-feeling spring
+    func luxuryEntrance(isPresented: Bool, delay: Double = 0) -> some View {
+        self
+            .opacity(isPresented ? 1 : 0)
+            .offset(y: isPresented ? 0 : 15)
+            .animation(
+                AnimationPresets.luxuryEntrance.delay(delay),
+                value: isPresented
+            )
+    }
+
     /// Shake for error feedback
     func shake(trigger: Binding<Bool>) -> some View {
         modifier(ShakeModifier(trigger: trigger))

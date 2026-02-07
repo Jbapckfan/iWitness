@@ -16,17 +16,18 @@ struct CalculatorCamouflageView: View {
     @State private var shakeOffset: CGFloat = 0
     @State private var backgroundColor = Color(uiColor: .systemBackground)
     
-    private let storedPIN: String
+    private let storedPIN: String?
     private let duressPIN: String?
-    
+
     enum Operation {
         case add, subtract, multiply, divide
     }
-    
+
     init(isUnlocked: Binding<Bool>, isDuressActive: Binding<Bool>) {
         self._isUnlocked = isUnlocked
         self._isDuressActive = isDuressActive
-        self.storedPIN = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin") ?? "1234"
+        // No default PIN — user must configure one in Settings before calculator unlock works
+        self.storedPIN = KeychainHelper.shared.read(service: "OnTheRecord", account: "safe_pin")
         self.duressPIN = KeychainHelper.shared.read(service: "OnTheRecord", account: "duress_pin")
     }
     
@@ -195,8 +196,8 @@ struct CalculatorCamouflageView: View {
             return
         }
         
-        // Check if entered sequence matches Safe PIN
-        if enteredSequence == storedPIN || displayText == storedPIN {
+        // Check if entered sequence matches Safe PIN (nil means no PIN configured)
+        if let storedPIN = storedPIN, (enteredSequence == storedPIN || displayText == storedPIN) {
             // Success! Unlock the app normally
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)

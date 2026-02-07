@@ -139,15 +139,28 @@ class AlertService: ObservableObject {
     }
 
     private func loadContacts() {
+        // Try Keychain first (secure storage)
+        if let jsonString = KeychainHelper.shared.read(service: "OnTheRecord", account: "emergency_contacts"),
+           let data = jsonString.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([EmergencyContact].self, from: data) {
+            contacts = decoded
+            return
+        }
+
+        // Migrate from legacy UserDefaults if present
         if let data = UserDefaults.standard.data(forKey: "emergency_contacts"),
            let decoded = try? JSONDecoder().decode([EmergencyContact].self, from: data) {
             contacts = decoded
+            saveContacts() // Migrate to Keychain
+            UserDefaults.standard.removeObject(forKey: "emergency_contacts")
+            debugLog("[AlertService] Migrated emergency contacts from UserDefaults to Keychain")
         }
     }
 
     private func saveContacts() {
-        if let encoded = try? JSONEncoder().encode(contacts) {
-            UserDefaults.standard.set(encoded, forKey: "emergency_contacts")
+        if let encoded = try? JSONEncoder().encode(contacts),
+           let jsonString = String(data: encoded, encoding: .utf8) {
+            _ = KeychainHelper.shared.save(service: "OnTheRecord", account: "emergency_contacts", value: jsonString)
         }
     }
 
@@ -356,7 +369,7 @@ extension AlertService {
     /// Mock Twilio send for testing
     private func mockTwilioSend(to phone: String, message: String, config: TwilioConfig) async -> TwilioSendResult {
         // Simulate network delay
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        try? await Task.sleep(nanoseconds: .milliseconds(500))
 
         let result = TwilioSendResult(
             success: true,

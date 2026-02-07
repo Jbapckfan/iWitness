@@ -26,6 +26,7 @@ struct Typography {
     static let displayMedium = Font.system(size: 48, weight: .bold, design: .rounded)
 
     // Headlines
+    static let headline0 = Font.system(size: 34, weight: .bold)
     static let headline1 = Font.system(size: 28, weight: .bold)
     static let headline2 = Font.system(size: 24, weight: .semibold)
     static let headline3 = Font.system(size: 20, weight: .semibold)
@@ -36,12 +37,14 @@ struct Typography {
     static let bodySmall = Font.system(size: 13, weight: .regular)
 
     // Captions & Labels
+    static let statusLabel = Font.system(size: 13, weight: .semibold)
     static let caption = Font.system(size: 12, weight: .medium)
     static let label = Font.system(size: 11, weight: .semibold)
     static let overline = Font.system(size: 10, weight: .bold)
 
     // Monospaced (for timers)
     static let timerLarge = Font.system(size: 64, weight: .heavy, design: .monospaced)
+    static let timerThin = Font.system(size: 72, weight: .thin, design: .monospaced)
     static let timerMedium = Font.system(size: 32, weight: .bold, design: .monospaced)
 
     // HUD (monospaced, for recording overlay)
@@ -131,6 +134,14 @@ struct Colors {
     static let alertOrange = DesignSystem.warningOrange  // Alias for warnings/alerts
     static let errorRed = DesignSystem.errorRed
 
+    // Ambient backgrounds
+    static let ambientWarm = Color(red: 0.08, green: 0.06, blue: 0.04)
+    static let ambientCool = Color(red: 0.04, green: 0.05, blue: 0.08)
+
+    // Elevated surfaces
+    static let surfaceElevated = Color.white.opacity(0.06)
+    static let borderSubtle = Color.white.opacity(0.08)
+
     // Glass-friendly backgrounds
     static let glassDark = Color.black.opacity(0.3)
     static let glassLight = Color.white.opacity(0.1)
@@ -169,7 +180,7 @@ struct Colors {
         )
 
         static let glassBorder = LinearGradient(
-            colors: [Color.white.opacity(0.25), Color.white.opacity(0.05)],
+            colors: [Color.white.opacity(0.15), Color.white.opacity(0.03)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -197,8 +208,14 @@ struct AnimationPresets {
     // Slow, dramatic transitions
     static let dramatic = Animation.easeInOut(duration: 0.5)
 
+    // Luxury entrance - slower, premium feel
+    static let luxuryEntrance = Animation.spring(response: 0.6, dampingFraction: 0.85)
+
     // Pulse/breathe effect
     static let pulse = Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+
+    // Very slow ambient breathe
+    static let breathe = Animation.easeInOut(duration: 4.0).repeatForever(autoreverses: true)
 
     // Staggered delays for list animations
     static func staggered(index: Int, baseDelay: Double = 0.05) -> Animation {

@@ -41,6 +41,11 @@ class WitnessBeaconService: NSObject, ObservableObject {
     @Published var receivedChunksCount = 0
     @Published var sentChunksCount = 0
 
+    // MARK: - Peer Approval
+    @Published var pendingInvitation: (peer: MCPeerID, handler: (Bool, MCSession?) -> Void)?
+    /// Set to true to auto-accept peers that pass validation (e.g. during active recording)
+    var autoAcceptVerifiedPeers: Bool = false
+
     // MARK: - Time Sync State
     @Published var connectedWitnesses: Int = 0
     @Published var isSyncLeader: Bool = false
@@ -154,12 +159,11 @@ class WitnessBeaconService: NSObject, ObservableObject {
                 chunkNumber: metadata.chunkNumber,
                 timestamp: metadata.timestamp
             )
-            if let headerData = try? JSONEncoder().encode(headerMessage) {
-                do {
-                    try session.send(headerData, toPeers: [peer], with: .reliable)
-                } catch {
-                    debugLog("[WitnessBeacon] Failed to send header to peer: \(error.localizedDescription)")
-                }
+            do {
+                let headerData = try JSONEncoder().encode(headerMessage)
+                try session.send(headerData, toPeers: [peer], with: .reliable)
+            } catch {
+                debugLog("[WitnessBeacon] Failed to send header to peer \(peer.displayName): \(error.localizedDescription)")
             }
 
             // Send the resource with incident ID and chunk number encoded in the name
@@ -412,19 +416,53 @@ extension WitnessBeaconService: MCSessionDelegate {
 // MARK: - MCNearbyServiceAdvertiserDelegate
 extension WitnessBeaconService: MCNearbyServiceAdvertiserDelegate {
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        // Auto-accept invitations if we are in Witness Mode
-        debugLog("[WitnessBeacon] Accepting invitation from \(peerID.displayName)")
-        invitationHandler(true, self.session)
+        // Validate that the invitation context contains expected app identifier
+        guard let context = context,
+              let contextString = String(data: context, encoding: .utf8),
+              contextString.hasPrefix("OnTheRecord-Witness-v") else {
+            debugLog("[WitnessBeacon] Rejected invitation from \(peerID.displayName): missing or invalid context")
+            invitationHandler(false, nil)
+            return
+        }
+
+        // During active recording with autoAccept, accept verified peers immediately
+        if autoAcceptVerifiedPeers {
+            debugLog("[WitnessBeacon] Auto-accepting verified peer: \(peerID.displayName)")
+            invitationHandler(true, self.session)
+            return
+        }
+
+        // Otherwise, queue for user approval (UI should observe pendingInvitation)
+        debugLog("[WitnessBeacon] Pending approval for peer: \(peerID.displayName)")
+        DispatchQueue.main.async {
+            // Reject any previous pending invitation that wasn't answered
+            self.pendingInvitation?.handler(false, nil)
+            self.pendingInvitation = (peer: peerID, handler: invitationHandler)
+        }
+    }
+
+    /// Call from UI to accept or reject a pending peer invitation
+    func respondToInvitation(accept: Bool) {
+        guard let pending = pendingInvitation else { return }
+        if accept {
+            debugLog("[WitnessBeacon] User accepted peer: \(pending.peer.displayName)")
+            pending.handler(true, self.session)
+        } else {
+            debugLog("[WitnessBeacon] User rejected peer: \(pending.peer.displayName)")
+            pending.handler(false, nil)
+        }
+        pendingInvitation = nil
     }
 }
 
 // MARK: - MCNearbyServiceBrowserDelegate
 extension WitnessBeaconService: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
-        // Found a witness. Auto-invite them!
+        // Found a witness. Invite with app verification context.
         debugLog("[WitnessBeacon] Found witness: \(peerID.displayName). Inviting...")
         guard let session = self.session else { return }
-        browser.invitePeer(peerID, to: session, withContext: nil, timeout: 10)
+        let context = "OnTheRecord-Witness-v1".data(using: .utf8)
+        browser.invitePeer(peerID, to: session, withContext: context, timeout: 10)
     }
     
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {

@@ -337,15 +337,19 @@ class RecoveryKitService {
     }
 
     /// Derives a symmetric key from a recovery code using HKDF.
+    /// HKDF is appropriate here because the recovery code has ~100 bits of entropy
+    /// (20 chars from a 32-char alphabet). PBKDF2 work-factor stretching is unnecessary
+    /// for high-entropy input and would only add latency without meaningful security benefit.
     private func deriveKey(from code: String, salt: Data) -> SymmetricKey? {
         // Normalize code: remove dashes, uppercase
         let normalizedCode = code.replacingOccurrences(of: "-", with: "").uppercased()
-        guard let codeData = normalizedCode.data(using: .utf8) else { return nil }
+        guard let codeData = normalizedCode.data(using: .utf8),
+              let infoData = "OnTheRecord-RecoveryKit-v1".data(using: .utf8) else { return nil }
 
         let key = HKDF<SHA256>.deriveKey(
             inputKeyMaterial: SymmetricKey(data: codeData),
             salt: salt,
-            info: "OnTheRecord-RecoveryKit-v1".data(using: .utf8)!,
+            info: infoData,
             outputByteCount: 32
         )
         return key

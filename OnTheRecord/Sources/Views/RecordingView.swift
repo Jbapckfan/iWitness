@@ -32,8 +32,8 @@ struct RecordingView: View {
             LinearGradient(
                 colors: [
                     Color.black.opacity(0.7),
-                    Color.black.opacity(0.3),
-                    Color.black.opacity(0.3),
+                    Color.black.opacity(0.15),
+                    Color.black.opacity(0.15),
                     Color.black.opacity(0.8)
                 ],
                 startPoint: .top,
@@ -569,12 +569,12 @@ struct RecordingHeader: View {
 
             // Large duration timer - primary focus with glow
             Text(appState.formattedDuration)
-                .font(Typography.timerLarge)
+                .font(Typography.timerThin)
                 .foregroundColor(.white)
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .animation(.snappy, value: appState.formattedDuration)
-                .shadow(color: Colors.witnessRed.opacity(0.3), radius: 10)
+                .shadow(color: Colors.witnessRed.opacity(0.3), radius: 6)
                 .accessibilityLabel("Recording time: \(appState.formattedDuration)")
 
             // Auto-stop countdown badge
@@ -619,22 +619,7 @@ struct RecordingStatusOverlay: View {
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
-            // Camera status badges
-            HStack(spacing: Spacing.sm) {
-                CameraStatusBadge(
-                    label: "FRONT",
-                    isActive: true,
-                    icon: "person.fill"
-                )
-                CameraStatusBadge(
-                    label: "BACK",
-                    isActive: recordingService.isDualCameraSupported,
-                    icon: "video.fill"
-                )
-            }
-            .staggeredEntrance(isPresented: isOverlayVisible, index: 0)
-
-            // Live Stream status (if active)
+            // Live Stream badge (floating, prominent if active)
             if liveStreamService.isStreaming {
                 LiveBadge(segmentCount: liveStreamService.segmentsUploaded) {
                     showingShareSheet = true
@@ -643,91 +628,107 @@ struct RecordingStatusOverlay: View {
                 .sheet(isPresented: $showingShareSheet) {
                     ShareStreamSheet(streamURL: liveStreamService.streamURL)
                 }
-                .staggeredEntrance(isPresented: isOverlayVisible, index: 1)
+                .staggeredEntrance(isPresented: isOverlayVisible, index: 0)
             }
 
-            // Contacts notified status
-            GlassCapsule {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Colors.safeGreen)
-                    
-                    Text("\(alertService.alertsSent) contacts notified")
-                        .font(Typography.caption)
-                    
-                    Divider()
-                        .frame(height: 12)
-                        .background(Color.white.opacity(0.3))
-                    
-                    // Quick add contact button
-                    Button {
-                        showingAddContact = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 14))
-                            Text("Add")
+            // Consolidated status card
+            GlassCard(material: .ultraThinMaterial, cornerRadius: Spacing.Radius.md, padding: Spacing.sm) {
+                VStack(spacing: Spacing.xs) {
+                    // Row 1: Camera status badges
+                    HStack(spacing: Spacing.sm) {
+                        CameraStatusBadge(
+                            label: "FRONT",
+                            isActive: true,
+                            icon: "person.fill"
+                        )
+                        CameraStatusBadge(
+                            label: "BACK",
+                            isActive: recordingService.isDualCameraSupported,
+                            icon: "video.fill"
+                        )
+                        Spacer()
+                        // Segment count
+                        Text("\(recordingService.currentChunkNumber) seg")
+                            .font(Typography.caption)
+                            .foregroundColor(.white.opacity(0.6))
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: recordingService.currentChunkNumber)
+                    }
+
+                    Divider().opacity(0.1)
+
+                    // Row 2: Upload status + estimated size
+                    HStack(spacing: Spacing.xs) {
+                        if uploadService.isUploading {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .tint(.white)
+                            Text("Uploading \(uploadService.queueDepth)...")
                                 .font(Typography.caption)
+                                .foregroundColor(.white)
+                        } else if uploadService.queueDepth > 0 {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(Colors.warningOrange)
+                            Text("\(uploadService.queueDepth) pending")
+                                .font(Typography.caption)
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(Colors.safeGreen)
+                            Text("Backed up")
+                                .font(Typography.caption)
+                                .foregroundColor(.white)
                         }
-                        .foregroundColor(Colors.warningOrange)
+
+                        Spacer()
+
+                        Text(appState.formattedEstimatedSize)
+                            .font(Typography.caption)
+                            .foregroundColor(
+                                Color(
+                                    red: appState.estimatedSizeColor.red,
+                                    green: appState.estimatedSizeColor.green,
+                                    blue: appState.estimatedSizeColor.blue
+                                ).opacity(0.8)
+                            )
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: appState.formattedEstimatedSize)
+                    }
+
+                    Divider().opacity(0.1)
+
+                    // Row 3: Contacts notified + add button
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Colors.safeGreen)
+
+                        Text("\(alertService.alertsSent) notified")
+                            .font(Typography.caption)
+                            .foregroundColor(.white)
+
+                        Spacer()
+
+                        Button {
+                            showingAddContact = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 12))
+                                Text("Add")
+                                    .font(Typography.caption)
+                            }
+                            .foregroundColor(Colors.warningOrange)
+                        }
                     }
                 }
-                .foregroundColor(.white)
             }
-            .staggeredEntrance(isPresented: isOverlayVisible, index: 2)
+            .staggeredEntrance(isPresented: isOverlayVisible, index: 1)
             .sheet(isPresented: $showingAddContact) {
                 QuickAddContactSheet()
             }
-
-            // Backup status with queue depth
-            GlassCapsule {
-                HStack(spacing: Spacing.xs) {
-                    if uploadService.isUploading {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .tint(.white)
-                        Text("Uploading \(uploadService.queueDepth) chunks...")
-                            .font(Typography.caption)
-                    } else if uploadService.queueDepth > 0 {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Colors.warningOrange)
-                        Text("\(uploadService.queueDepth) pending")
-                            .font(Typography.caption)
-                    } else {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Colors.safeGreen)
-                        Text("All backed up")
-                            .font(Typography.caption)
-                    }
-                }
-                .foregroundColor(.white)
-            }
-            .staggeredEntrance(isPresented: isOverlayVisible, index: 3)
-
-            // Segment counter
-            Text("\(recordingService.currentChunkNumber) segments • \(uploadService.chunksUploaded) uploaded")
-                .font(Typography.caption)
-                .foregroundColor(.white.opacity(0.7))
-                .contentTransition(.numericText())
-                .animation(.snappy, value: recordingService.currentChunkNumber)
-                .staggeredEntrance(isPresented: isOverlayVisible, index: 4)
-
-            // Estimated size with color progression
-            Text("\(appState.formattedEstimatedSize) estimated")
-                .font(Typography.caption)
-                .foregroundColor(
-                    Color(
-                        red: appState.estimatedSizeColor.red,
-                        green: appState.estimatedSizeColor.green,
-                        blue: appState.estimatedSizeColor.blue
-                    ).opacity(0.8)
-                )
-                .contentTransition(.numericText())
-                .animation(.snappy, value: appState.formattedEstimatedSize)
-                .staggeredEntrance(isPresented: isOverlayVisible, index: 5)
         }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -1121,6 +1122,12 @@ struct ActionButtonsPanel: View {
 
             // NEED HELP - Hidden when PIN dial is active
             if !showingPINDial {
+                // Subtle divider
+                Rectangle()
+                    .fill(Colors.borderSubtle)
+                    .frame(height: 1)
+                    .padding(.horizontal, Spacing.lg)
+
                 PremiumSecondaryButton(
                     title: "NEED HELP",
                     subtitle: "Send escalation alert, keep recording",
@@ -1291,10 +1298,22 @@ struct PINDialOverlay: View {
             endRecordingSafe()
         } else {
             failedAttempts += 1
+
+            // Check duress PIN FIRST — before any visible failure animation
+            // so the coercer sees the same shake as a normal wrong PIN
+            let isDuress = duressPIN.map { enteredDigits == $0 } ?? false
+            if isDuress {
+                Task {
+                    if let incidentID = appState.currentIncidentID {
+                        await alertService.escalateAlert(incidentID: incidentID)
+                    }
+                }
+            }
+
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
 
-            // Shake animation
+            // Shake animation (identical for wrong PIN and duress PIN)
             withAnimation(.spring(response: 0.1, dampingFraction: 0.3)) {
                 shakeOffset = 20
             }
@@ -1314,17 +1333,14 @@ struct PINDialOverlay: View {
                 resetDial()
             }
 
-            // Duress PIN match triggers silent escalation
-            if let dPIN = duressPIN, enteredDigits == dPIN {
-                Task {
-                    if let incidentID = appState.currentIncidentID {
-                        await alertService.escalateAlert(incidentID: incidentID)
+            // After duress PIN, dismiss the dial (looks like user gave up)
+            if isDuress {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    withAnimation(.spring(response: 0.3)) {
+                        showingDial = false
                     }
+                    resetDial()
                 }
-                withAnimation(.spring(response: 0.3)) {
-                    showingDial = false
-                }
-                resetDial()
                 return
             }
 
@@ -1368,7 +1384,7 @@ struct PINDialOverlay: View {
             let successGenerator = UINotificationFeedbackGenerator()
             successGenerator.notificationOccurred(.success)
 
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            try? await Task.sleep(nanoseconds: .seconds(2))
             appState.reset()
         }
     }

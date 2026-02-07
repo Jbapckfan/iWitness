@@ -23,6 +23,7 @@ class TranscriptionService: ObservableObject {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recordingStartTime: Date?
+    private weak var tappedAudioEngine: AVAudioEngine?
 
     // MARK: - Types
 
@@ -116,7 +117,8 @@ class TranscriptionService: ObservableObject {
 
         self.recognitionRequest = request
 
-        // Install audio tap
+        // Install audio tap — track engine so we can remove tap on stop/error
+        self.tappedAudioEngine = audioEngine
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
@@ -184,6 +186,10 @@ class TranscriptionService: ObservableObject {
     }
 
     func stopTranscription() {
+        // Remove audio tap before cancelling the request
+        tappedAudioEngine?.inputNode.removeTap(onBus: 0)
+        tappedAudioEngine = nil
+
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionRequest = nil
@@ -251,22 +257,28 @@ class TranscriptionService: ObservableObject {
 
     /// Save transcript to file
     func saveTranscript(incidentID: String) throws -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "TranscriptionService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Application Support directory unavailable"])
+        }
         let dir = appSupport.appendingPathComponent("OnTheRecord/Transcripts", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
 
         // Save SRT
         let srtURL = dir.appendingPathComponent("\(incidentID).srt")
         try exportAsSRT().write(to: srtURL, atomically: true, encoding: .utf8)
+        try? (srtURL as NSURL).setResourceValue(URLFileProtection.completeUnlessOpen, forKey: .fileProtectionKey)
 
         // Save plain text
         let txtURL = dir.appendingPathComponent("\(incidentID).txt")
         try exportAsText().write(to: txtURL, atomically: true, encoding: .utf8)
+        try? (txtURL as NSURL).setResourceValue(URLFileProtection.completeUnlessOpen, forKey: .fileProtectionKey)
 
         // Save segments as JSON for later processing
         let jsonURL = dir.appendingPathComponent("\(incidentID)_segments.json")
         let data = try JSONEncoder().encode(segments)
         try data.write(to: jsonURL)
+        try? (jsonURL as NSURL).setResourceValue(URLFileProtection.completeUnlessOpen, forKey: .fileProtectionKey)
 
         return srtURL
     }

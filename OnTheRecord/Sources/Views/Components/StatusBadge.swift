@@ -64,7 +64,7 @@ struct StatusBadge: View {
         .onAppear {
             guard !reduceMotion, isPulsing else { return }
             withAnimation(AnimationPresets.pulse) {
-                pulseScale = 1.3
+                pulseScale = 1.15
             }
         }
         .accessibilityElement(children: .combine)
@@ -98,9 +98,7 @@ struct PulsingIndicator: View {
             Circle()
                 .fill(color)
                 .frame(width: size, height: size)
-                .shadow(color: color.opacity(0.6), radius: 4)
-                .shadow(color: color.opacity(0.25), radius: 10)
-                .shadow(color: color.opacity(0.1), radius: 18)
+                .shadow(color: color.opacity(0.5), radius: 8)
         }
         .onAppear {
             guard !reduceMotion, isActive else { return }

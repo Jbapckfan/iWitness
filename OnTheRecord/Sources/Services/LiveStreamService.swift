@@ -324,10 +324,10 @@ class LiveStreamService: ObservableObject {
                         // Retry logic
                         streamHealth = .degraded
                         lastError = .uploadFailed(error.localizedDescription)
-                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 second retry delay
+                        try? await Task.sleep(nanoseconds: .seconds(2))
                     }
                 } else {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms poll
+                    try? await Task.sleep(nanoseconds: .milliseconds(100))
                 }
             }
         }
@@ -337,7 +337,7 @@ class LiveStreamService: ObservableObject {
         playlistUpdateTask = Task {
             while !Task.isCancelled && isStreaming {
                 try? await uploadPlaylist()
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // Update every 2 seconds
+                try? await Task.sleep(nanoseconds: .seconds(2))
             }
         }
     }
@@ -550,7 +550,7 @@ class LiveStreamService: ObservableObject {
     private func generateStreamID() -> String {
         // Short, shareable ID
         let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Avoid ambiguous chars
-        return String((0..<8).map { _ in chars.randomElement()! })
+        return String((0..<8).compactMap { _ in chars.randomElement() })
     }
 
     // swiftlint:disable:next force_unwrapping -- hardcoded constant, always valid

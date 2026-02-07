@@ -32,18 +32,20 @@ final class LegalComplianceService: NSObject, ObservableObject, CLLocationManage
     
     // List of All-Party/Two-Party Consent States (US)
     // As of 2025. Note: Laws vary by context, this is a general guardrail.
+    // CLGeocoder.administrativeArea returns full state names (e.g. "California"),
+    // so we store both full names and abbreviations for reliable matching.
     private let twoPartyStates: Set<String> = [
-        "CA", // California
-        "CT", // Connecticut
-        "FL", // Florida
-        "IL", // Illinois
-        "MD", // Maryland
-        "MA", // Massachusetts
-        "MI", // Michigan
-        "MT", // Montana
-        "NH", // New Hampshire
-        "PA", // Pennsylvania
-        "WA"  // Washington
+        "CA", "California",
+        "CT", "Connecticut",
+        "FL", "Florida",
+        "IL", "Illinois",
+        "MD", "Maryland",
+        "MA", "Massachusetts",
+        "MI", "Michigan",
+        "MT", "Montana",
+        "NH", "New Hampshire",
+        "PA", "Pennsylvania",
+        "WA", "Washington"
     ]
     
     override init() {
@@ -71,9 +73,11 @@ final class LegalComplianceService: NSObject, ObservableObject, CLLocationManage
                   let stateCode = placemark.administrativeArea else {
                 return
             }
-            
-            self.currentISOStateCode = stateCode
-            self.determineLaw(for: stateCode)
+
+            DispatchQueue.main.async {
+                self.currentISOStateCode = stateCode
+                self.determineLaw(for: stateCode)
+            }
         }
     }
     

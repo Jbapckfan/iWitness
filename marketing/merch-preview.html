@@ -80,10 +80,10 @@
             font-family: 'Inter', system-ui, sans-serif;
         }
 
-        /* Glassmorphism card */
+        /* Glassmorphism card (aligned with app's GlassCard: 0.15→0.03 border gradient) */
         .glass-card {
-            background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
-            border: 1px solid rgba(255,255,255,0.06);
+            background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.008) 100%);
+            border: 1px solid rgba(255,255,255,0.04);
             backdrop-filter: blur(40px);
             -webkit-backdrop-filter: blur(40px);
             box-shadow: 0 25px 60px -20px rgba(0,0,0,0.5);
@@ -91,12 +91,12 @@
         }
 
         .glass-card:hover {
-            border-color: rgba(212, 168, 83, 0.2);
-            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
-            transform: translateY(-4px);
+            border-color: rgba(212, 168, 83, 0.12);
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 100%);
+            transform: translateY(-3px);
             box-shadow:
                 0 30px 70px -20px rgba(0,0,0,0.6),
-                0 0 40px -10px rgba(212,168,83,0.06);
+                0 0 40px -10px rgba(212,168,83,0.04);
         }
 
         /* Product mockup containers */
@@ -318,7 +318,7 @@
         }
 
         .gold-shimmer:hover {
-            box-shadow: 0 0 40px rgba(212, 168, 83, 0.08), inset 0 0 40px rgba(212, 168, 83, 0.03);
+            box-shadow: 0 0 40px rgba(212, 168, 83, 0.05), inset 0 0 30px rgba(212, 168, 83, 0.02);
         }
 
         /* Section label styling */
@@ -354,8 +354,8 @@
         /* Scroll reveal animation */
         .reveal {
             opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease, transform 0.6s ease;
+            transform: translateY(15px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .reveal.visible {
@@ -375,7 +375,7 @@
     <!-- Nav (matches main site style) -->
     <nav class="fixed w-full z-50 top-0 left-0 transition-all duration-500 pt-5 px-4" id="navbar">
         <div class="max-w-5xl mx-auto flex justify-between items-center rounded-2xl px-6 py-3.5"
-            style="background: rgba(255,255,255,0.03); backdrop-filter: blur(40px) saturate(120%); -webkit-backdrop-filter: blur(40px) saturate(120%); border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 50px -12px rgba(0,0,0,0.6);">
+            style="background: rgba(255,255,255,0.03); backdrop-filter: blur(40px) saturate(120%); -webkit-backdrop-filter: blur(40px) saturate(120%); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 20px 50px -12px rgba(0,0,0,0.6);">
             <a href="index.html" class="flex items-center gap-3 no-underline">
                 <div class="w-9 h-9 bg-surface-0 border border-white/10 rounded-lg relative overflow-hidden flex items-center justify-center">
                     <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse-dot" style="box-shadow: 0 0 4px 1px rgba(230,51,51,0.7), 0 0 10px 3px rgba(230,51,51,0.3), 0 0 20px 6px rgba(230,51,51,0.1);"></div>
@@ -400,7 +400,7 @@
         </div>
         <!-- Mobile Menu -->
         <div class="hidden md:hidden max-w-5xl mx-auto mt-2 rounded-2xl px-6 py-4" id="mobile-menu"
-            style="background: rgba(255,255,255,0.03); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 20px 50px -12px rgba(0,0,0,0.6);">
+            style="background: rgba(255,255,255,0.03); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 20px 50px -12px rgba(0,0,0,0.6);">
             <div class="flex flex-col gap-4 text-sm font-medium text-zinc-400">
                 <a href="index.html" class="hover:text-white transition-colors py-2">Home</a>
                 <a href="index.html#pricing" class="hover:text-white transition-colors py-2">Pricing</a>
@@ -413,9 +413,9 @@
 
     <!-- Hero Section -->
     <section class="relative pt-32 pb-20 px-6">
-        <!-- Background glow -->
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full opacity-20"
-            style="background: radial-gradient(ellipse, rgba(212,168,83,0.15) 0%, transparent 70%);"></div>
+        <!-- Background glow (warm tones matching app) -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full opacity-20"
+            style="background: radial-gradient(ellipse, rgba(212,168,83,0.12) 0%, rgba(140,100,40,0.04) 50%, transparent 75%);"></div>
 
         <div class="max-w-4xl mx-auto text-center relative z-10">
             <div class="section-badge mb-8 mx-auto w-fit">

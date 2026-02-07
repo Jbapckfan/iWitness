@@ -9,6 +9,7 @@ import LocalAuthentication
 import CryptoKit
 
 // MARK: - Vault Manager
+@MainActor
 class VaultManager: ObservableObject {
     static let shared = VaultManager()
     
@@ -276,6 +277,7 @@ class RecordingService: NSObject, ObservableObject {
     
     // Thermal state monitoring
     private var thermalStateObservation: NSObjectProtocol?
+    private var sessionObservers: [NSObjectProtocol] = []
 
     // Battery monitoring
     private var batteryMonitorTimer: Timer?
@@ -329,10 +331,10 @@ class RecordingService: NSObject, ObservableObject {
         }
     }
 
-    private let shakeService = ShakeGestureService.shared
-    private let legalService = LegalComplianceService.shared
-    private let watermarkService = WatermarkService.shared
-    private let depthCaptureService = DepthCaptureService.shared
+    private nonisolated(unsafe) let shakeService = ShakeGestureService.shared
+    private nonisolated(unsafe) let legalService = LegalComplianceService.shared
+    private nonisolated(unsafe) let watermarkService = WatermarkService.shared
+    private nonisolated(unsafe) let depthCaptureService = DepthCaptureService.shared
     private var cancellables = Set<AnyCancellable>()
     
     // Published event for UI to handle "Superlock" (black screen)
@@ -348,17 +350,18 @@ class RecordingService: NSObject, ObservableObject {
     }
     
     private func setupShakeHandling() {
-        // Start monitoring shake immediately (or maybe only when app is active? For safety, always)
-        shakeService.startMonitoring()
-        
-        shakeService.onShakeDetected
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.handleShakeEvent()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.shakeService.startMonitoring()
+            self.shakeService.onShakeDetected
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    Task { @MainActor in
+                        self?.handleShakeEvent()
+                    }
                 }
-            }
-            .store(in: &cancellables)
+                .store(in: &self.cancellables)
+        }
     }
     
     @MainActor
@@ -380,9 +383,13 @@ class RecordingService: NSObject, ObservableObject {
     }
     
     deinit {
-        shakeService.stopMonitoring()
+        let service = shakeService
+        Task { @MainActor in service.stopMonitoring() }
         if let observation = thermalStateObservation {
             NotificationCenter.default.removeObserver(observation)
+        }
+        for observer in sessionObservers {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 
@@ -730,7 +737,13 @@ class RecordingService: NSObject, ObservableObject {
     // MARK: - Session Notifications
 
     private func registerSessionNotifications(for session: AVCaptureSession) {
-        NotificationCenter.default.addObserver(forName: .AVCaptureSessionWasInterrupted, object: session, queue: .main) { [weak self] notification in
+        // Remove any previous session observers
+        for observer in sessionObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        sessionObservers.removeAll()
+
+        let obs1 = NotificationCenter.default.addObserver(forName: .AVCaptureSessionWasInterrupted, object: session, queue: .main) { [weak self] notification in
             guard let self = self else { return }
             self.sessionInterrupted = true
 
@@ -754,14 +767,18 @@ class RecordingService: NSObject, ObservableObject {
             debugLog("[RecordingService] Session INTERRUPTED: \(self.interruptionReason ?? "unknown")")
         }
 
-        NotificationCenter.default.addObserver(forName: .AVCaptureSessionInterruptionEnded, object: session, queue: .main) { [weak self] notification in
+        sessionObservers.append(obs1)
+
+        let obs2 = NotificationCenter.default.addObserver(forName: .AVCaptureSessionInterruptionEnded, object: session, queue: .main) { [weak self] notification in
             guard let self = self else { return }
             self.sessionInterrupted = false
             self.interruptionReason = nil
             debugLog("[RecordingService] Session interruption ENDED - recording resumed")
         }
 
-        NotificationCenter.default.addObserver(forName: .AVCaptureSessionRuntimeError, object: session, queue: .main) { [weak self] notification in
+        sessionObservers.append(obs2)
+
+        let obs3 = NotificationCenter.default.addObserver(forName: .AVCaptureSessionRuntimeError, object: session, queue: .main) { [weak self] notification in
             guard let self = self else { return }
             if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError {
                 debugLog("[RecordingService] Session runtime ERROR: \(error.localizedDescription)")
@@ -769,6 +786,7 @@ class RecordingService: NSObject, ObservableObject {
                 self.sessionInterrupted = true
             }
         }
+        sessionObservers.append(obs3)
     }
 
     // MARK: - Recording Control
@@ -805,10 +823,10 @@ class RecordingService: NSObject, ObservableObject {
         _ = await requestPhotoLibraryPermission()
 
         // Reset state
-        recordingFinishedLock.lock()
-        frontRecordingFinished = false
-        backRecordingFinished = false
-        recordingFinishedLock.unlock()
+        recordingFinishedLock.withLock {
+            frontRecordingFinished = false
+            backRecordingFinished = false
+        }
 
         await MainActor.run {
             self.frontSavedToPhotos = false
@@ -857,7 +875,7 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         // Start capture session and movie recording
-        sessionQueue.async { [weak self] in
+        sessionQueue.async { @Sendable [weak self] in
             guard let self = self else { return }
 
             if useDualCamera {
@@ -922,7 +940,7 @@ class RecordingService: NSObject, ObservableObject {
         }
 
         // Stop movie file recording (triggers save to Photos)
-        sessionQueue.async { [weak self] in
+        sessionQueue.async { @Sendable [weak self] in
             guard let self = self else { return }
 
             if self.multiCamSession != nil {
@@ -1006,7 +1024,7 @@ class RecordingService: NSObject, ObservableObject {
 
     @MainActor
     private func startChunkTimer() {
-        chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) { [weak self] _ in
+        chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) { @Sendable [weak self] _ in
             self?.rotateChunk()
         }
     }
@@ -1096,7 +1114,7 @@ class RecordingService: NSObject, ObservableObject {
                 let hash = SHA256.hash(data: serializedData).compactMap { String(format: "%02x", $0) }.joined()
 
                 // 5. Queue for persistent background upload
-                await uploadService?.queueChunk(fileURL: iwcURL, incidentID: currentIncidentID ?? "", chunkNumber: chunkNum, hash: hash)
+                uploadService?.queueChunk(fileURL: iwcURL, incidentID: currentIncidentID ?? "", chunkNumber: chunkNum, hash: hash)
 
                 // 6. Delete intermediate MP4
                 try FileManager.default.removeItem(at: chunkURL)
@@ -1152,7 +1170,7 @@ class RecordingService: NSObject, ObservableObject {
         
         do {
             try FileManager.default.copyItem(at: url, to: tempCopy)
-            let success = VaultManager.shared.moveFileToVault(from: tempCopy)
+            let success = await VaultManager.shared.moveFileToVault(from: tempCopy)
             if success {
                 debugLog("[OnTheRecord] Hidden vault backup created for \(isFront ? "front" : "back") camera")
             }
@@ -1193,7 +1211,9 @@ class RecordingService: NSObject, ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.adjustQualityForThermalState()
+            Task { @MainActor in
+                self?.adjustQualityForThermalState()
+            }
         }
     }
     

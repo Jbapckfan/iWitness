@@ -1083,6 +1083,7 @@ struct RecoveryKitOnboardingPage: View {
 struct InvitePage: View {
     @State private var isAppeared = false
     
+    // swiftlint:disable:next force_unwrapping -- hardcoded constant, always valid
     private let appURL = URL(string: "https://jbapckfan.github.io/iWitness/")!
     private let shareMessage = "I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:"
 

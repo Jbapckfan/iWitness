@@ -42,7 +42,10 @@ struct RecordingsView: View {
                     .disabled(browserService.isLoading)
                 }
             }
-            .alert("Error", isPresented: .constant(browserService.error != nil)) {
+            .alert("Error", isPresented: Binding(
+                get: { browserService.error != nil },
+                set: { if !$0 { browserService.error = nil } }
+            )) {
                 Button("OK") {
                     browserService.error = nil
                 }
@@ -54,6 +57,8 @@ struct RecordingsView: View {
                     VideoPlayerView(url: url, onDismiss: {
                         showingPlayer = false
                         playbackURL = nil
+                        // Clean up decrypted evidence from temp directory
+                        browserService.clearPlaybackCache()
                     })
                 }
             }

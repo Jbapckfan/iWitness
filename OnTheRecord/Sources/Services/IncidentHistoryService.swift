@@ -2,6 +2,7 @@ import Foundation
 
 /// Tracks incident lifecycle for retention management.
 /// Safety invariant: the most recent incident is NEVER eligible for deletion.
+@MainActor
 class IncidentHistoryService: ObservableObject {
     static let shared = IncidentHistoryService()
 
@@ -102,8 +103,11 @@ class IncidentHistoryService: ObservableObject {
     // MARK: - Persistence
 
     private func save() {
-        if let data = try? JSONEncoder().encode(incidents) {
+        do {
+            let data = try JSONEncoder().encode(incidents)
             UserDefaults.standard.set(data, forKey: storageKey)
+        } catch {
+            debugLog("[IncidentHistory] Failed to encode incidents for persistence: \(error.localizedDescription)")
         }
     }
 

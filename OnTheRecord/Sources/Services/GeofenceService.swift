@@ -168,7 +168,7 @@ extension GeofenceService: CLLocationManagerDelegate {
             lastTriggeredZone = zone
 
             if zone.autoRecordDelay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(zone.autoRecordDelay * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: .seconds(zone.autoRecordDelay))
             }
 
             onZoneEntered?(zone)

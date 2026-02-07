@@ -5,7 +5,7 @@ struct RecordingHUDOverlay: View {
     @EnvironmentObject var recordingService: RecordingService
     @StateObject private var transcriptionService = TranscriptionService.shared
 
-    @State private var gridOpacity: Double = 0.6
+    @State private var gridOpacity: Double = 0.25
     
     var body: some View {
         ZStack {
@@ -15,7 +15,7 @@ struct RecordingHUDOverlay: View {
             
             // 2. Center Reticle
             CenterReticle()
-                .opacity(0.8)
+                .opacity(0.6)
             
             // 3. Top Telemetry Bar
             VStack {
@@ -107,10 +107,10 @@ struct HUDText: View {
         HStack(spacing: 4) {
             Text(label)
                 .font(Typography.hudLabel)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.4))
             Text(value)
                 .font(Typography.hudValue)
-                .foregroundColor(Colors.safeGreen.opacity(0.9))
+                .foregroundColor(.white.opacity(0.6))
         }
     }
 }
@@ -121,20 +121,20 @@ struct CenterReticle: View {
     var body: some View {
         ZStack {
             Circle() // Center dot
-                .fill(Colors.witnessRed.opacity(0.6))
+                .fill(Colors.witnessRed.opacity(0.3))
                 .frame(width: 4, height: 4)
-            
+
             Circle() // Outer ring
                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                .frame(width: 30, height: 30)
-            
+                .frame(width: 24, height: 24)
+
             Rectangle() // Horizontal cross
                 .fill(Color.white.opacity(0.3))
-                .frame(width: 50, height: 1)
-            
+                .frame(width: 30, height: 1)
+
             Rectangle() // Vertical cross
                 .fill(Color.white.opacity(0.3))
-                .frame(width: 1, height: 50)
+                .frame(width: 1, height: 30)
         }
     }
 }
@@ -144,7 +144,7 @@ struct CompassStrip: View {
         HStack(spacing: Spacing.xs) {
             ForEach(0..<15) { i in
                 Rectangle()
-                    .fill(Color.white.opacity(i % 5 == 0 ? 0.6 : 0.2))
+                    .fill(Color.white.opacity(i % 5 == 0 ? 0.4 : 0.1))
                     .frame(width: 1, height: i % 5 == 0 ? 10 : 5)
             }
         }
@@ -202,7 +202,7 @@ struct LiveTranscriptBanner: View {
                 .offset(x: 0, y: -4),
                 alignment: .topTrailing
             )
-            .onChange(of: transcript) { _ in
+            .onChange(of: transcript) { _, _ in
                 withAnimation {
                     proxy.scrollTo("transcriptEnd", anchor: .bottom)
                 }

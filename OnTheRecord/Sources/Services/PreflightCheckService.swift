@@ -103,8 +103,9 @@ class PreflightCheckService: ObservableObject {
         ))
 
         // 6. Location permission (warning)
-        let locationAuthorized = CLLocationManager.authorizationStatus() == .authorizedWhenInUse
-            || CLLocationManager.authorizationStatus() == .authorizedAlways
+        let locationManager = CLLocationManager()
+        let locationAuthorized = locationManager.authorizationStatus == .authorizedWhenInUse
+            || locationManager.authorizationStatus == .authorizedAlways
         results.append(CheckResult(
             name: "Location",
             passed: locationAuthorized,

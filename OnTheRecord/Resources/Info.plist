@@ -42,7 +42,7 @@
     </array>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
-        <string>armv7</string>
+        <string>arm64</string>
         <string>video-camera</string>
     </array>
 
@@ -63,6 +63,8 @@
     <string>OnTheRecord accesses your contacts to let you choose emergency contacts who will be notified when you start recording.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>OnTheRecord uses on-device speech recognition to transcribe audio during recording for searchable evidence.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>OnTheRecord uses Face ID to protect access to your encrypted recordings and settings.</string>
 
     <!-- Background Modes -->
     <key>UIBackgroundModes</key>

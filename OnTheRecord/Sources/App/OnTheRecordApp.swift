@@ -43,6 +43,7 @@ struct OnTheRecordApp: App {
     private let geofenceService = GeofenceService.shared
     private final class CancellableStorage {
         var cancellables = Set<AnyCancellable>()
+        var hasSetup = false
     }
     private let cancellableStorage = CancellableStorage()
 
@@ -90,6 +91,10 @@ struct OnTheRecordApp: App {
     }
 
     private func setupServices() {
+        // Guard against duplicate setup from repeated onAppear calls
+        guard !cancellableStorage.hasSetup else { return }
+        cancellableStorage.hasSetup = true
+
         // Security Hygiene: Wipe any cleartext chunks from crashed sessions immediately
         ChunkWriter.wipeOrphanedChunks()
 
@@ -148,7 +153,7 @@ struct OnTheRecordApp: App {
 
         // Defer heavy config/keychain lifting to background
         Task.detached(priority: .userInitiated) {
-            Self.migrateSecretsToKeychain()
+            await Self.migrateSecretsToKeychain()
             await Self.loadSavedUploadDestinationsBackground(uploadService: uploadService)
         }
 
@@ -442,7 +447,7 @@ struct OnTheRecordApp: App {
         phoneConnectivity.sendRecordingStopped()
 
         // Reset after delay
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        try? await Task.sleep(nanoseconds: .seconds(2))
         appState.reset()
 
         // End Live Activity

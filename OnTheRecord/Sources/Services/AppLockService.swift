@@ -12,14 +12,13 @@ class AppLockService: ObservableObject {
     @Published var isEnabled: Bool
     @Published var authenticationFailed: Bool = false
 
-    private let context = LAContext()
-
     init() {
         isEnabled = UserDefaults.standard.object(forKey: "app_lock_enabled") as? Bool ?? false
         isLocked = isEnabled
     }
 
     var biometricType: LABiometryType {
+        let context = LAContext()
         context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
         return context.biometryType
     }
@@ -47,8 +46,8 @@ class AppLockService: ObservableObject {
 
         guard canUseBiometrics else {
             debugLog("[AppLock] Authentication not available: \(error?.localizedDescription ?? "unknown")")
-            // If no auth available, don't lock user out
-            isLocked = false
+            // Keep locked — do NOT silently bypass when auth is unavailable
+            authenticationFailed = true
             return
         }
 

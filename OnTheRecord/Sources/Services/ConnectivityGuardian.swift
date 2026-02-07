@@ -155,7 +155,7 @@ class ConnectivityGuardian: ObservableObject {
 
         // Send last gasp after short delay (in case it's just a momentary blip)
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(config.lastGaspDelaySeconds * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: .seconds(config.lastGaspDelaySeconds))
 
             if !self.isConnected && !self.lastGaspSent {
                 await self.sendLastGaspAlert()
@@ -332,7 +332,7 @@ class ConnectivityGuardian: ObservableObject {
             await alertService?.escalateAlert(incidentID: incidentID)
 
             // Additional haptic to confirm
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            try? await Task.sleep(nanoseconds: .milliseconds(200))
             let successGenerator = UINotificationFeedbackGenerator()
             successGenerator.notificationOccurred(.success)
         }

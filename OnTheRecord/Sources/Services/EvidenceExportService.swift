@@ -41,8 +41,8 @@ class EvidenceExportService {
         var manifest: [(filename: String, sha256: String, size: Int64)] = []
 
         // 1. Copy encrypted chunks
-        let chunksDir = Self.pendingUploadsDirectory(for: incidentID)
-        if FileManager.default.fileExists(atPath: chunksDir.path) {
+        if let chunksDir = Self.pendingUploadsDirectory(for: incidentID),
+           FileManager.default.fileExists(atPath: chunksDir.path) {
             let chunkFiles = try FileManager.default.contentsOfDirectory(
                 at: chunksDir,
                 includingPropertiesForKeys: [.fileSizeKey]
@@ -285,8 +285,11 @@ class EvidenceExportService {
 
     // MARK: - Helpers
 
-    static func pendingUploadsDirectory(for incidentID: String) -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    static func pendingUploadsDirectory(for incidentID: String) -> URL? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            debugLog("[EvidenceExport] Failed to locate Application Support directory")
+            return nil
+        }
         return appSupport
             .appendingPathComponent("OnTheRecord", isDirectory: true)
             .appendingPathComponent("PendingUploads", isDirectory: true)

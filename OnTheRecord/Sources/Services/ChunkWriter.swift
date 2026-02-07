@@ -87,8 +87,10 @@ class ChunkWriter {
     // MARK: - Chunk Lifecycle
 
     func startNewChunk() {
+        var shouldRetry = false
+        var retryChunk = 0
+
         lock.lock()
-        defer { lock.unlock() }
 
         // Only increment chunk number on the first attempt, not on retries
         if setupRetryCount == 0 {
@@ -109,39 +111,41 @@ class ChunkWriter {
             if setupRetryCount < maxSetupRetries {
                 setupRetryCount += 1
                 debugLog("[ChunkWriter] Chunk setup failed, retrying (\(setupRetryCount)/\(maxSetupRetries)): \(error.localizedDescription)")
-                // Brief delay then retry (unlock first to avoid deadlock)
-                let retryChunk = currentChunkNumber
-                lock.unlock()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    guard let self = self else { return }
-                    // Re-acquire lock and verify we're still on the same chunk attempt
-                    self.lock.lock()
-                    guard self.currentChunkNumber == retryChunk, !self.isWriting else {
-                        self.lock.unlock()
-                        return
-                    }
-                    self.lock.unlock()
+                shouldRetry = true
+                retryChunk = currentChunkNumber
+            } else {
+                setupRetryCount = 0
+                isWriting = false
+                debugLog("[ChunkWriter] CRITICAL: Chunk setup failed after \(maxSetupRetries) retries: \(error.localizedDescription)")
+                postWriteError("Failed to setup chunk writer for chunk \(currentChunkNumber) after \(maxSetupRetries) retries: \(error.localizedDescription)")
+            }
+        }
+
+        lock.unlock()
+
+        // Schedule retry outside the lock to avoid deadlock
+        if shouldRetry {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self = self else { return }
+                self.lock.lock()
+                let stillValid = self.currentChunkNumber == retryChunk && !self.isWriting
+                self.lock.unlock()
+                if stillValid {
                     self.startNewChunk()
                 }
-                // We already unlocked; re-lock so the defer unlock is balanced
-                lock.lock()
-                return
             }
-            setupRetryCount = 0
-            isWriting = false
-            debugLog("[ChunkWriter] CRITICAL: Chunk setup failed after \(maxSetupRetries) retries: \(error.localizedDescription)")
-            postWriteError("Failed to setup chunk writer for chunk \(currentChunkNumber) after \(maxSetupRetries) retries: \(error.localizedDescription)")
         }
     }
 
     /// Finishes writing and returns the URL to the persistent file
     func finalizeCurrentChunk() async -> URL? {
-        lock.lock()
-        let writer = assetWriter
-        let wasWriting = isWriting
-        isWriting = false
-        sessionStarted = false
-        lock.unlock()
+        let (writer, wasWriting) = lock.withLock {
+            let w = assetWriter
+            let was = isWriting
+            isWriting = false
+            sessionStarted = false
+            return (w, was)
+        }
         
         guard wasWriting, let writer = writer else { return nil }
         
@@ -169,11 +173,11 @@ class ChunkWriter {
         let outputURL = writer.outputURL
 
         // clear references
-        lock.lock()
-        assetWriter = nil
-        videoInput = nil
-        audioInput = nil
-        lock.unlock()
+        lock.withLock {
+            assetWriter = nil
+            videoInput = nil
+            audioInput = nil
+        }
 
         // Verify file exists and has size
         guard FileManager.default.fileExists(atPath: outputURL.path),

@@ -6,6 +6,7 @@ import Combine
 /// Service responsible for detecting significant shake gestures to trigger emergency actions
 /// such as "Superlock" (locking the screen/stopping recording) or starting a recording panic mode.
 /// Uses CoreMotion for reliable detection independent of the responder chain.
+@MainActor
 final class ShakeGestureService: ObservableObject {
     static let shared = ShakeGestureService()
     

@@ -63,7 +63,7 @@ class DepthCaptureService: NSObject, ObservableObject {
         }
 
         // Check if the back camera supports depth
-        guard let depthDevice = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) else {
+        guard AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) != nil else {
             debugLog("[DepthCapture] LiDAR depth camera not available")
             return false
         }
@@ -92,9 +92,10 @@ class DepthCaptureService: NSObject, ObservableObject {
         self.depthDataSize = 0
         self.isCapturing = true
 
-        // Create depth data directory
-        let dir = depthDirectory(for: incidentID)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Create depth data directory with file protection
+        guard let dir = depthDirectory(for: incidentID) else { return }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
 
         debugLog("[DepthCapture] Started capture for incident \(incidentID)")
     }
@@ -114,9 +115,13 @@ class DepthCaptureService: NSObject, ObservableObject {
             frames: depthFrames
         )
 
-        let manifestURL = depthDirectory(for: id).appendingPathComponent("manifest.json")
-        if let data = try? JSONEncoder().encode(manifest) {
-            try? data.write(to: manifestURL)
+        guard let depthDir = depthDirectory(for: id) else { return }
+        let manifestURL = depthDir.appendingPathComponent("manifest.json")
+        do {
+            let data = try JSONEncoder().encode(manifest)
+            try data.write(to: manifestURL)
+        } catch {
+            debugLog("[DepthCapture] Failed to save manifest: \(error.localizedDescription)")
         }
 
         debugLog("[DepthCapture] Stopped. Captured \(framesCaptured) depth frames, \(ByteCountFormatter.string(fromByteCount: depthDataSize, countStyle: .file))")
@@ -128,8 +133,8 @@ class DepthCaptureService: NSObject, ObservableObject {
     func exportAsUSDZ(incidentID: String) async throws -> URL? {
         // USDZ export would use ModelEntity from RealityKit
         // For now, export the raw depth data package
-        let dir = depthDirectory(for: incidentID)
-        guard FileManager.default.fileExists(atPath: dir.path) else { return nil }
+        guard let dir = depthDirectory(for: incidentID),
+              FileManager.default.fileExists(atPath: dir.path) else { return nil }
 
         // The depth data directory itself is the export
         return dir
@@ -137,8 +142,11 @@ class DepthCaptureService: NSObject, ObservableObject {
 
     // MARK: - Helpers
 
-    private func depthDirectory(for incidentID: String) -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    private func depthDirectory(for incidentID: String) -> URL? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            debugLog("[DepthCapture] Failed to locate Application Support directory")
+            return nil
+        }
         return appSupport
             .appendingPathComponent("OnTheRecord", isDirectory: true)
             .appendingPathComponent("DepthData", isDirectory: true)
@@ -151,7 +159,7 @@ class DepthCaptureService: NSObject, ObservableObject {
 extension DepthCaptureService: AVCaptureDepthDataOutputDelegate {
     nonisolated func depthDataOutput(_ output: AVCaptureDepthDataOutput, didOutput depthData: AVDepthData, timestamp: CMTime, connection: AVCaptureConnection) {
         // Sample at 2 FPS (every 15 frames at 30fps) to conserve storage
-        let frameNumber = Task { @MainActor in self.framesCaptured }
+        _ = Task { @MainActor in self.framesCaptured }
 
         Task { @MainActor in
             guard isCapturing, let incidentID = self.incidentID, let startTime = captureStartTime else { return }
@@ -171,14 +179,19 @@ extension DepthCaptureService: AVCaptureDepthDataOutputDelegate {
 
             // Save depth data as binary float array
             let filename = String(format: "depth_%06d.bin", framesCaptured)
-            let fileURL = depthDirectory(for: incidentID).appendingPathComponent(filename)
+            guard let depthDir = depthDirectory(for: incidentID) else { return }
+            let fileURL = depthDir.appendingPathComponent(filename)
 
             CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
             if let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) {
                 let dataSize = CVPixelBufferGetDataSize(pixelBuffer)
                 let data = Data(bytes: baseAddress, count: dataSize)
-                try? data.write(to: fileURL)
-                depthDataSize += Int64(dataSize)
+                do {
+                    try data.write(to: fileURL)
+                    depthDataSize += Int64(dataSize)
+                } catch {
+                    debugLog("[DepthCapture] Failed to write depth frame \(framesCaptured): \(error.localizedDescription)")
+                }
             }
             CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
 

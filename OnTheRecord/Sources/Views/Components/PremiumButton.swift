@@ -8,6 +8,7 @@ struct PremiumPressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .brightness(configuration.isPressed ? -0.05 : 0)
             .onChange(of: configuration.isPressed) { _, newValue in
                 withAnimation(AnimationPresets.micro) {
                     isPressed = newValue
@@ -72,9 +73,10 @@ struct PremiumPrimaryButton: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
             .scaleEffect(isPressed ? 0.97 : 1.0)
+            .brightness(isPressed ? -0.05 : 0)
             .shadow(
                 color: color.opacity(isPressed ? 0.5 : 0.35),
-                radius: isPressed ? 16 : 12,
+                radius: isPressed ? 12 : 8,
                 y: isPressed ? 2 : 4
             )
         }

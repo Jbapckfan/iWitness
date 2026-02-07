@@ -52,7 +52,12 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     private let queueLock = NSLock()
     
     private let networkMonitor = NWPathMonitor()
-    private var isNetworkAvailable = true
+    private var _isNetworkAvailable = true
+    private let networkLock = NSLock()
+    private var isNetworkAvailable: Bool {
+        get { networkLock.lock(); defer { networkLock.unlock() }; return _isNetworkAvailable }
+        set { networkLock.lock(); _isNetworkAvailable = newValue; networkLock.unlock() }
+    }
     
     // Upload statistics
     private var totalBytesUploaded: Int64 = 0
@@ -116,6 +121,10 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         )
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     @objc private func handleNetworkRestoredNotification() {
         retryDeferredUploads()
     }
@@ -133,11 +142,9 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
 
     private func setupNetworkMonitor() {
         networkMonitor.pathUpdateHandler = { [weak self] path in
-            Task { @MainActor [weak self] in
-                self?.isNetworkAvailable = path.status == .satisfied
-                if path.status == .satisfied {
-                    self?.processQueue()
-                }
+            self?.isNetworkAvailable = path.status == .satisfied
+            if path.status == .satisfied {
+                self?.processQueue()
             }
         }
         networkMonitor.start(queue: DispatchQueue.global(qos: .utility))
@@ -206,6 +213,7 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
         do {
             let data = try JSONEncoder().encode(queue)
             try data.write(to: filePath, options: .atomic)
+            try? (filePath as NSURL).setResourceValue(URLFileProtection.completeUnlessOpen, forKey: .fileProtectionKey)
 
             // Queue size monitoring: warn if file exceeds 5MB
             let fileSize = data.count
@@ -643,14 +651,17 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
     }
     
     private func handleSuccess(chunkID: String, destinationName: String) {
+        var fileToDelete: URL?
+
         queueLock.lock()
         if let index = pendingQueue.firstIndex(where: { $0.chunkID == chunkID }) {
             var chunk = pendingQueue[index]
             chunk.uploadedTo.insert(destinationName)
             pendingQueue[index] = chunk
-            
+
             // Check if fully complete
             if hasUploadedToAllDestinations(chunk) {
+                fileToDelete = chunk.fileURL
                 pendingQueue.remove(at: index)
                 Task { @MainActor in
                     self.chunksUploaded += 1
@@ -658,9 +669,19 @@ class UploadService: NSObject, ObservableObject, URLSessionTaskDelegate, URLSess
             }
         }
         queueLock.unlock()
-        
+
+        // Delete the .iwc file after successful upload to all destinations
+        if let url = fileToDelete {
+            do {
+                try FileManager.default.removeItem(at: url)
+                debugLog("[UploadService] Cleaned up uploaded chunk: \(url.lastPathComponent)")
+            } catch {
+                debugLog("[UploadService] Warning: Failed to delete uploaded chunk \(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+
         persistQueue() // Production hardening: persist completed state
-        
+
         Task { @MainActor in
             self.queueDepth = pendingQueue.count
             if self.pendingQueue.isEmpty {

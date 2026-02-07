@@ -101,7 +101,7 @@ class AudioEnhancementService {
 
         // Wait for playback to complete
         let duration = Double(inputFile.length) / inputFile.processingFormat.sampleRate
-        try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000) + 500_000_000)
+        try await Task.sleep(nanoseconds: .seconds(duration) + .milliseconds(500))
 
         engine.mainMixerNode.removeTap(onBus: 0)
         engine.stop()

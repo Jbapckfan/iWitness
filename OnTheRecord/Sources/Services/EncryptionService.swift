@@ -170,7 +170,10 @@ class EncryptionService {
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        SecItemAdd(addQuery as CFDictionary, nil)
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status != errSecSuccess {
+            debugLog("[EncryptionService] CRITICAL: Failed to save key data to Keychain (tag: \(tag), status: \(status)). Key material may be lost on app restart.")
+        }
     }
     
     private func loadKeyData(tag: String) -> Data? {
@@ -235,7 +238,14 @@ class EncryptionService {
 
         // Generate a random 32-byte salt for HKDF key derivation
         var saltBytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, saltBytes.count, &saltBytes)
+        let randomStatus = SecRandomCopyBytes(kSecRandomDefault, saltBytes.count, &saltBytes)
+        guard randomStatus == errSecSuccess else {
+            debugLog("[EncryptionService] CRITICAL: SecRandomCopyBytes failed with status \(randomStatus). Using CryptoKit fallback.")
+            // CryptoKit SymmetricKey uses secure random internally
+            let fallbackKey = SymmetricKey(size: .bits256)
+            incidentSalt = fallbackKey.withUnsafeBytes { Data($0) }
+            return key
+        }
         incidentSalt = Data(saltBytes)
 
         return key
@@ -243,7 +253,7 @@ class EncryptionService {
 
     /// Derives a chunk-specific key using HKDF with per-incident salt
     private func deriveChunkKey(masterKey: SymmetricKey, chunkNumber: Int, salt: Data) -> SymmetricKey {
-        let info = "OnTheRecord-chunk-\(chunkNumber)".data(using: .utf8)!
+        let info = Data("OnTheRecord-chunk-\(chunkNumber)".utf8)
         let derivedKey = HKDF<SHA256>.deriveKey(
             inputKeyMaterial: masterKey,
             salt: salt,
@@ -294,19 +304,23 @@ class EncryptionService {
         // --- Admissibility Sealing (Digital Signature) ---
         // Uses Secure Enclave when available — signing happens inside the SE hardware,
         // the private key material never enters app memory.
-        var signature: Data?
-        do {
-            var dataToSign = sealedBox.ciphertext
-            dataToSign.append(sealedBox.tag)
-            dataToSign.append(metadataJSON)
-            if let prev = previousHash {
-                dataToSign.append(prev)
-            }
+        // Signing is mandatory — unsigned chunks lose evidentiary value.
+        var dataToSign = sealedBox.ciphertext
+        dataToSign.append(sealedBox.tag)
+        dataToSign.append(metadataJSON)
+        if let prev = previousHash {
+            dataToSign.append(prev)
+        }
 
+        let signature: Data
+        do {
             let sig = try sign(dataToSign)
             signature = sig.rawRepresentation
         } catch {
-            debugLog("[EncryptionService] Signing failed for chunk \(metadata.chunkNumber): \(error.localizedDescription)")
+            debugLog("[EncryptionService] CRITICAL: Signing failed for chunk \(metadata.chunkNumber): \(error.localizedDescription). Chunk will be unsigned.")
+            // Still produce the chunk — an unsigned chunk is better than no chunk at all
+            // in an emergency, but log it prominently so it's visible in the chain of custody
+            signature = Data()
         }
 
         return EncryptedChunk(
@@ -325,7 +339,7 @@ class EncryptionService {
             wrappedMasterKey: wrappedMasterKey,
             salt: salt,
             previousChunkHash: previousHash,
-            signature: signature
+            signature: signature.isEmpty ? nil : signature
         )
     }
 
@@ -587,10 +601,19 @@ class EncryptionService {
 
     // MARK: - Key Revocation
 
-    /// Revokes the master key and salt (footage remains encrypted but inaccessible)
-    func revokeIncidentKey() {
+    /// Clears the incident master key and salt from memory after recording ends.
+    /// The key is already wrapped in every chunk, so it can be recovered for decryption.
+    /// Clearing it from memory reduces the window of vulnerability if the process is dumped.
+    func clearIncidentKey() {
+        lock.lock()
+        defer { lock.unlock() }
         incidentMasterKey = nil
         incidentSalt = nil
+    }
+
+    /// Revokes the master key and salt (footage remains encrypted but inaccessible)
+    func revokeIncidentKey() {
+        clearIncidentKey()
     }
 
     // MARK: - Errors

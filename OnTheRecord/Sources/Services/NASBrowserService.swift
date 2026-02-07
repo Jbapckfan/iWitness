@@ -140,11 +140,11 @@ class NASBrowserService: ObservableObject {
             throw BrowserError.noChunksFound
         }
 
-        // Create temp directory for this incident
+        // Create temp directory for this incident with file protection
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("OnTheRecord_playback")
             .appendingPathComponent(incident.id)
-        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true, attributes: [.protectionKey: FileProtectionType.completeUnlessOpen])
 
         // Download, decrypt, and write each chunk to a temp file
         var chunkURLs: [URL] = []

@@ -439,8 +439,10 @@ struct SettingsView: View {
                 // Community Section (Growth)
                 Section {
                     // TODO: Replace with actual App Store ID after submission
-                    ShareLink(item: URL(string: "https://apps.apple.com/app/ontherecord")!, message: Text("I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:")) {
-                        Label("Invite Friends & Family", systemImage: "square.and.arrow.up")
+                    if let appURL = URL(string: "https://apps.apple.com/app/ontherecord") {
+                        ShareLink(item: appURL, message: Text("I'm using OnTheRecord to protect myself. It's a black box for your phone. Download it here:")) {
+                            Label("Invite Friends & Family", systemImage: "square.and.arrow.up")
+                        }
                     }
                     
                     Button {
@@ -501,12 +503,16 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Link(destination: URL(string: "https://jbapckfan.github.io/iWitness/privacy.html")!) {
-                        Label("Privacy Policy", systemImage: "hand.raised.fill")
+                    if let privacyURL = URL(string: "https://jbapckfan.github.io/iWitness/privacy.html") {
+                        Link(destination: privacyURL) {
+                            Label("Privacy Policy", systemImage: "hand.raised.fill")
+                        }
                     }
 
-                    Link(destination: URL(string: "https://jbapckfan.github.io/iWitness/tos.html")!) {
-                        Label("Terms of Service", systemImage: "doc.text.fill")
+                    if let tosURL = URL(string: "https://jbapckfan.github.io/iWitness/tos.html") {
+                        Link(destination: tosURL) {
+                            Label("Terms of Service", systemImage: "doc.text.fill")
+                        }
                     }
                 } header: {
                     SettingSectionHeader(title: "About", icon: "info.circle.fill", tint: .gray)

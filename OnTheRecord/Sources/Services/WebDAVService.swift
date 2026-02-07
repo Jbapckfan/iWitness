@@ -19,6 +19,7 @@ enum WebDAVError: LocalizedError {
 }
 
 /// Service to handle WebDAV uploads (Hetzner Storage Box)
+@MainActor
 final class WebDAVService: ObservableObject {
     static let shared = WebDAVService()
     
@@ -120,9 +121,9 @@ final class WebDAVService: ObservableObject {
                     // 301 = Redirect (some servers redirect to existing dir)
                     if [201, 405, 301].contains(httpResponse.statusCode) ||
                        (200...299).contains(httpResponse.statusCode) {
-                        createdDirsLock.lock()
-                        createdDirectories.insert(currentPath)
-                        createdDirsLock.unlock()
+                        createdDirsLock.withLock {
+                            createdDirectories.insert(currentPath)
+                        }
                         debugLog("[WebDAVService] Directory ensured: \(currentPath) (HTTP \(httpResponse.statusCode))")
                     } else {
                         debugLog("[WebDAVService] MKCOL unexpected status \(httpResponse.statusCode) for \(currentPath)")

@@ -145,8 +145,8 @@ class LocationService: NSObject, ObservableObject {
 
 extension LocationService: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        for clLocation in locations {
-            let location = Location(
+        let newLocations = locations.map { clLocation in
+            Location(
                 latitude: clLocation.coordinate.latitude,
                 longitude: clLocation.coordinate.longitude,
                 accuracy: clLocation.horizontalAccuracy,
@@ -154,13 +154,18 @@ extension LocationService: CLLocationManagerDelegate {
                 altitude: clLocation.altitude,
                 speed: clLocation.speed >= 0 ? clLocation.speed : nil
             )
+        }
 
-            currentLocation = location
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            for location in newLocations {
+                self.currentLocation = location
 
-            // Add to history, maintaining max count
-            locationHistory.append(location)
-            if locationHistory.count > maxHistoryCount {
-                locationHistory.removeFirst()
+                // Add to history, maintaining max count
+                self.locationHistory.append(location)
+                if self.locationHistory.count > self.maxHistoryCount {
+                    self.locationHistory.removeFirst()
+                }
             }
         }
     }
@@ -170,6 +175,8 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
+        DispatchQueue.main.async { [weak self] in
+            self?.authorizationStatus = manager.authorizationStatus
+        }
     }
 }
